@@ -1,0 +1,33 @@
+## View-Context
+Type: FunctionalFlow
+Filter: FCHAIN,FUNC,ACTOR,FLOW nodes | compose,io edges
+
+## Nodes
+UrbanDriver|ACTOR|UrbanDriver.AC.001|Primary operator of the vehicle who navigates through city environments. Acts as triggering actor for navigation, parking, and dashboard interaction use cases, seeking efficient and stress-free urban mobility.
+MaintenancePersonnel|ACTOR|MaintenancePersonnel.AC.002|Technicians responsible for vehicle upkeep and servicing. Acts as receiving actor for dashboard information about vehicle status and maintenance needs, enabling proactive service.
+DashboardOperation|FCHAIN|DashboardOperation.FC.001|Provides interface for vehicle control and monitoring
+Usercommands|FLOW|Usercommands.FL.006|Interface interactions
+Vehicleinfo|FLOW|Vehicleinfo.FL.034|Status visualization
+Systemstatus|FLOW|Systemstatus.FL.035|Maintenance indicators
+Displayrequest|FLOW|Displayrequest.FL.036|Information query
+Servicealert|FLOW|Servicealert.FL.037|Maintenance notification
+DashReceiveInput|FUNC|DashReceiveInput.FN.001|Processes user interface commands
+DashDisplayInfo|FUNC|DashDisplayInfo.FN.002|Presents critical vehicle information
+DashAlertMaintenance|FUNC|DashAlertMaintenance.FN.003|Notifies of service requirements
+
+## Edges
+DashboardOperation.FC.001 -cp-> DashReceiveInput.FN.001
+DashboardOperation.FC.001 -cp-> DashDisplayInfo.FN.002
+DashboardOperation.FC.001 -cp-> DashAlertMaintenance.FN.003
+UrbanDriver.AC.001 -io-> Usercommands.FL.006
+Usercommands.FL.006 -io-> DashReceiveInput.FN.001
+DashDisplayInfo.FN.002 -io-> Vehicleinfo.FL.034
+Vehicleinfo.FL.034 -io-> UrbanDriver.AC.001
+DashDisplayInfo.FN.002 -io-> Systemstatus.FL.035
+Systemstatus.FL.035 -io-> DashAlertMaintenance.FN.003
+DashReceiveInput.FN.001 -io-> Displayrequest.FL.036
+Displayrequest.FL.036 -io-> DashDisplayInfo.FN.002
+DashAlertMaintenance.FN.003 -io-> Servicealert.FL.037
+Servicealert.FL.037 -io-> MaintenancePersonnel.AC.002
+DashboardOperation.FC.001 -cp-> UrbanDriver.AC.001
+DashboardOperation.FC.001 -cp-> MaintenancePersonnel.AC.002
