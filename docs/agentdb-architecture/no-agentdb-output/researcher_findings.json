@@ -1,0 +1,7 @@
+{
+  "agent": "researcher",
+  "task": "analyze_rest_api_best_practices",
+  "timestamp": "2025-11-15T14:50:11.194Z",
+  "content": "REST API Best Practices: 1) Use nouns for resources (e.g., /users not /getUsers), 2) HTTP methods define actions (GET=read, POST=create, PUT=update, DELETE=remove), 3) Proper status codes (200 OK, 201 Created, 404 Not Found, 500 Server Error), 4) Consistent error format with message and code, 5) Versioning via URL path (/api/v1/users)",
+  "type": "findings"
+}

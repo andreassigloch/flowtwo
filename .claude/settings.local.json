@@ -4,7 +4,11 @@
       "Bash(git init:*)",
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: initial project structure with documentation\n\nAdded project documentation:\n- Architecture definition (ARCHITECTURE.md)\n- Requirements specification (requirements.md, graphengineREQ_v2.md)\n- Module contracts (MODULE_CONTRACTS.md)\n- Testing strategy (TESTING_STRATEGY.md)\n- SysML MVP roadmap (mvp_roadmap_sysml.md)\n- Example data (UrbanMobilityVehicle)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

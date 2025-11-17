@@ -1,0 +1,7 @@
+{
+  "agent": "researcher",
+  "task": "identify_design_patterns",
+  "timestamp": "2025-11-15T14:50:11.195Z",
+  "content": "Common REST Design Patterns: Resource-oriented architecture, HATEOAS for discoverability, Pagination for large datasets, Filtering and sorting via query params, Authentication via Bearer tokens, Rate limiting for API protection",
+  "type": "patterns"
+}

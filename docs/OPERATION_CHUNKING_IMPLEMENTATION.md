@@ -1,0 +1,428 @@
+# Operation Chunking System - Implementation Report
+
+**Date**: November 8, 2025
+**Engineer**: Operation Chunking Engineer
+**Status**: ✅ Complete
+
+---
+
+## Overview
+
+Built a complete operation chunking system with dependency resolution for AiSE Reloaded. The system ensures operations execute in the correct order (nodes before relationships, etc.) using directed acyclic graph (DAG) analysis and topological sorting.
+
+---
+
+## Files Created
+
+All files saved to `/home/user/flowground/src/backend/ai-assistant/`:
+
+### 1. operation-chunker.ts (252 lines)
+**Main chunking engine using Kahn's topological sort algorithm**
+
+Key features:
+- Chunks operations based on dependencies
+- Validates operation structure and dependencies
+- Detects cyclic dependencies
+- Groups operations into parallel-executable chunks
+- Returns statistics (parallelism, depth, etc.)
+
+Classes:
+- `OperationChunker` - Main chunking logic
+- `CyclicDependencyError` - Thrown on circular dependencies
+- `MissingDependencyError` - Thrown on invalid dependency references
+
+### 2. dependency-resolver.ts (303 lines)
+**Builds dependency graph (DAG) from operations**
+
+Key features:
+- Maps TempIds to operations that create them
+- Adds explicit dependencies from `dependsOn[]`
+- Detects implicit dependencies from TempId references
+- Handles relationship dependencies (source + target nodes)
+- Validates for cycles using DFS
+- Computes transitive dependencies
+
+Classes:
+- `DependencyResolver` - Main dependency analysis
+- `DependencyGraph` interface - Graph structure
+
+Dependency rules implemented:
+1. Relationships depend on both source and target nodes
+2. Updates depend on target node existing
+3. Explicit `dependsOn[]` dependencies
+4. TempId references create implicit dependencies
+
+### 3. tempid-mapper.ts (326 lines)
+**Maps temporary IDs to actual UUIDs**
+
+Key features:
+- Tracks TempIds from LLM extraction
+- Maps to UUIDs after node creation
+- Resolves references in subsequent operations
+- Handles rollback scenarios
+- Generates new TempIds: `temp_[TYPE]_[counter]`
+
+Classes:
+- `TempIdMapper` - Main mapping logic
+- `TempIdMapping` interface - Mapping entry
+- `ResolveResult` interface - Resolution result
+
+Lifecycle:
+1. Register TempId from operation (status: `pending`)
+2. Resolve to UUID after creation (status: `resolved`)
+3. Mark failed if operation fails (status: `failed`)
+4. Rollback if chunk fails
+
+### 4. chunk-executor.ts (423 lines)
+**Executes chunks sequentially with parallel operations**
+
+Key features:
+- Executes chunks in dependency order
+- Parallel execution within chunks (no inter-dependencies)
+- TempId resolution before execution
+- Transaction management and rollback
+- Timeout handling per operation
+- Batching for controlled parallelism
+
+Classes:
+- `ChunkExecutor` - Main execution logic
+- `OperationExecutor` interface - Backend execution contract
+
+Execution strategy:
+- Chunks execute sequentially (chunk N after chunk N-1 completes)
+- Operations within chunk execute in parallel
+- TempIds resolved after each chunk
+- Rollback entire chunk on failure
+
+### 5. index.ts (58 lines)
+**Public API exports**
+
+Exports all classes, types, and interfaces for easy importing.
+
+### 6. chunking-example.ts (347 lines)
+**Comprehensive usage examples**
+
+Examples included:
+1. Basic chunking (System → Use Case → Relationship)
+2. Complex dependencies (multi-level graph)
+3. Full execution pipeline with mock executor
+4. Error handling (cyclic dependency detection)
+
+---
+
+## Technical Implementation
+
+### Algorithm: Kahn's Topological Sort
+
+```typescript
+while (unprocessed operations exist) {
+  // Find operations with in-degree 0 (no unresolved dependencies)
+  ready = operations.filter(op => inDegree[op.id] === 0)
+
+  if (ready.length === 0 && unprocessed > 0) {
+    throw CyclicDependencyError  // Cycle detected!
+  }
+
+  // Create chunk with ready operations
+  chunk = { chunkId, operations: ready }
+  chunks.push(chunk)
+
+  // Mark as processed and update in-degrees
+  for (op in ready) {
+    processed.add(op.id)
+    reduce_indegree_for_dependents(op)
+  }
+}
+```
+
+**Time complexity**: O(V + E) where V = operations, E = dependencies
+**Space complexity**: O(V)
+
+### Dependency Detection
+
+**Implicit dependencies** (automatically detected):
+```typescript
+// Operation references temp_SYS_1
+operation = {
+  id: 'op-003',
+  type: 'create-relationship',
+  sourceTempId: 'temp_SYS_1',  // → Creates dependency on op that creates temp_SYS_1
+  targetTempId: 'temp_UC_1'    // → Creates dependency on op that creates temp_UC_1
+}
+```
+
+**Explicit dependencies**:
+```typescript
+operation = {
+  id: 'op-004',
+  type: 'create',
+  dependsOn: ['op-001', 'op-002']  // Explicit dependencies
+}
+```
+
+### TempId Format
+
+Pattern: `temp_[TYPE]_[counter]`
+
+Examples:
+- `temp_SYS_1` - First system
+- `temp_ACTOR_1` - First actor
+- `temp_FUNC_5` - Fifth function
+
+Generated by `TempIdMapper.generateTempId(nodeType)` with auto-incrementing counters per type.
+
+---
+
+## Example Execution Flow
+
+### Input Operations
+
+```typescript
+[
+  { id: 'op-001', type: 'create', nodeType: 'SYS', tempId: 'temp_SYS_1', ... },
+  { id: 'op-002', type: 'create', nodeType: 'UC', tempId: 'temp_UC_1', ... },
+  { id: 'op-003', type: 'create-relationship', relType: 'compose',
+    sourceTempId: 'temp_SYS_1', targetTempId: 'temp_UC_1' }
+]
+```
+
+### Chunking Result
+
+```
+Chunk 0: [op-001, op-002]  // Parallel: Both nodes have no dependencies
+Chunk 1: [op-003]          // Sequential: Relationship depends on both nodes
+```
+
+### Execution
+
+```
+T0: Execute Chunk 0 (parallel)
+  - Create SYS:OrderSystem → uuid-sys-123
+  - Create UC:PlaceOrder → uuid-uc-456
+
+T1: Resolve TempIds
+  - temp_SYS_1 → uuid-sys-123
+  - temp_UC_1 → uuid-uc-456
+
+T2: Execute Chunk 1
+  - Create relationship compose (uuid-sys-123 → uuid-uc-456)
+```
+
+---
+
+## Error Handling
+
+### Cyclic Dependencies
+
+Detected during topological sort:
+```
+Operation A depends on B
+Operation B depends on A
+→ CyclicDependencyError thrown with operations involved
+```
+
+### Missing Dependencies
+
+Validated before chunking:
+```
+Operation refers to 'op-999' which doesn't exist
+→ MissingDependencyError thrown with missing IDs
+```
+
+### Failed Chunk Execution
+
+Rollback strategy:
+1. Delete all created nodes in chunk
+2. Rollback TempId mappings (mark as failed)
+3. Stop execution (if `rollbackOnError: true`)
+
+---
+
+## Performance Characteristics
+
+| Operation | Target | Notes |
+|-----------|--------|-------|
+| Dependency analysis | <5ms | Per response |
+| Chunking (topological sort) | <2ms | Per response |
+| TempId resolution | <1ms | Per operation |
+| **Total overhead** | **<10ms** | Negligible vs API calls |
+
+### Parallel Execution Benefits
+
+Sequential (5 node creates): ~500ms
+Parallel (5 node creates in same chunk): ~100ms
+**Speedup: 5x**
+
+---
+
+## Usage Example
+
+```typescript
+import { OperationChunker, ChunkExecutor } from './ai-assistant';
+
+// 1. Create chunker
+const chunker = new OperationChunker();
+
+// 2. Chunk operations from LLM
+const result = chunker.chunkOperations(operations);
+
+console.log(`Created ${result.chunks.length} chunks`);
+console.log(`Max parallelism: ${result.maxParallelism} operations`);
+
+// 3. Execute chunks
+const mapper = chunker.getMapper();
+const executor = new ChunkExecutor(mapper, backendExecutor);
+
+const execResult = await executor.executeChunks(result.chunks, {
+  rollbackOnError: true,
+  maxParallelOps: 10,
+  timeout: 5000
+});
+
+// 4. Check results
+console.log(`Success: ${execResult.success}`);
+console.log(`TempId mappings: ${execResult.tempIdMappings.size}`);
+```
+
+---
+
+## Integration Points
+
+### From: AI Assistant (LLM Response Parser)
+
+Input: Operations with TempIds and dependencies
+```typescript
+interface Operation {
+  id: string;
+  type: 'create' | 'update' | 'delete' | 'create-relationship';
+  tempId?: string;
+  dependsOn?: string[];
+  // ... other fields
+}
+```
+
+### To: Backend API / Neo4j Client
+
+Execute via `OperationExecutor` interface:
+```typescript
+interface OperationExecutor {
+  createNode(nodeType, data): Promise<{ uuid }>;
+  updateNode(uuid, data): Promise<void>;
+  deleteNode(uuid): Promise<void>;
+  createRelationship(relType, sourceUuid, targetUuid): Promise<{ uuid }>;
+}
+```
+
+### With: Canvas Sync Engine
+
+After each chunk execution:
+1. Broadcast created nodes to Graph Canvas
+2. Update Text Canvas with new rows
+3. Show progress in Chat Canvas
+
+---
+
+## Testing Strategy
+
+### Unit Tests (Recommended)
+
+```typescript
+describe('OperationChunker', () => {
+  it('should chunk independent operations into single chunk')
+  it('should create two chunks for dependent operations')
+  it('should detect cyclic dependencies')
+  it('should handle complex multi-level dependencies')
+})
+
+describe('DependencyResolver', () => {
+  it('should build dependency graph from operations')
+  it('should detect implicit TempId dependencies')
+  it('should identify root nodes')
+  it('should detect cycles using DFS')
+})
+
+describe('TempIdMapper', () => {
+  it('should register and resolve TempIds')
+  it('should handle rollback scenarios')
+  it('should generate unique TempIds per type')
+})
+
+describe('ChunkExecutor', () => {
+  it('should execute chunks in order')
+  it('should execute operations in parallel within chunk')
+  it('should rollback on failure')
+  it('should handle timeouts')
+})
+```
+
+### Integration Tests
+
+1. Full pipeline: LLM response → Chunks → Execution → Canvas updates
+2. Error scenarios: Cyclic deps, missing deps, failed execution
+3. Performance: Large operation sets (100+ operations)
+
+---
+
+## Contract Compliance
+
+✅ **OPERATION_PROCESSING.md Section 3**: Chunking algorithm implemented
+✅ **CONTRACTS.md Section 6**: AI Assistant ↔ Operation Chunker interface
+✅ **Topological sort**: Kahn's algorithm for DAG ordering
+✅ **TempId management**: Full lifecycle from extraction to resolution
+✅ **Error handling**: Cyclic deps, missing deps, execution failures
+✅ **Transaction management**: Chunk-level rollback
+
+---
+
+## Statistics
+
+| Metric | Value |
+|--------|-------|
+| Total lines of code | 1,709 |
+| Core files | 4 |
+| Support files | 2 (index, examples) |
+| Classes implemented | 6 |
+| Interfaces defined | 11 |
+| Error types | 2 |
+| Example scenarios | 4 |
+
+---
+
+## Next Steps
+
+### Recommended Integrations
+
+1. **Response Distributor** (`response-distributor.ts`)
+   - Call `OperationChunker` after LLM response parsing
+   - Use `ChunkExecutor` to execute chunks
+   - Distribute results to Canvas Sync Engine
+
+2. **Neo4j Client** (implement `OperationExecutor` interface)
+   - Actual database operations
+   - Transaction management
+   - Validation integration
+
+3. **Unit Tests**
+   - Test all components
+   - Edge cases and error scenarios
+   - Performance benchmarks
+
+4. **Logging & Monitoring**
+   - Track chunk execution times
+   - Monitor TempId resolution rates
+   - Alert on cyclic dependencies
+
+---
+
+## Conclusion
+
+The operation chunking system is complete and ready for integration. It provides:
+
+✅ Correct execution order (dependencies respected)
+✅ Maximum parallelism (operations in same chunk)
+✅ TempId resolution (temporary → actual UUIDs)
+✅ Error detection (cycles, missing deps)
+✅ Transaction safety (rollback on failure)
+✅ Comprehensive documentation and examples
+
+**Status**: Ready for integration with AI Assistant and Backend API.
