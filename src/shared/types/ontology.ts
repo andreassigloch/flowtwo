@@ -20,14 +20,74 @@ export type NodeType =
   | 'MOD' // Module (physical/SW component)
   | 'SCHEMA'; // Global data structure
 
-/** Edge Types (6 total) */
+/**
+ * Edge Types (6 total)
+ *
+ * IMPORTANT: Only 'compose' edges create hierarchical nesting in visualizations.
+ * All other edge types are shown as explicit connections (arrows/lines).
+ */
 export type EdgeType =
-  | 'compose' // Hierarchical composition
-  | 'io' // Input/Output flow
-  | 'satisfy' // Requirement satisfaction
-  | 'verify' // Test verification
-  | 'allocate' // Function allocation to module
-  | 'relation'; // Generic relationship
+  | 'compose' // Hierarchical composition - CREATES NESTING/INDENTATION
+  | 'io' // Input/Output flow - Shown as arrow
+  | 'satisfy' // Requirement satisfaction - Shown as dashed arrow
+  | 'verify' // Test verification - Shown as dashed arrow
+  | 'allocate' // Function allocation to module - Shown as arrow with diamond
+  | 'relation'; // Generic relationship - Shown as gray line
+
+/**
+ * Edge Type Metadata
+ *
+ * Defines visual and semantic properties of each edge type
+ */
+export const EDGE_TYPE_METADATA = {
+  compose: {
+    description: 'Hierarchical composition (parent-child)',
+    nestingProperty: true, // ONLY edge type that creates nesting
+    visualStyle: 'implicit', // Not shown as line, shown as indentation
+    validConnections: [
+      'SYS -> SYS', // System contains subsystem
+      'SYS -> UC', // System contains use cases
+      'UC -> FCHAIN', // Use case contains function chains
+      'FCHAIN -> FUNC', // Function chain contains functions
+      'MOD -> FUNC', // Module contains functions
+    ],
+  },
+  io: {
+    description: 'Input/Output data flow',
+    nestingProperty: false,
+    visualStyle: 'solid-arrow',
+    validConnections: [
+      'FLOW -> FUNC', // Flow input to function
+      'FUNC -> FLOW', // Function output to flow
+      'ACTOR -> FLOW', // Actor sends data
+      'FLOW -> ACTOR', // Actor receives data
+    ],
+  },
+  satisfy: {
+    description: 'Requirement satisfaction',
+    nestingProperty: false,
+    visualStyle: 'dashed-arrow',
+    validConnections: ['FUNC -> REQ', 'UC -> REQ'],
+  },
+  verify: {
+    description: 'Test verification',
+    nestingProperty: false,
+    visualStyle: 'dashed-arrow',
+    validConnections: ['TEST -> REQ'],
+  },
+  allocate: {
+    description: 'Function allocation to module',
+    nestingProperty: false,
+    visualStyle: 'solid-arrow-diamond',
+    validConnections: ['FUNC -> MOD'],
+  },
+  relation: {
+    description: 'Generic relationship',
+    nestingProperty: false,
+    visualStyle: 'gray-line',
+    validConnections: ['ANY -> ANY'],
+  },
+} as const;
 
 /** Semantic ID format: {NodeName}.{TypeAbbr}.{Counter} */
 export type SemanticId = string; // e.g., "ValidateOrder.FN.001"

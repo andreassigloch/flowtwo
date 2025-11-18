@@ -111,23 +111,36 @@ export interface FilteredGraph {
  * Default View Configurations
  */
 export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
+  /**
+   * Hierarchy View
+   *
+   * IMPORTANT: Nesting/indentation is ONLY created by 'compose' edges (per Ontology V3).
+   * - compose edges: SYS→SYS, SYS→UC, UC→FCHAIN, FCHAIN→FUNC, MOD→FUNC
+   * - Other edge types (io, satisfy, verify, allocate) do NOT create hierarchy
+   *
+   * Layout algorithm: reingold-tilford (tree layout)
+   * - Only 'compose' edges define parent-child relationships
+   * - Nodes without incoming 'compose' edges are roots
+   * - Nested rendering: children indented under parents
+   */
   hierarchy: {
     viewId: 'hierarchy',
     name: 'Hierarchy View',
     description: 'System decomposition tree (SYS → UC → FCHAIN → FUNC)',
     layoutConfig: {
       includeNodeTypes: ['SYS', 'UC', 'FCHAIN', 'FUNC', 'MOD'],
-      includeEdgeTypes: ['compose'],
+      includeEdgeTypes: ['compose'], // ONLY compose creates hierarchy
       algorithm: 'reingold-tilford',
       parameters: {
         orientation: 'top-down',
         nodeSpacing: 50,
         levelSpacing: 100,
+        nestingEdgeType: 'compose', // Explicit: only this edge type creates nesting
       },
     },
     renderConfig: {
       showNodes: ['SYS', 'UC', 'FCHAIN', 'FUNC', 'MOD'],
-      showEdges: [], // Implicit via nesting
+      showEdges: [], // Implicit via nesting (compose edges hidden, shown as indentation)
     },
   },
 
