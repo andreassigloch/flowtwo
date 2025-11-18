@@ -194,7 +194,7 @@ export abstract class CanvasBase {
     };
 
     // TODO: Implement WebSocket broadcast
-    console.log('Broadcasting update:', update);
+    // (Debug logging removed - output only in STDOUT terminal)
   }
 
   /**

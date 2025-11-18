@@ -11,9 +11,19 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import * as fs from 'fs';
 import { LLMRequest, LLMResponse, LLMEngineConfig } from '../shared/types/llm.js';
 import { PromptBuilder } from './prompt-builder.js';
 import { ResponseParser } from './response-parser.js';
+
+/**
+ * Log to STDOUT file
+ */
+function log(message: string): void {
+  const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+  const logMsg = `[${timestamp}] ${message}`;
+  fs.appendFileSync('/tmp/graphengine.log', logMsg + '\n');
+}
 
 /**
  * LLM Engine
@@ -116,23 +126,23 @@ export class LLMEngine {
   private logCachePerformance(response: LLMResponse): void {
     const { usage, cacheHit } = response;
 
-    console.log('\n📊 LLM Usage:');
-    console.log(`   Input tokens: ${usage.inputTokens}`);
-    console.log(`   Output tokens: ${usage.outputTokens}`);
+    log('📊 LLM Usage:');
+    log(`   Input tokens: ${usage.inputTokens}`);
+    log(`   Output tokens: ${usage.outputTokens}`);
 
     if (usage.cacheReadTokens) {
-      console.log(`   Cache read tokens: ${usage.cacheReadTokens} ✅`);
+      log(`   Cache read tokens: ${usage.cacheReadTokens} ✅`);
       const savings = Math.round(
         (usage.cacheReadTokens / (usage.inputTokens + usage.cacheReadTokens)) * 100
       );
-      console.log(`   Cache savings: ${savings}%`);
+      log(`   Cache savings: ${savings}%`);
     }
 
     if (usage.cacheWriteTokens) {
-      console.log(`   Cache write tokens: ${usage.cacheWriteTokens} (building cache)`);
+      log(`   Cache write tokens: ${usage.cacheWriteTokens} (building cache)`);
     }
 
-    console.log(`   Cache hit: ${cacheHit ? 'Yes ✅' : 'No (first request)'}\n`);
+    log(`   Cache hit: ${cacheHit ? 'Yes ✅' : 'No (first request)'}`);
   }
 
   /**
