@@ -37,10 +37,11 @@ export class ChatCanvas extends CanvasBase {
     chatId: string,
     userId: string,
     graphCanvas?: GraphCanvas,
-    neo4jClient?: Neo4jClient
+    neo4jClient?: Neo4jClient,
+    wsServer?: import('./websocket-server.js').CanvasWebSocketServer
   ) {
     const parser = new FormatEParser();
-    super(workspaceId, systemId, chatId, userId, parser);
+    super(workspaceId, systemId, chatId, userId, parser, wsServer);
     this.neo4jClient = neo4jClient;
 
     this.state = {
@@ -320,8 +321,10 @@ export class ChatCanvas extends CanvasBase {
    */
   protected async saveBatch(items: unknown[]): Promise<void> {
     if (!this.neo4jClient) {
-      console.log(`Saving ${items.length} messages to Neo4j (mock - no client)`);
-      return;
+      throw new Error(
+        'Cannot persist chat messages: Neo4jClient not configured. ' +
+        'Provide a Neo4jClient instance in ChatCanvas constructor to enable persistence.'
+      );
     }
 
     const messages: Message[] = [];
@@ -347,8 +350,10 @@ export class ChatCanvas extends CanvasBase {
     action: string;
   }): Promise<void> {
     if (!this.neo4jClient) {
-      console.log('Creating chat audit log (mock - no client):', log);
-      return;
+      throw new Error(
+        'Cannot create audit log: Neo4jClient not configured. ' +
+        'Provide a Neo4jClient instance in ChatCanvas constructor to enable audit logging.'
+      );
     }
 
     await this.neo4jClient.createAuditLog({

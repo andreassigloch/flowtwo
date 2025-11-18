@@ -1,0 +1,214 @@
+{
+  "version": "3.0.0",
+  "change_comment": "FLOW nodes as first-class citizens, io relationships replace flow edges",
+  "schema": {
+    "nodes": {
+      "SYS": {
+        "description": "System that can contain other systems or use cases",
+        "order": 1,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        }
+      },
+      "ACTOR": {
+        "description": "External entity that interacts with functions",
+        "order": 3,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        }
+      },
+      "UC": {
+        "description": "Use case that organizes functions and can contain other use cases",
+        "order": 2,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        }
+      },
+      "FCHAIN": {
+        "description": "Function chain representing a sequence of related functions. It describes the functions affected for realization of a use case or sub use case",
+        "order": 4,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        }
+      },
+      "FUNC": {
+        "description": "Function representing a specific capability or action",
+        "order": 5,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        }
+      },
+      "FLOW": {
+        "description": "Data flow contract between functions or actors",
+        "order": 5.5,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        },
+        "optional_properties": {
+          "Type": "sync|async|stream|batch",
+          "Pattern": "request-response|publish-subscribe|pipe",
+          "Validation": "strict|loose|none"
+        }
+      },
+      "REQ": {
+        "description": "Requirement specifying constraints or needs",
+        "order": 6,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        }
+      },
+      "TEST": {
+        "description": "Verification of functions or validation of use cases",
+        "order": 7,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        }
+      },
+      "MOD": {
+        "description": "A module that contains functions in the realization of the system",
+        "order": 8,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string"
+        }
+      },
+      "SCHEMA": {
+        "description": "Global Definitions. Standardized data structure, configurations or states",
+        "order": 9,
+        "required_properties": {
+          "Name": "string (max 25 chars, PascalCase)",
+          "Descr": "string",
+          "Struct": "Stringified JSON of the Datastructure as pseudo code"
+        }
+      }
+    },
+    "relationships": {
+      "compose": {
+        "description": "Represents composition relationship",
+        "isNesting": true,
+        "valid_connections": [
+          ["SYS", "SYS"],
+          ["SYS", "UC"],
+          ["UC", "UC"],
+          ["UC", "ACTOR"],
+          ["FCHAIN", "ACTOR"],
+          ["UC", "FCHAIN"],
+          ["FCHAIN", "FUNC"],
+          ["FCHAIN", "FLOW"],
+          ["SYS", "MOD"]
+        ]
+      },
+      "io": {
+        "description": "Input/Output connection between functions, flows, and actors",
+        "isNesting": false,
+        "isChain": true,
+        "valid_connections": [
+          ["FUNC", "FLOW"],
+          ["FLOW", "FUNC"],
+          ["ACTOR", "FLOW"],
+          ["FLOW", "ACTOR"]
+        ]
+      },
+      "satisfy": {
+        "description": "Represents specification relationship",
+        "isNesting": true,
+        "valid_connections": [
+          ["SYS", "REQ"],
+          ["REQ", "REQ"],
+          ["UC", "REQ"],
+          ["FUNC", "REQ"]
+        ]
+      },
+      "verify": {
+        "description": "Represents testing relationship",
+        "isNesting": false,
+        "valid_connections": [
+          ["TEST", "TEST"],
+          ["REQ", "TEST"]
+        ]
+      },
+      "allocate": {
+        "description": "Represents allocation of functions to physical elements",
+        "isNesting": true,
+        "valid_connections": [
+          ["MOD", "FUNC"]
+        ]
+      },
+      "relation": {
+        "description": "Represents a generic Relation. Any to Any",
+        "isNesting": false,
+        "valid_connections": [
+          ["*", "*"],
+          ["SCHEMA", "FUNC"],
+          ["FLOW", "SCHEMA"]
+        ]
+      }
+    },
+    "rules": [
+      {
+        "id": "naming",
+        "description": "All names must start with uppercase letter and not exceed 25 characters"
+      },
+      {
+        "id": "isolation",
+        "description": "All elements must have at least one link to another element"
+      },
+      {
+        "id": "function_requirements",
+        "description": "A Function must have at least one requirement"
+      },
+      {
+        "id": "function_io",
+        "description": "A Function must have at least one input and one output via io relationships to FLOW nodes"
+      },
+      {
+        "id": "flow_node_connectivity",
+        "description": "A FLOW node must have at least one incoming io relationship and one outgoing io relationship"
+      },
+      {
+        "id": "functional_flow",
+        "description": "A functional flow must have an Actor as input an Actor as output, connected through FLOW nodes and include at least one Function"
+      },
+      {
+        "id": "fchain_connectivity",
+        "description": "All elements within a function flow or chain (FCHAIN) must be connected through io relationships via FLOW nodes, with no isolated elements"
+      },
+      {
+        "id": "flow_cycles",
+        "description": "io relationships may form cycles, but each cycle must have at least one exit path to ensure the flow can progress to completion"
+      },
+      {
+        "id": "function_allocation",
+        "description": "Each function must be allocated to excactly one MOD element"
+      },
+      {
+        "id": "requirements_verification",
+        "description": "Each Requirement must have at least one Test"
+      },
+      {
+        "id": "leaf_usecase_actor",
+        "description": "A leaf use case (one without child use cases) must have at least one composed actor"
+      },
+      {
+        "id": "scheme usage",
+        "description": "every data structure, state or definition outside of a module need to be defined by a scheme node."
+      }
+    ],
+    "validation": {
+      "node": {
+        "required_fields": ["uuid", "type", "Name", "Descr"]
+      },
+      "relationship": {
+        "required_fields": ["uuid", "type", "source", "target"]
+      }
+    }
+  }
+}

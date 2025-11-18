@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "requirements",
+  "name": "Requirements Traceability View",
+  "description": "Requirements flow through system showing satisfy and verify relationships",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "sugiyama",
+    "orientation": "top-down",
+    "includeNodeTypes": ["SYS", "UC", "FUNC", "REQ", "TEST"],
+    "includeRelTypes": ["satisfy", "verify", "compose"],
+    "nodeSpacing": {
+      "horizontal": 100,
+      "vertical": 120,
+      "layerSpacing": 150
+    },
+    "layeredProperties": {
+      "layerAssignment": "longest-path",
+      "crossingMinimization": "barycenter",
+      "nodeOrdering": "priority",
+      "edgeRouting": "polyline",
+      "layerConstraints": {
+        "SYS": 0,
+        "UC": 1,
+        "FUNC": 2,
+        "REQ": 3,
+        "TEST": 4
+      },
+      "iterations": 10,
+      "minimizeBends": true
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["SYS", "UC", "FUNC", "REQ", "TEST"],
+    "hideNodes": ["FLOW", "ACTOR", "MOD", "FCHAIN", "SCHEMA"],
+    "showEdges": ["satisfy", "verify"],
+    "hideEdges": ["compose", "io", "allocate", "relation"],
+    "edgeRouting": "polyline",
+    "renderingNotes": "Layered graph (Sugiyama) with SYS at top, TEST at bottom. satisfy and verify edges explicit with stereotypes.",
+    "defaultZoomLevel": "L2",
+    "nodeStyles": {
+      "SYS": {
+        "symbol": "rectangle",
+        "stereotype": "«system»",
+        "color": "magenta",
+        "bold": true
+      },
+      "UC": {
+        "symbol": "ellipse",
+        "stereotype": "«use case»",
+        "color": "yellow"
+      },
+      "FUNC": {
+        "symbol": "rectangle",
+        "stereotype": "«function»",
+        "color": "green"
+      },
+      "REQ": {
+        "symbol": "rectangle",
+        "stereotype": "«requirement»",
+        "color": "red",
+        "borderStyle": "dashed"
+      },
+      "TEST": {
+        "symbol": "rectangle",
+        "stereotype": "«test»",
+        "color": "green",
+        "icon": "✓"
+      }
+    },
+    "edgeStyles": {
+      "satisfy": {
+        "lineStyle": "dashed",
+        "arrow": "open",
+        "color": "blue",
+        "label": "«satisfy»",
+        "width": 1
+      },
+      "verify": {
+        "lineStyle": "dashed",
+        "arrow": "open",
+        "color": "green",
+        "label": "«verify»",
+        "width": 1
+      }
+    }
+  },
+  "useCase": "Trace requirements to implementation and tests",
+  "primaryRelationships": [
+    "satisfy (FUNC/UC --satisfy--> REQ)",
+    "verify (TEST --verify--> REQ)"
+  ],
+  "validationRules": [
+    "Every REQ must have at least one incoming satisfy edge",
+    "Every REQ must have at least one incoming verify edge",
+    "No circular satisfy chains",
+    "TEST nodes only have verify edges (no satisfy)"
+  ],
+  "performanceTarget": {
+    "maxNodes": 1000,
+    "maxEdges": 2000,
+    "maxComputeTime": "2s"
+  },
+  "notes": [
+    "Sugiyama layered layout minimizes edge crossings",
+    "Layer constraints ensure proper flow: SYS → UC → FUNC → REQ → TEST",
+    "Barycenter heuristic for crossing minimization",
+    "Polyline routing for clean edge paths"
+  ]
+}

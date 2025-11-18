@@ -76,6 +76,22 @@ export interface LLMResponse {
 }
 
 /**
+ * Stream Chunk
+ *
+ * Real-time chunk from streaming LLM response
+ */
+export interface StreamChunk {
+  /** Chunk type */
+  type: 'text' | 'complete';
+
+  /** Text content (for type='text') */
+  text?: string;
+
+  /** Complete response (for type='complete') */
+  response?: LLMResponse;
+}
+
+/**
  * Prompt Section
  *
  * Section of system prompt with cache control

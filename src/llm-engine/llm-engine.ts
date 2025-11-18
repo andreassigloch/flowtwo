@@ -12,7 +12,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import * as fs from 'fs';
-import { LLMRequest, LLMResponse, LLMEngineConfig } from '../shared/types/llm.js';
+import { LLMRequest, LLMResponse, LLMEngineConfig, StreamChunk } from '../shared/types/llm.js';
 import { PromptBuilder } from './prompt-builder.js';
 import { ResponseParser } from './response-parser.js';
 
@@ -118,6 +118,135 @@ export class LLMEngine {
     this.logCachePerformance(llmResponse);
 
     return llmResponse;
+  }
+
+  /**
+   * Process LLM request with streaming
+   *
+   * Streams text chunks in real-time, buffers operations until complete
+   *
+   * @param request - LLM request with message and context
+   * @param onChunk - Callback for each chunk (text or final response)
+   */
+  async processRequestStream(
+    request: LLMRequest,
+    onChunk: (chunk: StreamChunk) => void
+  ): Promise<void> {
+    // Build system prompt with cache control
+    const systemPrompt = this.promptBuilder.buildSystemPrompt(
+      request.canvasState,
+      request.chatHistory
+    );
+
+    // Prepare system sections for Anthropic API
+    const systemSections = systemPrompt.sections.map((section) => ({
+      type: 'text' as const,
+      text: section.text,
+      ...(section.cacheControl && { cache_control: section.cacheControl }),
+    }));
+
+    // Create streaming request
+    const stream = await this.client.messages.stream({
+      model: this.config.model,
+      max_tokens: this.config.maxTokens,
+      temperature: this.config.temperature,
+      system: systemSections,
+      messages: [
+        {
+          role: 'user',
+          content: request.message,
+        },
+      ],
+    });
+
+    // Buffer full response text
+    let fullText = '';
+    let wasInsideOperations = false;
+
+    // Stream text chunks
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta') {
+        if (event.delta.type === 'text_delta') {
+          const textChunk = event.delta.text;
+          const previousText = fullText;
+          fullText += textChunk;
+
+          const isNowInside = this.isInsideOperationsBlock(fullText);
+
+          // Only emit if we're not inside operations block
+          if (!isNowInside && !wasInsideOperations) {
+            // Normal text - emit chunk
+            onChunk({
+              type: 'text',
+              text: textChunk,
+            });
+          } else if (isNowInside && !wasInsideOperations) {
+            // Just entered operations block - emit text before <operations>
+            const operationsStart = fullText.lastIndexOf('<operations>');
+            const textBeforeOpsEndIdx = operationsStart - previousText.length;
+
+            if (textBeforeOpsEndIdx > 0) {
+              // <operations> tag is in this chunk - emit text before it
+              const textBeforeOps = textChunk.substring(0, textBeforeOpsEndIdx);
+              if (textBeforeOps) {
+                onChunk({
+                  type: 'text',
+                  text: textBeforeOps,
+                });
+              }
+            }
+          }
+
+          wasInsideOperations = isNowInside;
+        }
+      }
+    }
+
+    // Get final message with usage stats
+    const finalMessage = await stream.finalMessage();
+
+    // Parse complete response
+    const parsed = this.responseParser.parseResponse(fullText);
+
+    // Build final LLM response
+    const llmResponse: LLMResponse = {
+      textResponse: parsed.textResponse,
+      operations: parsed.operations,
+      usage: {
+        inputTokens: finalMessage.usage.input_tokens,
+        outputTokens: finalMessage.usage.output_tokens,
+        cacheReadTokens: (finalMessage.usage as any).cache_read_input_tokens,
+        cacheWriteTokens: (finalMessage.usage as any).cache_creation_input_tokens,
+      },
+      cacheHit: (finalMessage.usage as any).cache_read_input_tokens > 0,
+      model: this.config.model,
+      responseId: finalMessage.id,
+    };
+
+    // Log cache performance
+    this.logCachePerformance(llmResponse);
+
+    // Emit final response with operations
+    onChunk({
+      type: 'complete',
+      response: llmResponse,
+    });
+  }
+
+  /**
+   * Check if we're currently inside an operations block
+   *
+   * @param text - Current accumulated text
+   * @returns True if inside unclosed operations block
+   */
+  private isInsideOperationsBlock(text: string): boolean {
+    const openMatches = text.match(/<operations>/gi);
+    const closeMatches = text.match(/<\/operations>/gi);
+
+    const openCount = openMatches ? openMatches.length : 0;
+    const closeCount = closeMatches ? closeMatches.length : 0;
+
+    return openCount > closeCount;
   }
 
   /**

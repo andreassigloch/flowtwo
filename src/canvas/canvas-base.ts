@@ -18,6 +18,7 @@ import {
   CacheContext,
 } from '../shared/types/canvas.js';
 import { IFormatEParser } from '../shared/types/format-e.js';
+import { CanvasWebSocketServer } from './websocket-server.js';
 
 /**
  * Abstract Canvas Base Class
@@ -37,6 +38,7 @@ export abstract class CanvasBase {
 
   protected parser: IFormatEParser;
   protected dirty: Set<string>;
+  protected wsServer?: CanvasWebSocketServer;
 
   protected lastFetchTime: Date;
   protected staleThresholdMs: number = 300000; // 5 minutes
@@ -46,13 +48,15 @@ export abstract class CanvasBase {
     systemId: string,
     chatId: string,
     userId: string,
-    parser: IFormatEParser
+    parser: IFormatEParser,
+    wsServer?: CanvasWebSocketServer
   ) {
     this.workspaceId = workspaceId;
     this.systemId = systemId;
     this.chatId = chatId;
     this.userId = userId;
     this.parser = parser;
+    this.wsServer = wsServer;
     this.dirty = new Set();
     this.lastFetchTime = new Date();
   }
@@ -181,20 +185,25 @@ export abstract class CanvasBase {
   /**
    * Broadcast update to connected users (WebSocket)
    */
-  protected async broadcastUpdate(diff: FormatEDiff): Promise<void> {
+  protected async broadcastUpdate(diff: FormatEDiff, origin: 'user-edit' | 'llm' | 'sync' = 'user-edit'): Promise<void> {
+    if (!this.wsServer) {
+      // WebSocket server not configured - skip broadcasting
+      // This is acceptable for single-user scenarios or testing
+      return;
+    }
+
     const update: BroadcastUpdate = {
       type: 'graph_update', // Override in subclass if needed
       diff,
       source: {
         userId: this.userId,
-        sessionId: '', // TODO: Get from session context
-        origin: 'user-edit', // TODO: Determine from context
+        sessionId: this.chatId, // Use chatId as session identifier
+        origin,
       },
       timestamp: new Date(),
     };
 
-    // TODO: Implement WebSocket broadcast
-    // (Debug logging removed - output only in STDOUT terminal)
+    this.wsServer.broadcast(update, this.workspaceId, this.systemId);
   }
 
   /**

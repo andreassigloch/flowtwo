@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "allocation",
+  "name": "Allocation View",
+  "description": "Physical/software module allocation showing which modules implement which functions",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "treemap",
+    "orientation": "horizontal",
+    "includeNodeTypes": ["MOD", "FUNC"],
+    "includeRelTypes": ["compose", "allocate"],
+    "nodeSpacing": {
+      "padding": 10,
+      "minModuleSize": 100,
+      "funcNodeSize": 60
+    },
+    "treemapProperties": {
+      "algorithm": "squarified",
+      "aspectRatio": 1.618,
+      "sortBy": "size",
+      "sortOrder": "descending",
+      "autoResize": true,
+      "maintainAspectRatio": true
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["MOD", "FUNC"],
+    "hideNodes": ["SYS", "UC", "FCHAIN", "FLOW", "ACTOR", "REQ", "TEST", "SCHEMA"],
+    "showEdges": ["allocate"],
+    "hideEdges": ["compose", "io", "satisfy", "verify", "relation"],
+    "edgeRouting": "straight",
+    "renderingNotes": "Treemap layout with MOD as containers. FUNC nodes packed within allocated MOD. allocate edges shown with diamond marker.",
+    "defaultZoomLevel": "L2",
+    "nodeStyles": {
+      "MOD": {
+        "symbol": "rectangle",
+        "stereotype": "«module»",
+        "color": "blue",
+        "renderAsContainer": true,
+        "borderWidth": 3,
+        "fillOpacity": 0.1,
+        "labelPosition": "top-left"
+      },
+      "FUNC": {
+        "symbol": "rectangle",
+        "stereotype": "«function»",
+        "color": "green",
+        "borderWidth": 1,
+        "fillOpacity": 0.8
+      }
+    },
+    "edgeStyles": {
+      "allocate": {
+        "lineStyle": "solid",
+        "arrow": "diamond",
+        "color": "cyan",
+        "label": "«allocate»",
+        "width": 2
+      }
+    }
+  },
+  "useCase": "Map functions to hardware/software modules",
+  "primaryRelationships": [
+    "compose (MOD contains child MOD, implicit via nesting)",
+    "allocate (FUNC --allocate--> MOD, explicit edge)"
+  ],
+  "validationRules": [
+    "Every FUNC should be allocated to at least one MOD (warning if not)",
+    "MOD can contain other MOD (nested modules)",
+    "FUNC cannot contain other nodes"
+  ],
+  "performanceTarget": {
+    "maxNodes": 500,
+    "maxComputeTime": "2s"
+  },
+  "notes": [
+    "Treemap packs modules efficiently based on size (node count)",
+    "Squarified algorithm maintains aspect ratio close to golden ratio (1.618)",
+    "MOD nodes auto-resize to fit contained FUNC nodes",
+    "Useful for identifying module responsibilities and boundaries",
+    "Helps detect over-allocated modules (too many functions)"
+  ]
+}

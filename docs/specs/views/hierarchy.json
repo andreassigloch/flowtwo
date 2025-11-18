@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "hierarchy",
+  "name": "Hierarchy View",
+  "description": "System decomposition tree showing hierarchical structure via compose relationships",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "reingold-tilford",
+    "orientation": "top-down",
+    "includeNodeTypes": ["SYS", "UC", "FCHAIN", "FUNC", "MOD", "ACTOR", "REQ", "TEST", "SCHEMA"],
+    "includeRelTypes": ["compose"],
+    "nodeSpacing": {
+      "horizontal": 80,
+      "vertical": 100,
+      "siblingSpacing": 60
+    },
+    "treeProperties": {
+      "alignChildren": true,
+      "minimizeWidth": true,
+      "balanceSubtrees": true
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["SYS", "UC", "FCHAIN", "FUNC", "MOD", "ACTOR", "REQ", "TEST", "SCHEMA"],
+    "hideNodes": ["FLOW"],
+    "showEdges": [],
+    "hideEdges": ["compose"],
+    "edgeRouting": "straight",
+    "renderingNotes": "compose edges implicit via nested containment (indentation in ASCII, boxes in GUI)",
+    "defaultZoomLevel": "L2",
+    "nodeStyles": {
+      "SYS": {
+        "symbol": "rectangle",
+        "stereotype": "«system»",
+        "color": "magenta",
+        "bold": true
+      },
+      "UC": {
+        "symbol": "ellipse",
+        "stereotype": "«use case»",
+        "color": "yellow"
+      },
+      "FCHAIN": {
+        "symbol": "rectangle",
+        "stereotype": "«function chain»",
+        "color": "cyan"
+      },
+      "FUNC": {
+        "symbol": "rectangle",
+        "stereotype": "«function»",
+        "color": "green"
+      },
+      "MOD": {
+        "symbol": "rectangle",
+        "stereotype": "«module»",
+        "color": "blue"
+      },
+      "ACTOR": {
+        "symbol": "stick-figure",
+        "stereotype": "«actor»",
+        "color": "white"
+      },
+      "REQ": {
+        "symbol": "rectangle",
+        "stereotype": "«requirement»",
+        "color": "red"
+      },
+      "TEST": {
+        "symbol": "rectangle",
+        "stereotype": "«test»",
+        "color": "green"
+      },
+      "SCHEMA": {
+        "symbol": "rectangle",
+        "stereotype": "«schema»",
+        "color": "gray"
+      }
+    }
+  },
+  "useCase": "Understand system structure and subsystem breakdown",
+  "primaryRelationships": ["compose (implicit via nesting)"],
+  "performanceTarget": {
+    "maxNodes": 1000,
+    "maxComputeTime": "2s"
+  }
+}

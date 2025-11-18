@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "use-case-diagram",
+  "name": "Use Case Diagram View",
+  "description": "UML-compliant use case visualization with actors and associations",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "radial",
+    "orientation": "center-out",
+    "includeNodeTypes": ["UC", "ACTOR"],
+    "includeRelTypes": ["relation"],
+    "nodeSpacing": {
+      "centerRadius": 200,
+      "actorRadius": 400,
+      "angularSpacing": "auto"
+    },
+    "radialProperties": {
+      "centerNodeType": "UC",
+      "outerNodeType": "ACTOR",
+      "radialLevels": 2,
+      "minimizeOverlaps": true,
+      "balanceAngles": true
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["UC", "ACTOR"],
+    "hideNodes": ["SYS", "FCHAIN", "FUNC", "FLOW", "MOD", "REQ", "TEST", "SCHEMA"],
+    "showEdges": ["relation"],
+    "hideEdges": ["compose", "io", "satisfy", "verify", "allocate"],
+    "edgeRouting": "straight",
+    "renderingNotes": "Radial layout with UC nodes in center, ACTOR nodes in outer ring. Standard UML use case diagram appearance.",
+    "defaultZoomLevel": "L2",
+    "nodeStyles": {
+      "UC": {
+        "symbol": "ellipse",
+        "stereotype": "«use case»",
+        "color": "yellow",
+        "fillColor": "yellow",
+        "borderColor": "black",
+        "borderWidth": 2,
+        "textAlign": "center"
+      },
+      "ACTOR": {
+        "symbol": "stick-figure",
+        "stereotype": "«actor»",
+        "color": "white",
+        "height": 60,
+        "width": 30,
+        "labelPosition": "below"
+      }
+    },
+    "edgeStyles": {
+      "relation": {
+        "lineStyle": "solid",
+        "arrow": "none",
+        "color": "black",
+        "width": 1,
+        "label": ""
+      }
+    },
+    "containerStyles": {
+      "systemBoundary": {
+        "enabled": true,
+        "shape": "rectangle",
+        "borderStyle": "solid",
+        "borderWidth": 2,
+        "color": "gray",
+        "label": "{SYS.Name}",
+        "labelPosition": "top-left",
+        "padding": 50
+      }
+    }
+  },
+  "useCase": "Stakeholder communication, requirements elicitation",
+  "primaryRelationships": [
+    "relation (ACTOR --relation--> UC): actor participates in use case",
+    "relation (UC --relation--> UC): use case includes/extends another"
+  ],
+  "validationRules": [
+    "Every leaf UC (no child UC) must have at least one ACTOR",
+    "ACTOR can only connect to UC via relation edges",
+    "UC can have include/extend relationships (represented as relation edges)"
+  ],
+  "performanceTarget": {
+    "maxNodes": 200,
+    "maxComputeTime": "1s"
+  },
+  "notes": [
+    "Follows UML 2.5 use case diagram conventions",
+    "System boundary (optional) drawn as rectangle around UC nodes",
+    "ACTOR nodes positioned outside system boundary",
+    "UC nodes positioned inside system boundary",
+    "Radial layout ensures clear visibility of all actors",
+    "Ideal for stakeholder presentations and requirements reviews"
+  ]
+}

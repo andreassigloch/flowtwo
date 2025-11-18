@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "functional-flow",
+  "name": "Functional Flow View",
+  "description": "Function network with data flows showing I/O contracts between functions",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "orthogonal",
+    "orientation": "left-to-right",
+    "includeNodeTypes": ["UC", "FCHAIN", "FUNC", "FLOW", "ACTOR"],
+    "includeRelTypes": ["compose", "io"],
+    "nodeSpacing": {
+      "horizontal": 150,
+      "vertical": 80,
+      "portSpacing": 20
+    },
+    "routingProperties": {
+      "edgeRouting": "orthogonal",
+      "preferredDirection": "left-to-right",
+      "minimizeOverlaps": true,
+      "allowDiagonals": false,
+      "bendRadius": 5
+    },
+    "portProperties": {
+      "extractPorts": true,
+      "inputPortSide": "left",
+      "outputPortSide": "right",
+      "portSize": 10,
+      "autoDistribute": true
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["UC", "FCHAIN", "FUNC", "ACTOR"],
+    "hideNodes": ["FLOW"],
+    "showEdges": ["io"],
+    "hideEdges": ["compose"],
+    "edgeRouting": "orthogonal",
+    "renderingNotes": "FLOW nodes rendered as ports on FUNC blocks. UC and FCHAIN render as containers with nested FUNC inside. compose edges implicit via nesting.",
+    "defaultZoomLevel": "L2",
+    "nodeStyles": {
+      "UC": {
+        "symbol": "rounded-rectangle",
+        "stereotype": "«use case»",
+        "color": "yellow",
+        "renderAsContainer": true
+      },
+      "FCHAIN": {
+        "symbol": "rounded-rectangle",
+        "stereotype": "«function chain»",
+        "color": "cyan",
+        "renderAsContainer": true
+      },
+      "FUNC": {
+        "symbol": "rectangle",
+        "stereotype": "«function»",
+        "color": "green",
+        "showPorts": true,
+        "portLabels": true
+      },
+      "ACTOR": {
+        "symbol": "stick-figure",
+        "stereotype": "«actor»",
+        "color": "white"
+      },
+      "FLOW": {
+        "renderAs": "port",
+        "portLabel": "{Name}",
+        "portTooltip": "{Type} | {Pattern} | {Validation}"
+      }
+    },
+    "edgeStyles": {
+      "io": {
+        "lineStyle": "solid",
+        "arrow": "filled",
+        "color": "white",
+        "label": "{FLOW.Name}",
+        "width": 2
+      }
+    }
+  },
+  "useCase": "Design functional architecture with I/O contracts",
+  "primaryRelationships": [
+    "io (explicit arrows between ports)",
+    "compose (implicit via nested containment)"
+  ],
+  "performanceTarget": {
+    "maxNodes": 500,
+    "maxEdges": 1000,
+    "maxComputeTime": "3s"
+  },
+  "notes": [
+    "FLOW nodes are NOT rendered as separate visual elements",
+    "FLOW --io--> FUNC creates input port on FUNC (left side)",
+    "FUNC --io--> FLOW creates output port on FUNC (right side)",
+    "Port labels display FLOW.Name property",
+    "Ports auto-distributed vertically on function sides",
+    "Orthogonal routing ensures 90° angles only (Manhattan routing)"
+  ]
+}

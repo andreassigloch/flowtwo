@@ -215,34 +215,50 @@ async function processMessage(message: string): Promise<void> {
       canvasState: parser.serializeGraph(graphCanvas.getState()),
     };
 
-    // Send to LLM
-    const response = await llmEngine.processRequest(request);
+    // Track streaming state
+    let streamedText = '';
+    let isFirstChunk = true;
 
-    // Add assistant response to chat canvas
-    await chatCanvas.addAssistantMessage(response.textResponse, response.operations);
+    // Send to LLM with streaming
+    await llmEngine.processRequestStream(request, async (chunk) => {
+      if (chunk.type === 'text' && chunk.text) {
+        // Display text chunk in real-time
+        if (isFirstChunk) {
+          console.log('');
+          process.stdout.write('\x1b[32mAssistant:\x1b[0m ');
+          isFirstChunk = false;
+        }
+        process.stdout.write(chunk.text);
+        streamedText += chunk.text;
+      } else if (chunk.type === 'complete' && chunk.response) {
+        // Stream complete - process operations
+        const response = chunk.response;
 
-    // Display response (text only, no graph operations)
-    console.log('');
-    console.log(`\x1b[32mAssistant:\x1b[0m ${response.textResponse}`);
-    console.log('');
+        // Add newline after streamed text
+        console.log('\n');
 
-    // Apply operations to graph if present (silently)
-    if (response.operations) {
-      const diff = parser.parseDiff(response.operations);
-      await graphCanvas.applyDiff(diff);
+        // Add assistant response to chat canvas
+        await chatCanvas.addAssistantMessage(response.textResponse, response.operations);
 
-      const state = graphCanvas.getState();
-      log(`📊 Graph updated (${state.nodes.size} nodes, ${state.edges.size} edges)`);
+        // Apply operations to graph if present (silently)
+        if (response.operations) {
+          const diff = parser.parseDiff(response.operations);
+          await graphCanvas.applyDiff(diff);
 
-      // Notify graph viewer (silently)
-      notifyGraphUpdate();
+          const state = graphCanvas.getState();
+          log(`📊 Graph updated (${state.nodes.size} nodes, ${state.edges.size} edges)`);
 
-      // Show brief status
-      console.log(`\x1b[90m✓ Graph updated: ${state.nodes.size} nodes, ${state.edges.size} edges (see GRAPH terminal)\x1b[0m`);
-      console.log('');
-    }
+          // Notify graph viewer (silently)
+          notifyGraphUpdate();
 
-    log('✅ Response complete');
+          // Show brief status
+          console.log(`\x1b[90m✓ Graph updated: ${state.nodes.size} nodes, ${state.edges.size} edges (see GRAPH terminal)\x1b[0m`);
+          console.log('');
+        }
+
+        log('✅ Response complete');
+      }
+    });
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
