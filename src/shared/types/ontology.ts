@@ -23,69 +23,87 @@ export type NodeType =
 /**
  * Edge Types (6 total)
  *
- * IMPORTANT: Only 'compose' edges create hierarchical nesting in visualizations.
- * All other edge types are shown as explicit connections (arrows/lines).
+ * IMPORTANT: Three edge types create hierarchical nesting (per ontology_schema.json):
+ * - compose, satisfy, allocate = NESTING edges (shown as indentation)
+ * - io, verify, relation = CONNECTION edges (shown as arrows/lines)
  */
 export type EdgeType =
-  | 'compose' // Hierarchical composition - CREATES NESTING/INDENTATION
+  | 'compose' // Hierarchical composition - CREATES NESTING
   | 'io' // Input/Output flow - Shown as arrow
-  | 'satisfy' // Requirement satisfaction - Shown as dashed arrow
+  | 'satisfy' // Requirement satisfaction - CREATES NESTING
   | 'verify' // Test verification - Shown as dashed arrow
-  | 'allocate' // Function allocation to module - Shown as arrow with diamond
+  | 'allocate' // Function allocation to module - CREATES NESTING
   | 'relation'; // Generic relationship - Shown as gray line
 
 /**
  * Edge Type Metadata
  *
  * Defines visual and semantic properties of each edge type
+ * Per ontology_schema.json v3.0.0
  */
 export const EDGE_TYPE_METADATA = {
   compose: {
     description: 'Hierarchical composition (parent-child)',
-    nestingProperty: true, // ONLY edge type that creates nesting
+    isNesting: true, // Per ontology_schema.json
     visualStyle: 'implicit', // Not shown as line, shown as indentation
     validConnections: [
       'SYS -> SYS', // System contains subsystem
       'SYS -> UC', // System contains use cases
+      'UC -> UC', // Use case contains sub-use-cases
+      'UC -> ACTOR', // Use case composes actor
+      'FCHAIN -> ACTOR', // Function chain composes actor
       'UC -> FCHAIN', // Use case contains function chains
       'FCHAIN -> FUNC', // Function chain contains functions
-      'MOD -> FUNC', // Module contains functions
+      'FCHAIN -> FLOW', // Function chain contains flows
+      'SYS -> MOD', // System contains modules
     ],
   },
   io: {
     description: 'Input/Output data flow',
-    nestingProperty: false,
+    isNesting: false, // Per ontology_schema.json
     visualStyle: 'solid-arrow',
     validConnections: [
-      'FLOW -> FUNC', // Flow input to function
       'FUNC -> FLOW', // Function output to flow
+      'FLOW -> FUNC', // Flow input to function
       'ACTOR -> FLOW', // Actor sends data
       'FLOW -> ACTOR', // Actor receives data
     ],
   },
   satisfy: {
     description: 'Requirement satisfaction',
-    nestingProperty: false,
+    isNesting: true, // Per ontology_schema.json
     visualStyle: 'dashed-arrow',
-    validConnections: ['FUNC -> REQ', 'UC -> REQ'],
+    validConnections: [
+      'SYS -> REQ', // System satisfies requirement
+      'REQ -> REQ', // Requirement satisfies parent requirement
+      'UC -> REQ', // Use case satisfies requirement
+      'FUNC -> REQ', // Function satisfies requirement
+    ],
   },
   verify: {
     description: 'Test verification',
-    nestingProperty: false,
+    isNesting: false, // Per ontology_schema.json
     visualStyle: 'dashed-arrow',
-    validConnections: ['TEST -> REQ'],
+    validConnections: [
+      'TEST -> TEST', // Test verifies sub-test
+      'REQ -> TEST', // Requirement verified by test
+    ],
   },
   allocate: {
     description: 'Function allocation to module',
-    nestingProperty: false,
+    isNesting: true, // Per ontology_schema.json
     visualStyle: 'solid-arrow-diamond',
-    validConnections: ['FUNC -> MOD'],
+    validConnections: ['MOD -> FUNC'], // Module allocates function
   },
   relation: {
     description: 'Generic relationship',
-    nestingProperty: false,
+    isNesting: false, // Per ontology_schema.json
     visualStyle: 'gray-line',
-    validConnections: ['ANY -> ANY'],
+    validConnections: [
+      'ANY -> ANY',
+      'SCHEMA -> FUNC',
+      'FLOW -> SCHEMA',
+    ],
   },
 } as const;
 

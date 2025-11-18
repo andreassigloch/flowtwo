@@ -114,12 +114,13 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
   /**
    * Hierarchy View
    *
-   * IMPORTANT: Nesting/indentation is ONLY created by 'compose' edges (per Ontology V3).
-   * - compose edges: SYS→SYS, SYS→UC, UC→FCHAIN, FCHAIN→FUNC, MOD→FUNC
-   * - Other edge types (io, satisfy, verify, allocate) do NOT create hierarchy
+   * IMPORTANT: Nesting/indentation created by 'compose' edges ONLY in this view.
+   * - compose edges: SYS→SYS, SYS→UC, UC→FCHAIN, FCHAIN→FUNC, SYS→MOD
+   * - Per ontology_schema.json: compose, satisfy, allocate are ALL nesting edges
+   * - But hierarchy view uses ONLY compose for structural decomposition
    *
    * Layout algorithm: reingold-tilford (tree layout)
-   * - Only 'compose' edges define parent-child relationships
+   * - Only 'compose' edges define parent-child relationships in this view
    * - Nodes without incoming 'compose' edges are roots
    * - Nested rendering: children indented under parents
    */
@@ -129,13 +130,13 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
     description: 'System decomposition tree (SYS → UC → FCHAIN → FUNC)',
     layoutConfig: {
       includeNodeTypes: ['SYS', 'UC', 'FCHAIN', 'FUNC', 'MOD'],
-      includeEdgeTypes: ['compose'], // ONLY compose creates hierarchy
+      includeEdgeTypes: ['compose'], // ONLY compose for structural hierarchy
       algorithm: 'reingold-tilford',
       parameters: {
         orientation: 'top-down',
         nodeSpacing: 50,
         levelSpacing: 100,
-        nestingEdgeType: 'compose', // Explicit: only this edge type creates nesting
+        nestingEdgeTypes: ['compose'], // Array: which nesting edges to use in this view
       },
     },
     renderConfig: {
@@ -164,6 +165,14 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
     },
   },
 
+  /**
+   * Requirements View
+   *
+   * Uses 'satisfy' nesting edges to show requirement hierarchy.
+   * - satisfy is a nesting edge (per ontology_schema.json)
+   * - Creates tree: SYS→REQ, REQ→REQ, UC→REQ, FUNC→REQ
+   * - verify edges shown as explicit connections
+   */
   requirements: {
     viewId: 'requirements',
     name: 'Requirements View',
@@ -174,29 +183,39 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
       algorithm: 'sugiyama',
       parameters: {
         orientation: 'left-right',
+        nestingEdgeTypes: ['satisfy'], // satisfy creates requirement hierarchy
       },
     },
     renderConfig: {
       showNodes: ['FUNC', 'REQ', 'TEST'],
-      showEdges: ['satisfy', 'verify'],
+      showEdges: ['verify'], // Show verify as arrows, satisfy as nesting
     },
   },
 
+  /**
+   * Allocation View
+   *
+   * Uses 'allocate' nesting edges to show module-function containment.
+   * - allocate is a nesting edge (per ontology_schema.json)
+   * - Creates tree: MOD→FUNC (modules contain functions)
+   * - Treemap layout: functions nested within module boxes
+   */
   allocation: {
     viewId: 'allocation',
     name: 'Allocation View',
-    description: 'Function allocation to modules (FUNC → allocate → MOD)',
+    description: 'Function allocation to modules (MOD contains FUNC)',
     layoutConfig: {
       includeNodeTypes: ['FUNC', 'MOD'],
       includeEdgeTypes: ['allocate'],
       algorithm: 'treemap',
       parameters: {
         groupBy: 'MOD',
+        nestingEdgeTypes: ['allocate'], // allocate creates containment
       },
     },
     renderConfig: {
       showNodes: ['FUNC', 'MOD'],
-      showEdges: ['allocate'],
+      showEdges: [], // Implicit via nesting (allocate shown as containment)
     },
   },
 
