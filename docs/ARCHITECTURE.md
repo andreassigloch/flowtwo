@@ -6,13 +6,17 @@
 **Status:** Design Specification + Partial Implementation
 
 **Implementation Status**:
-- ✅ Terminal UI (3-terminal architecture)
+- ✅ Terminal UI (4-terminal architecture with WebSocket)
 - ✅ Canvas State Manager (Graph Canvas + Chat Canvas)
 - ✅ Format E Parser (Diff protocol)
-- ✅ LLM Engine (Anthropic integration with caching)
+- ✅ LLM Engine (Anthropic integration with caching + streaming)
 - ✅ Neo4j Client (persistence layer)
+- ✅ WebSocket Server (real-time terminal synchronization)
 - ⏳ Graph Engine (layout algorithms - in progress)
-- ⏳ Multi-user sync (WebSocket broadcasting - planned)
+
+**Open Issues**:
+- 🔧 **Terminal sync format**: Currently uses JSON serialized state, should use Format E for consistency (see section 4.2.3)
+- 🔧 **ASCII graph viewer**: Functional-flow view not implemented (requires graphical rendering)
 
 ---
 
@@ -428,36 +432,37 @@ class ChatCanvas extends CanvasBase {
 }
 ```
 
-### 4.2 Terminal UI - 3-Terminal Architecture ✅ IMPLEMENTED
+### 4.2 Terminal UI - 4-Terminal Architecture ✅ IMPLEMENTED
 
-**Implementation**: 3 separate Terminal.app windows (macOS native)
+**Implementation**: 4 separate Terminal.app windows (macOS native)
 
 **Layout**:
 ```
-┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
-│ Terminal 1: STDOUT   │  │ Terminal 2: GRAPH    │  │ Terminal 3: CHAT     │
-│ (Application Logs)   │  │ (Visualization)      │  │ (Main Interaction)   │
-├──────────────────────┤  ├──────────────────────┤  ├──────────────────────┤
-│ [10:30:00] 🚀 Chat   │  │ ╔═══════════════════╗│  │ ╔═══════════════════╗│
-│   interface started  │  │ ║  GRAPH VIEWER     ║│  │ ║  CHAT INTERFACE   ║│
-│ [10:30:05] 📨 User:  │  │ ╚═══════════════════╝│  │ ╚═══════════════════╝│
-│   Add payment func   │  │                      │  │                      │
-│ [10:30:06] 🤖 LLM... │  │ ────────────────────│  │ Commands: /help,     │
-│ [10:30:08] 📊 LLM:   │  │ Graph Update: 10:30  │  │  /save, /stats, exit │
-│   Input: 150 tokens  │  │ View: hierarchy      │  │                      │
-│   Output: 85 tokens  │  │ Nodes: 5 | Edges: 4  │  │ You: Add payment     │
-│   Cache: 97% savings │  │ ────────────────────│  │                      │
-│ [10:30:09] 📊 Graph  │  │                      │  │ 🤖 Processing...     │
-│   updated (5 nodes)  │  │ └─[SYS] TestSystem   │  │                      │
-│ [10:30:09] 📝 Wrote  │  │   └─[UC] PaymentUC   │  │ Assistant: I'll add  │
-│   state to /tmp/...  │  │     └─[FUNC] Pay...  │  │ a payment function   │
-│ [10:30:09] ✅ Done   │  │                      │  │                      │
-│                      │  │ (Scroll to see hist) │  │ ✓ Graph updated:     │
-│ tail -f /tmp/        │  │                      │  │   5 nodes, 4 edges   │
-│   graphengine.log    │  │ Auto-refresh: 500ms  │  │                      │
-│                      │  │                      │  │ You: _               │
-└──────────────────────┘  └──────────────────────┘  └──────────────────────┘
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ Terminal 0:      │  │ Terminal 1:      │  │ Terminal 2:      │  │ Terminal 3:      │
+│ WEBSOCKET        │  │ STDOUT           │  │ GRAPH            │  │ CHAT             │
+├──────────────────┤  ├──────────────────┤  ├──────────────────┤  ├──────────────────┤
+│ [WS] Server      │  │ [10:30:00] 🚀    │  │ ╔══════════════╗│  │ ╔══════════════╗│
+│   listening on   │  │   Chat started   │  │ ║ GRAPH VIEWER ║│  │ ║ CHAT INTER..║│
+│   port 3001      │  │ [10:30:02] ✅    │  │ ╚══════════════╝│  │ ╚══════════════╝│
+│                  │  │   WS connected   │  │                  │  │                  │
+│ [WS] Client      │  │ [10:30:05] 📨    │  │ ────────────────│  │ Commands: /help, │
+│   subscribed:    │  │   User: Add...   │  │ Graph Update:    │  │  /save, /stats   │
+│   workspace=demo │  │ [10:30:08] 📊    │  │ View: hierarchy  │  │                  │
+│   system=UM.001  │  │   LLM Usage:     │  │ Nodes: 5 | E: 4  │  │ You: Add payment │
+│                  │  │   Input: 150 tok │  │ ────────────────│  │                  │
+│ [WS] Broadcast   │  │   Output: 85 tok │  │                  │  │ 🤖 Processing... │
+│   graph_update   │  │   Cache: 97%     │  │ └─[SYS] Test...  │  │                  │
+│   to 2 clients   │  │ [10:30:09] 📡    │  │   └─[UC] Pay..   │  │ Assistant: I'll  │
+│                  │  │   Broadcast OK   │  │     └─[FUNC]...  │  │ add a payment    │
+└──────────────────┘  └──────────────────┘  └──────────────────┘  └──────────────────┘
 ```
+
+**Terminal 0 (WEBSOCKET)**:
+- Command: `npx tsx src/websocket-server.ts`
+- Shows: WebSocket server status, client subscriptions, broadcasts
+- Purpose: Central synchronization hub for real-time terminal updates
+- Port: 3001 (configurable via WS_PORT in .env)
 
 **Terminal 1 (STDOUT)**:
 - Command: `tail -f /tmp/graphengine.log`
@@ -473,38 +478,75 @@ class ChatCanvas extends CanvasBase {
   - Hierarchical tree using only compose edges (per Ontology V3)
   - Scrollable history (updates append, no clear)
   - Update timestamp on each refresh
-- Updates: Polls `/tmp/graphengine-state.json` every 500ms
+- Updates: Real-time via WebSocket (subscribes to `graph_update` events)
 
 **Terminal 3 (CHAT)**:
 - Command: `npx tsx src/terminal-ui/chat-interface.ts`
 - Shows: User input and LLM text responses only
 - Features:
   - Readline-based input (standard terminal input)
-  - Streaming LLM responses
-  - Commands: /help, /save, /stats, /view, /clear, exit
-  - Brief graph update status (silent, non-intrusive)
+  - Streaming LLM responses (text chunks displayed incrementally)
+  - Commands: /help, /load, /save, /stats, /view, /clear, exit
+  - Silent graph updates (no status messages in chat)
 - Updates: User-initiated, LLM responses
 
-**IPC Mechanism**: Shared state file (NOT WebSocket)
-```typescript
-// Chat interface writes after graph update
-fs.writeFileSync('/tmp/graphengine-state.json', JSON.stringify({
-  nodes: Array.from(graphCanvas.getState().nodes.entries()),
-  edges: Array.from(graphCanvas.getState().edges.entries()),
-  ports: Array.from(graphCanvas.getState().ports.entries()),
-  currentView: state.currentView,
-  timestamp: Date.now()
-}));
+### 4.2.1 WebSocket Communication Flow ✅ IMPLEMENTED
 
-// Graph viewer polls and detects changes
-setInterval(async () => {
-  const stateData = JSON.parse(fs.readFileSync('/tmp/graphengine-state.json'));
-  if (stateData.timestamp > lastTimestamp) {
-    await graphCanvas.loadGraph({ nodes, edges, ports });
-    render();
+**IPC Mechanism**: WebSocket (replaces file-based polling)
+
+```typescript
+// Chat interface broadcasts after graph update
+wsClient.broadcastUpdate(
+  'graph_update',
+  JSON.stringify({
+    nodes: Array.from(state.nodes.entries()),
+    edges: Array.from(state.edges.entries()),
+    ports: Array.from(state.ports.entries()),
+    currentView: state.currentView,
+    timestamp: Date.now()
+  }),
+  {
+    userId: config.userId,
+    sessionId: config.chatId,
+    origin: 'llm-operation'
   }
-}, 500);
+);
+
+// Graph viewer receives and processes update
+async function handleGraphUpdate(update: BroadcastUpdate) {
+  const stateData = JSON.parse(update.diff);
+  const nodesMap = new Map(stateData.nodes);
+  const edgesMap = new Map(stateData.edges);
+
+  await graphCanvas.loadGraph({ nodes: nodesMap, edges: edgesMap, ports: portsMap });
+  render();
+}
 ```
+
+### 4.2.2 Advantages of WebSocket Approach
+
+1. **Real-time**: Instant updates (no 500ms polling delay)
+2. **Scalable**: Supports future multi-user collaboration
+3. **Unified**: Terminal-UI and Web-UI can share same WebSocket server
+4. **Efficient**: Server-side broadcast (no file I/O overhead)
+5. **Fail-loud**: Explicit errors if WebSocket unavailable (no silent failures)
+
+### 4.2.3 Open Issue: Format E for Terminal Sync 🔧
+
+**Current Implementation**:
+- Terminal sync uses **JSON serialized state** (Map entries as arrays)
+- LLM operations use **Format E diff** protocol
+- Inconsistent: Two different formats for graph state transfer
+
+**Desired Implementation**:
+- Terminal sync should use **Format E** (consistent with LLM operations)
+- Benefits: Single parser, token efficiency, universal diff protocol
+- Migration path: Change `notifyGraphUpdate()` to use `parser.serializeGraph(state)` instead of `JSON.stringify()`
+
+**Rationale for current approach**:
+- File-based polling used JSON format (legacy)
+- WebSocket replaced polling but kept same format (minimal change)
+- Works correctly but violates "Universal Diff Protocol" design principle
 
 **Advantages of 3-Terminal Approach**:
 1. **Simple**: No tmux complexity, no quote escaping issues

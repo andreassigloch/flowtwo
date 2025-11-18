@@ -16,10 +16,7 @@ import * as readline from 'readline';
 import { GraphCanvas } from '../canvas/graph-canvas.js';
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
 import { GraphEngine } from '../graph-engine/graph-engine.js';
-import type { ViewType } from '../shared/types/ontology.js';
-
-// Valid view types
-const VALID_VIEWS: ViewType[] = ['hierarchy', 'functional-flow', 'requirements', 'allocation', 'use-case'];
+import type { ViewType } from '../shared/types/view.js';
 
 // Configuration
 const config = {
@@ -32,6 +29,7 @@ const config = {
 // Initialize components
 let graphCanvas: GraphCanvas;
 let neo4jClient: Neo4jClient | undefined;
+let graphEngine: GraphEngine;
 let currentView: ViewType = 'hierarchy';
 
 // Initialize Neo4j (optional)
@@ -161,7 +159,7 @@ function render(): void {
   console.log(ascii);
 
   console.log('');
-  console.log('\x1b[90m(Type /view <name> to switch views | Scroll up for history | Ctrl+C to exit)\x1b[0m');
+  console.log('\x1b[90m(Scroll up to see previous versions | Cmd+K to clear | Ctrl+C to exit)\x1b[0m');
   console.log('');
 }
 
@@ -191,17 +189,12 @@ async function watchForUpdates(): Promise<void> {
       // Load new state
       const nodesMap = new Map(stateData.nodes);
       const edgesMap = new Map(stateData.edges);
-      const portsMap = new Map<string, any>(stateData.ports || []);
+      const portsMap = new Map(stateData.ports || []);
 
       await graphCanvas.loadGraph({
-        workspaceId: config.workspaceId,
-        systemId: config.systemId,
         nodes: nodesMap,
         edges: edgesMap,
         ports: portsMap,
-        version: 1,
-        lastSavedVersion: 1,
-        lastModified: new Date(),
       });
 
       // Update current view if changed
@@ -229,7 +222,7 @@ async function main(): Promise<void> {
   console.log('\x1b[36m║     TERMINAL 2: GRAPH VIEWER         ║\x1b[0m');
   console.log('\x1b[36m╚═══════════════════════════════════════╝\x1b[0m');
   console.log('');
-  console.log('\x1b[90mCommands: /view <name>, /help | Graph updates appear below\x1b[0m');
+  console.log('\x1b[90mGraph updates will appear below (scroll to see history)\x1b[0m');
   console.log('');
 
   log('📊 Graph viewer started');
@@ -249,14 +242,9 @@ async function main(): Promise<void> {
         const edgesMap = new Map(edges.map((e) => [e.semanticId, e]));
 
         await graphCanvas.loadGraph({
-          workspaceId: config.workspaceId,
-          systemId: config.systemId,
           nodes: nodesMap,
           edges: edgesMap,
           ports: new Map(),
-          version: 1,
-          lastSavedVersion: 1,
-          lastModified: new Date(),
         });
       }
     } catch (error) {
@@ -270,64 +258,6 @@ async function main(): Promise<void> {
   // Watch for updates
   watchForUpdates().catch((error) => {
     log(`❌ Watch error: ${error.message}`);
-  });
-
-  // Setup readline for commands
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: '',
-  });
-
-  rl.on('line', (input) => {
-    const trimmed = input.trim();
-
-    if (!trimmed) {
-      return;
-    }
-
-    // Handle commands
-    if (trimmed.startsWith('/')) {
-      const [command, ...args] = trimmed.substring(1).split(' ');
-
-      switch (command) {
-        case 'help':
-          console.log('');
-          console.log('Available commands:');
-          console.log('  /view <name>    - Switch view (hierarchy, functional, requirements, allocation, usecase)');
-          console.log('  /help           - Show this help');
-          console.log('');
-          break;
-
-        case 'view':
-          if (args.length === 0) {
-            console.log('\x1b[33mUsage: /view <name>\x1b[0m');
-            console.log('Available views:', VALID_VIEWS.join(', '));
-            console.log('');
-            break;
-          }
-
-          const requestedView = args[0] as ViewType;
-          if (!VALID_VIEWS.includes(requestedView)) {
-            console.log(`\x1b[33mInvalid view: ${requestedView}\x1b[0m`);
-            console.log('Available views:', VALID_VIEWS.join(', '));
-            console.log('');
-            break;
-          }
-
-          currentView = requestedView;
-          log(`🔄 Switched to ${currentView} view`);
-          render();
-          console.log(`\x1b[32m✅ Switched to ${currentView} view\x1b[0m`);
-          console.log('');
-          break;
-
-        default:
-          console.log(`\x1b[33mUnknown command: /${command}\x1b[0m`);
-          console.log('Type /help for available commands');
-          console.log('');
-      }
-    }
   });
 }
 

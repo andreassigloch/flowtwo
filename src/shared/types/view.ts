@@ -219,21 +219,30 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
     },
   },
 
+  /**
+   * Use-Case View
+   *
+   * Shows use case in context:
+   * - Center: UC (use case)
+   * - Parent: Parent UC or SYS (via incoming compose edge)
+   * - Children: Actors (via outgoing compose edges)
+   * - Related: Requirements (via satisfy edges)
+   */
   'use-case': {
     viewId: 'use-case',
     name: 'Use Case Diagram',
-    description: 'Actors interacting with use cases',
+    description: 'Use case with parent, actors, and requirements',
     layoutConfig: {
-      includeNodeTypes: ['ACTOR', 'UC', 'SYS'],
-      includeEdgeTypes: ['compose', 'io'],
+      includeNodeTypes: ['ACTOR', 'UC', 'SYS', 'REQ'],
+      includeEdgeTypes: ['compose', 'satisfy'],
       algorithm: 'radial',
       parameters: {
-        centerNode: 'SYS',
+        centerNode: 'UC',
       },
     },
     renderConfig: {
-      showNodes: ['ACTOR', 'UC', 'SYS'],
-      showEdges: ['io'],
+      showNodes: ['ACTOR', 'UC', 'SYS', 'REQ'],
+      showEdges: ['compose', 'satisfy'],
     },
   },
 };
