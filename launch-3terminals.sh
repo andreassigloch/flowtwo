@@ -27,17 +27,22 @@ echo ""
 echo "1. Cleaning up..."
 rm -f /tmp/graphengine*.fifo 2>/dev/null || true
 rm -f /tmp/graphengine.log 2>/dev/null || true
+rm -f /tmp/graphengine-state.json 2>/dev/null || true
+
+# Create empty log file
+echo "2. Creating log file..."
+touch /tmp/graphengine.log
 
 # Create FIFOs
-echo "2. Creating IPC pipes..."
+echo "3. Creating IPC pipes..."
 mkfifo /tmp/graphengine-input.fifo 2>/dev/null || true
 mkfifo /tmp/graphengine-output.fifo 2>/dev/null || true
 
 # Launch Terminal 1: STDOUT / Logs
-echo "3. Launching Terminal 1: STDOUT (logs)..."
+echo "4. Launching Terminal 1: STDOUT (logs)..."
 osascript <<EOF
 tell application "Terminal"
-    do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 1: STDOUT / LOGS           ║' && echo '╚═══════════════════════════════════════╝' && echo '' && echo 'Waiting for GraphEngine to start...' && echo '' && tail -f /tmp/graphengine.log"
+    do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 1: STDOUT / LOGS           ║' && echo '╚═══════════════════════════════════════╝' && echo '' && echo 'Application logs will appear here...' && echo '' && tail -f /tmp/graphengine.log"
     set custom title of window 1 to "GraphEngine: STDOUT"
 end tell
 EOF
@@ -45,10 +50,10 @@ EOF
 sleep 1
 
 # Launch Terminal 2: Graph Viewer
-echo "4. Launching Terminal 2: GRAPH VIEWER..."
+echo "5. Launching Terminal 2: GRAPH VIEWER..."
 osascript <<EOF
 tell application "Terminal"
-    do script "cd '$PROJECT_DIR' && npx tsx src/terminal-ui/graph-viewer.ts"
+    do script "cd '$PROJECT_DIR' && clear && echo 'Starting graph viewer...' && echo 'Tip: Use Cmd+K to clear, or scroll with mouse/trackpad' && echo '' && npx tsx src/terminal-ui/graph-viewer.ts"
     set custom title of window 1 to "GraphEngine: GRAPH"
 end tell
 EOF
@@ -56,7 +61,7 @@ EOF
 sleep 1
 
 # Launch Terminal 3: Chat Interface
-echo "5. Launching Terminal 3: CHAT..."
+echo "6. Launching Terminal 3: CHAT..."
 osascript <<EOF
 tell application "Terminal"
     do script "cd '$PROJECT_DIR' && npx tsx src/terminal-ui/chat-interface.ts"

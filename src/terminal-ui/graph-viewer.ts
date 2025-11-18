@@ -139,18 +139,23 @@ function generateAsciiGraph(): string {
  * Render graph to console
  */
 function render(): void {
-  console.clear();
+  // Don't clear on updates - allows scrolling through history
+  // Only clear on initial render
+  const state = graphCanvas.getState();
 
-  console.log('\x1b[36m╔═══════════════════════════════════════╗\x1b[0m');
-  console.log('\x1b[36m║     TERMINAL 2: GRAPH VIEWER         ║\x1b[0m');
-  console.log('\x1b[36m╚═══════════════════════════════════════╝\x1b[0m');
+  console.log('');
+  console.log('\x1b[36m' + '─'.repeat(60) + '\x1b[0m');
+  console.log(`\x1b[1;36mGraph Update:\x1b[0m ${new Date().toLocaleTimeString()}`);
+  console.log(`\x1b[36mView:\x1b[0m ${currentView} | \x1b[36mNodes:\x1b[0m ${state.nodes.size} | \x1b[36mEdges:\x1b[0m ${state.edges.size}`);
+  console.log('\x1b[36m' + '─'.repeat(60) + '\x1b[0m');
   console.log('');
 
   const ascii = generateAsciiGraph();
   console.log(ascii);
 
   console.log('');
-  console.log('\x1b[90m(Watching for updates... Press Ctrl+C to exit)\x1b[0m');
+  console.log('\x1b[90m(Scroll up to see previous versions | Cmd+K to clear | Ctrl+C to exit)\x1b[0m');
+  console.log('');
 }
 
 /**
@@ -206,6 +211,15 @@ async function watchForUpdates(): Promise<void> {
  * Main entry point
  */
 async function main(): Promise<void> {
+  // Initial header (only once)
+  console.clear();
+  console.log('\x1b[36m╔═══════════════════════════════════════╗\x1b[0m');
+  console.log('\x1b[36m║     TERMINAL 2: GRAPH VIEWER         ║\x1b[0m');
+  console.log('\x1b[36m╚═══════════════════════════════════════╝\x1b[0m');
+  console.log('');
+  console.log('\x1b[90mGraph updates will appear below (scroll to see history)\x1b[0m');
+  console.log('');
+
   log('📊 Graph viewer started');
 
   // Load graph from Neo4j if available
