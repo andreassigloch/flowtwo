@@ -38,7 +38,8 @@
       "Bash(npm start)",
       "Bash(cat:*)",
       "Bash(./test-llm-integration.sh:*)",
-      "Bash(/tmp/graphengine.log)"
+      "Bash(/tmp/graphengine.log)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
