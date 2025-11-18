@@ -14,7 +14,7 @@
  * @version 2.0.0
  */
 
-import neo4j, { Driver, Session, Result } from 'neo4j-driver';
+import neo4j, { Driver, Session } from 'neo4j-driver';
 import type {
   Neo4jConfig,
   Neo4jQueryResult,
@@ -426,6 +426,32 @@ export class Neo4jClient {
         diff: entry.diff,
         metadata: JSON.stringify(entry.metadata || {}),
       });
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * List all systems in workspace
+   */
+  async listSystems(workspaceId: string): Promise<Array<{ systemId: string; nodeCount: number }>> {
+    const session = this.getSession();
+
+    try {
+      const query = `
+        MATCH (n:Node)
+        WHERE n.workspaceId = $workspaceId
+        WITH n.systemId as systemId, count(n) as nodeCount
+        RETURN systemId, nodeCount
+        ORDER BY systemId
+      `;
+
+      const result = await session.run(query, { workspaceId });
+
+      return result.records.map((record) => ({
+        systemId: record.get('systemId'),
+        nodeCount: record.get('nodeCount').toNumber(),
+      }));
     } finally {
       await session.close();
     }

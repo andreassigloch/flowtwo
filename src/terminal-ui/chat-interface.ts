@@ -111,7 +111,7 @@ function printHeader(): void {
   console.log('\x1b[36m║     TERMINAL 3: CHAT INTERFACE       ║\x1b[0m');
   console.log('\x1b[36m╚═══════════════════════════════════════╝\x1b[0m');
   console.log('');
-  console.log('Commands: /help, /save, /stats, /view <name>, exit');
+  console.log('Commands: /help, /load, /save, /stats, /view <name>, exit');
   console.log('');
 
   if (!llmEngine) {
@@ -131,6 +131,7 @@ async function handleCommand(cmd: string): Promise<void> {
       console.log('');
       console.log('Available commands:');
       console.log('  /help           - Show this help');
+      console.log('  /load [id]      - List or load a system from current workspace');
       console.log('  /save           - Save graph to Neo4j');
       console.log('  /stats          - Show graph statistics');
       console.log('  /view <name>    - Switch view (hierarchy, functional, requirements, allocation, usecase)');
@@ -139,9 +140,81 @@ async function handleCommand(cmd: string): Promise<void> {
       console.log('');
       break;
 
+    case '/load':
+      if (!neo4jClient) {
+        console.log('\x1b[33m⚠️  Neo4j not configured (set NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD in .env)\x1b[0m');
+        break;
+      }
+
+      // If no argument, list available systems
+      if (args.length === 0) {
+        console.log('🔍 Loading systems from workspace...');
+        log('🔍 Loading systems from workspace');
+        try {
+          const systems = await neo4jClient.listSystems(config.workspaceId);
+
+          if (systems.length === 0) {
+            console.log('\x1b[33m⚠️  No systems found in workspace\x1b[0m');
+            break;
+          }
+
+          console.log('');
+          console.log('Available systems:');
+          systems.forEach((sys, idx) => {
+            console.log(`  ${idx + 1}. ${sys.systemId} (${sys.nodeCount} nodes)`);
+          });
+          console.log('');
+          console.log('Usage: /load <systemId>');
+          console.log('');
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.log(`\x1b[31m❌ Error loading systems: ${errorMsg}\x1b[0m`);
+          log(`❌ Error loading systems: ${errorMsg}`);
+        }
+      } else {
+        // Load specified system
+        const targetSystemId = args.join(' ');
+        console.log(`📥 Loading system: ${targetSystemId}...`);
+        log(`📥 Loading system: ${targetSystemId}`);
+
+        try {
+          const { nodes, edges } = await neo4jClient.loadGraph({
+            workspaceId: config.workspaceId,
+            systemId: targetSystemId,
+          });
+
+          if (nodes.length === 0) {
+            console.log(`\x1b[33m⚠️  System not found: ${targetSystemId}\x1b[0m`);
+            break;
+          }
+
+          const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
+          const edgesMap = new Map(edges.map((e) => [e.semanticId, e]));
+
+          await graphCanvas.loadGraph({
+            nodes: nodesMap,
+            edges: edgesMap,
+            ports: new Map(),
+          });
+
+          // Update config
+          config.systemId = targetSystemId;
+
+          notifyGraphUpdate();
+
+          console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges\x1b[0m`);
+          log(`✅ Loaded system: ${targetSystemId} (${nodes.length} nodes, ${edges.length} edges)`);
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.log(`\x1b[31m❌ Error loading system: ${errorMsg}\x1b[0m`);
+          log(`❌ Error loading system: ${errorMsg}`);
+        }
+      }
+      break;
+
     case '/save':
       if (!neo4jClient) {
-        console.log('\x1b[33m⚠️  Neo4j not configured\x1b[0m');
+        console.log('\x1b[33m⚠️  Neo4j not configured (set NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD in .env)\x1b[0m');
         break;
       }
       console.log('💾 Saving to Neo4j...');
@@ -250,10 +323,6 @@ async function processMessage(message: string): Promise<void> {
 
           // Notify graph viewer (silently)
           notifyGraphUpdate();
-
-          // Show brief status
-          console.log(`\x1b[90m✓ Graph updated: ${state.nodes.size} nodes, ${state.edges.size} edges (see GRAPH terminal)\x1b[0m`);
-          console.log('');
         }
 
         log('✅ Response complete');
