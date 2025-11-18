@@ -1,703 +1,611 @@
-# AiSE Reloaded - System Architecture
+# GraphEngine - System Architecture
 
-**Version**: 1.0.0
-**Date**: November 2025
-**Type**: AI-Guided Systems Engineering Assistant
-
----
-
-## Executive Summary
-
-AiSE Reloaded ist ein **KI-geführter Systems Engineering Assistent**, der unerfahrene Benutzer durch den kompletten SE-Prozess führt. Die KI moderiert den Dialog, stellt intelligente Fragen, und baut **automatisch im Hintergrund** die Ontologie V3 Struktur auf.
-
-**Kernprinzip**: Der Benutzer **spricht natürlich** mit dem AI-Assistenten über sein System. Die KI extrahiert automatisch Systeme, Use Cases, Funktionen, Requirements und erstellt die Verlinkungen - **ohne dass der Benutzer die Ontologie kennen muss**.
+**Version:** 2.0.0 Greenfield
+**Author:** andreas@siglochconsulting
+**Date:** 2025-11-17
+**Status:** Design Specification (No Implementation)
 
 ---
 
-## 1. Logical Architecture
+## 1. Architectural Overview
 
-### 1.1 High-Level Overview
+### 1.1 System Philosophy
+
+**Canvas-Centric Architecture**: The Canvas component is the central state manager and source of truth during active sessions. All other components orbit around Canvas:
+
+- **Terminal UI** renders Canvas state (BOTH graph AND chat)
+- **LLM Engine** reads from and writes to Canvas
+- **Neo4j** serves as long-term persistence (not real-time state)
+- **Graph Engine** computes layouts from Canvas state
+
+**Key Insight**: "Canvas" is a generic concept - there are TWO canvas types:
+1. **Graph Canvas** - Manages graph state (nodes, edges, positions)
+2. **Chat Canvas** - Manages conversation state (messages, LLM responses)
+
+Both use the same Canvas State Manager pattern with Format E Diff as the universal change protocol.
+
+### 1.2 Design Principles
+
+1. **Separation of Concerns**: Each component has one clear responsibility
+2. **Stateless Services**: Graph Engine and LLM Engine are stateless (Canvas holds state)
+3. **Event-Driven**: Components communicate via messages/events (WebSocket, REST)
+4. **Standalone Capable**: Components can be used independently (e.g., Graph Engine as library)
+5. **Test-Driven**: Architecture designed for 70/20/10 test pyramid
+6. **Universal Diff Protocol**: ALL changes (user edits, LLM operations, manual graph edits) use Format E Diff format
+
+---
+
+## 2. Logical Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    FRONTEND LAYER                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
-│  │ Chat Canvas │  │ Text Canvas │  │ Graph Canvas│            │
-│  │             │  │             │  │             │            │
-│  │ Natural     │  │ Tabular     │  │ Visual      │            │
-│  │ Language    │  │ View        │  │ Graph       │            │
-│  └─────────────┘  └─────────────┘  └─────────────┘            │
-└───────────────┬─────────────────────────────────────────────────┘
-                │
-                │ User Input (Natural Language)
-                │ AI Response (Streaming)
-                ▼
-┌───────────────────────────────────────────────────────────────┐
-│              ★ AI ASSISTANT / LLM ENGINE ★                    │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │ 1. Conversation Moderator                                │ │
-│  │    • Systems Engineering Dialog Management               │ │
-│  │    • Question Generation (Requirements Elicitation)      │ │
-│  │    • Context Awareness                                   │ │
-│  │                                                           │ │
-│  │ 2. Ontology Extractor                                    │ │
-│  │    • NLP → Ontology V3 Mapping                          │ │
-│  │    • Entity Recognition (SYS, UC, FUNC, REQ, etc.)      │ │
-│  │    • Relationship Inference                              │ │
-│  │                                                           │ │
-│  │ 3. Auto-Derivation Engine                                │ │
-│  │    • UC → Functions (automatic decomposition)            │ │
-│  │    • REQ → Tests (test case generation)                  │ │
-│  │    • FUNC → I/O Flows (data flow inference)             │ │
-│  │                                                           │ │
-│  │ 4. Validation Advisor                                    │ │
-│  │    • Ontology V3 Rule Checking                          │ │
-│  │    • Suggest Fixes                                       │ │
-│  │    • Explain Violations                                  │ │
-│  └──────────────────────────────────────────────────────────┘ │
-│                                                                │
-│  LLM Providers: Claude (Anthropic), GPT-4 (OpenAI), Local     │
-└────────────┬───────────────────────────────────────────────────┘
-             │
-             │ Operations (Create/Update/Delete Nodes)
-             │ Validation Requests
-             │
-┌────────────▼───────────────────────────────────────────────────┐
-│              CANVAS SYNCHRONIZATION ENGINE                     │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │ • Diff Algorithm (minimal change detection)              │ │
-│  │ • Operational Transform (conflict resolution)            │ │
-│  │ • Optimistic Updates (instant UI feedback)               │ │
-│  │ • State Manager (history, undo/redo)                     │ │
-│  └──────────────────────────────────────────────────────────┘ │
-└────────────┬───────────────────────────────────────────────────┘
-             │
-             │ WebSocket Messages
-             │
-┌────────────▼───────────────────────────────────────────────────┐
-│              WEBSOCKET SERVER                                  │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │ • Room Management (multi-user sessions)                  │ │
-│  │ • Presence Tracking (who's online, where)                │ │
-│  │ • Message Broadcasting (real-time sync)                  │ │
-│  │ • AI Response Streaming (token-by-token)                 │ │
-│  └──────────────────────────────────────────────────────────┘ │
-└────────────┬───────────────────────────────────────────────────┘
-             │
-             │ REST API + WebSocket Events
-             │
-┌────────────▼───────────────────────────────────────────────────┐
-│              BACKEND API (Express)                             │
-│  ┌─────────────┬────────────────┬──────────────┬────────────┐ │
-│  │ Node CRUD   │ Relationship   │ AI Assistant │ Validation │ │
-│  │ Routes      │ Routes         │ Routes       │ Routes     │ │
-│  └─────────────┴────────────────┴──────────────┴────────────┘ │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │ Middleware: Auth | Audit | Error | Rate Limit           │ │
-│  └──────────────────────────────────────────────────────────┘ │
-└────────────┬───────────────────────────────────────────────────┘
-             │
-             │ Cypher Queries
-             │
-┌────────────▼───────────────────────────────────────────────────┐
-│              NEO4J GRAPH DATABASE                              │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │ Ontology V3:                                             │ │
-│  │ • 10 Node Types (SYS, ACTOR, UC, FCHAIN, FUNC, ...)     │ │
-│  │ • 6 Relationship Types (compose, io, satisfy, ...)      │ │
-│  │ • Conversation History (full audit trail)                │ │
-│  │ • Derived Elements (auto-generated nodes)                │ │
-│  └──────────────────────────────────────────────────────────┘ │
+│                      TERMINAL UI (TUI)                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│  │ Chat Input   │  │ Graph Canvas │  │ View Selector│         │
+│  │ (Textual)    │  │ (Rich)       │  │ (Dropdown)   │         │
+│  └──────┬───────┘  └──────▲───────┘  └──────────────┘         │
+└─────────┼──────────────────┼──────────────────────────────────┘
+          │                  │
+    User Input          Rendered Graph
+    (Format E Diff)     (Positions + Metadata)
+          │                  │
+          ▼                  │
+┌─────────────────────────────────────────────────────────────────┐
+│                    ★ CANVAS (State Manager) ★                   │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ OWNS:                                                    │  │
+│  │ • Current graph state (nodes, edges, positions)          │  │
+│  │ • Dirty tracking (what changed since last save)          │  │
+│  │ • View filters (5 view configurations)                   │  │
+│  │ • User session state (current view, zoom, focus)         │  │
+│  │                                                           │  │
+│  │ RESPONSIBILITIES:                                        │  │
+│  │ 1. Decide: Cache / Diff / Neo4j Fetch                    │  │
+│  │ 2. Apply user edits (Format E Diff)                      │  │
+│  │ 3. Apply LLM operations (Format E Diff)                  │  │
+│  │ 4. Broadcast changes to all connected users              │  │
+│  │ 5. Persist dirty nodes to Neo4j (on save/commit)         │  │
+│  │ 6. Provide canvas state to LLM (Format E serialization)  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  WebSocket Server: Broadcasts canvas updates to Terminal UI    │
+└────┬────────────────────┬───────────────┬──────────────────┬───┘
+     │                    │               │                  │
+     │ User Edit Diff     │ LLM Ops Diff  │ Persist         │ Serialize
+     │                    │               │                  │ Canvas State
+     ▼                    ▼               ▼                  ▼
+┌──────────┐    ┌──────────────────┐    ┌──────────────────────────┐
+│ Terminal │    │   LLM ENGINE     │    │   NEO4J DATABASE         │
+│   UI     │    │   (AgentDB)      │    │   (Long-term Storage)    │
+│          │    │                  │    │                          │
+│ Sends:   │    │ Receives:        │───▶│ Queries:                 │
+│ - Edits  │    │ - Canvas State   │◀───│ - Stats (node counts)    │
+│ - Cmds   │    │   (Format E)     │    │ - Historical versions    │
+│          │    │ - Chat History   │    │ - Cross-workspace data   │
+│          │    │                  │    │                          │
+│          │    │ Outputs:         │    │ Stores:                  │
+│          │    │ - Text Response  │    │ - workspaceId/systemId   │
+│          │    │ - Format E Diff  │    │ - chatId (audit trail)   │
+│          │    │   Operations     │    │ - Semantic IDs + UUIDs   │
+│          │    │                  │    │ - AuditLog nodes         │
+│          │    │                  │    │                          │
+│          │    │ Caching:         │    │ Chat History:            │
+│          │    │ - AgentDB        │    │ - Messages per chatId    │
+│          │    │ - Anthropic API  │    │ - Multi-turn context     │
+└──────────┘    └──────────────────┘    └──────────────────────────┘
+                          │
+                          │ Optional: Query Neo4j
+                          │ (for stats/history, not current graph)
+                          └──────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│              GRAPH ENGINE (Stateless Service)                   │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ Input: Canvas State (Format E) + View Config             │  │
+│  │                                                           │  │
+│  │ Processing:                                              │  │
+│  │ 1. Apply view filter (layout vs render nodes)            │  │
+│  │ 2. Extract ports from FLOW nodes                         │  │
+│  │ 3. Run layout algorithm (Reingold-Tilford, Sugiyama...)  │  │
+│  │ 4. Compute port positions                                │  │
+│  │ 5. Route edges (orthogonal, polyline, direct)            │  │
+│  │                                                           │  │
+│  │ Output: Positions + Port Positions + Edge Routes         │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  REST API: POST /api/layout/compute, GET /api/views/{id}       │
+│  Standalone-Capable: Yes (can be used as library)              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Core Components
+## 3. Dual Canvas Architecture (Graph + Chat)
 
-### 2.1 AI Assistant / LLM Engine ★
+### 3.1 The Canvas Pattern
 
-**Purpose**: Das Herzstück der Anwendung. Führt den Dialog, extrahiert Wissen, baut die Ontologie automatisch auf.
+**Pattern Definition**: Canvas is a state manager that owns working data, tracks changes, and decides persistence strategy.
 
-**Responsibilities**:
-1. **Conversation Moderation**
-   - Führt strukturierten SE-Dialog
-   - Stellt gezielte Fragen (INCOSE/ISO 29148)
-   - Erkennt Lücken im System-Verständnis
-   - Passt Fragestil an Benutzer-Expertise an
+**Shared Responsibilities** (applies to BOTH canvas types):
+1. **State Ownership**: Canvas owns the in-memory state (not Neo4j during active session)
+2. **Dirty Tracking**: Canvas tracks what changed since last save
+3. **Diff Application**: Canvas applies Format E Diff operations
+4. **Broadcasting**: Canvas broadcasts changes to connected users (WebSocket)
+5. **Persistence Decision**: Canvas decides when to save to Neo4j (cache/diff/fetch strategy)
+6. **Context Provision**: Canvas provides state to LLM in Format E
 
-2. **Ontology Extraction**
-   - Natürliche Sprache → Ontologie V3
-   - "Das System validiert Bestellungen" → `FUNC: ValidateOrder`
-   - "Der Kunde gibt eine Bestellung auf" → `ACTOR: Customer`, `UC: PlaceOrder`
-   - Erkennt Beziehungen automatisch
+### 3.2 Graph Canvas (Primary Focus)
 
-3. **Auto-Derivation**
-   - Use Case → Funktionen (Zerlegung)
-   - Requirements → Test Cases (Ableitung)
-   - Funktionen → I/O Flows (Datenfluss-Inferenz)
-   - Module → Funktions-Allokation
+**Purpose**: Manages ontology graph state (SYS, UC, FUNC, REQ, etc.)
 
-4. **Validation & Guidance**
-   - Prüft Ontologie V3 Regeln
-   - Erklärt Violations verständlich
-   - Schlägt Fixes vor
-   - Leitet Benutzer zur Korrektur
+**State Structure**:
+```typescript
+interface GraphCanvasState {
+    workspaceId: string;
+    systemId: string;  // Root SYS node semantic ID
+    currentView: 'hierarchy' | 'functional-flow' | 'requirements' | 'allocation' | 'use-case';
 
-**Technology**:
-- Anthropic Claude (primary)
-- OpenAI GPT-4 (fallback)
-- Streaming für Echtzeit-Feeling
-- Token-Management & Context-Window-Handling
+    // Graph data
+    nodes: Map<string, Node>;  // key = semantic ID
+    edges: Map<string, Edge>;
+    positions: Map<string, Position>;  // Layout positions
+
+    // Dirty tracking
+    dirtyNodes: Set<string>;
+    dirtyEdges: Set<string>;
+}
+```
+
+**Operations Accepted**:
+- User edits via Terminal UI (manual node/edge creation/deletion)
+- LLM-generated operations (from natural language)
+- Graph manipulation commands (copy/paste, bulk operations)
+
+**All operations use Format E Diff**:
+```
+<operations>
+<base_snapshot>UrbanMobilityVehicle.SY.001@v42</base_snapshot>
+<view_context>FunctionalFlow</view_context>
+
+## Nodes
++ NewNode|FUNC|NewNode.FN.002|Description [x:100,y:200]
+- OldNode.FN.003
+
+## Edges
++ Parent.SY.001 -cp-> NewNode.FN.002
+</operations>
+```
+
+### 3.3 Chat Canvas (Secondary Canvas)
+
+**Purpose**: Manages conversation state (messages between user and LLM)
+
+**State Structure**:
+```typescript
+interface ChatCanvasState {
+    chatId: string;
+    workspaceId: string;
+    systemId: string;  // Which graph this chat is about
+
+    // Chat data
+    messages: Message[];  // Chronological message list
+
+    // Dirty tracking
+    dirtyMessages: Set<string>;  // Message IDs not yet persisted
+}
+```
+
+**Message Structure**:
+```typescript
+interface Message {
+    messageId: string;
+    chatId: string;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    operations?: string;  // Format E Diff (if assistant message contains ops)
+    timestamp: Date;
+}
+```
+
+**Operations Accepted**:
+- User messages (typed in chat input)
+- LLM responses (streamed tokens + operations)
+
+**Chat Canvas ALSO uses Format E Diff** (for consistency):
+```
+<operations>
+<base_snapshot>chat-550e8400@msgCount:15</base_snapshot>
+
+## Messages
++ user|2025-11-17T10:30:00Z|Add payment processing function
++ assistant|2025-11-17T10:30:05Z|I'll add a payment function...|<operations>+ ProcessPayment|FUNC|...</operations>
+</operations>
+```
+
+**Why Format E for chat?**
+- Consistent protocol across entire system
+- Enables chat history diffs (undo/redo in conversation)
+- Token-efficient storage in AgentDB
+- Same parsing/validation infrastructure
+
+### 3.4 User Interaction Modes
+
+#### Mode 1: Natural Language (Chat Canvas → Graph Canvas)
+
+```
+User types in Chat Canvas:
+  "Add a payment processing function"
+      ↓
+Chat Canvas creates message diff:
+  <operations>
+  + user|timestamp|Add payment processing function
+  </operations>
+      ↓
+Chat Canvas forwards to LLM (with Graph Canvas state)
+      ↓
+LLM generates response WITH operations:
+  "I'll add a payment function<operations>+ ProcessPayment|FUNC|...</operations>"
+      ↓
+Chat Canvas stores message diff:
+  <operations>
+  + assistant|timestamp|I'll add...|<operations>...</operations>
+  </operations>
+      ↓
+Chat Canvas extracts graph operations and sends to Graph Canvas:
+  <operations>+ ProcessPayment|FUNC|...</operations>
+      ↓
+Graph Canvas applies diff, broadcasts to Terminal UI
+```
+
+#### Mode 2: Direct Graph Edit (Terminal UI → Graph Canvas)
+
+**Future Feature** (not in Terminal UI MVP, but architecture supports it):
+
+```
+User clicks "Add Node" button in graph editor
+      ↓
+Terminal UI generates diff:
+  <operations>
+  + ManualNode|FUNC|ManualNode.FN.099|Manually created [x:mouse_x,y:mouse_y]
+  </operations>
+      ↓
+Graph Canvas applies diff
+      ↓
+Graph Canvas broadcasts to all users (including Chat Canvas for audit)
+      ↓
+Chat Canvas OPTIONALLY logs:
+  <operations>
+  + system|timestamp|User added ManualNode via graph editor
+  </operations>
+```
+
+**Key Point**: Whether user types in chat OR directly edits graph, the protocol is the same (Format E Diff).
+
+### 3.5 Universal Diff Protocol
+
+**ALL changes in the system use Format E Diff format**:
+
+| Source | Destination | Diff Content |
+|--------|-------------|--------------|
+| User (chat input) | Chat Canvas | Message addition |
+| LLM | Chat Canvas | Message addition (with embedded graph ops) |
+| LLM | Graph Canvas | Graph operations (extracted from message) |
+| User (graph edit) | Graph Canvas | Node/edge changes |
+| Graph Canvas | Neo4j | Dirty nodes/edges |
+| Chat Canvas | Neo4j | Dirty messages |
+| Canvas (any) | Terminal UI | Broadcast updates |
+| Canvas (any) | AgentDB | State snapshots |
+
+**Benefits**:
+1. **Single Parser**: One Format E parser handles all diffs
+2. **Single Validator**: One validation engine for all operations
+3. **Unified Audit Log**: All changes logged in same format
+4. **Undo/Redo**: Works across graph AND chat (replay diffs)
+5. **Token Efficiency**: 74% reduction applies to ALL state transfers
 
 ---
 
-### 2.2 Frontend Layer
+## 4. Component Specifications
 
-**Purpose**: 3 synchronisierte Ansichten derselben Daten.
+### 4.1 Canvas State Manager (Dual Instance)
 
-**Chat Canvas**:
-- Natürlichsprachige Konversation mit AI
-- Streaming-Antworten (token-by-token)
-- Editierbare AI-Ausgaben
-- Markdown & Code-Highlighting
+**Deployment**: TWO Canvas instances per session:
+```typescript
+// Single session has TWO canvases
+interface Session {
+    graphCanvas: GraphCanvasState;
+    chatCanvas: ChatCanvasState;
+}
 
-**Text Canvas**:
-- Tabellarische Ansicht aller Ontologie-Elemente
-- Inline-Editing für manuelle Korrekturen
-- Filter, Sortierung, Export
-- Requirements Document Generator
-
-**Graph Canvas**:
-- Visuelle Graph-Darstellung (Cytoscape.js)
-- Interaktive Manipulation (Drag & Drop)
-- Layout-Algorithmen (Hierarchisch, Force-Directed)
-- Validierungs-Highlighting
-
----
-
-### 2.3 Canvas Synchronization Engine
-
-**Purpose**: Hält alle 3 Canvas synchron, auch bei Multi-User.
-
-**Diff Algorithm**:
-- Berechnet minimale Änderungen (Δ)
-- Vermeidet Full-State-Transfers
-- <50ms Performance-Ziel
-
-**Operational Transform**:
-- Löst Konflikte bei gleichzeitigen Edits
-- 3 Strategien: Last-Write-Wins, Merge, Priority-Based
-- Erhält User-Intent
-
-**Optimistic Updates**:
-- Sofortiges UI-Feedback
-- Rollback bei Server-Rejection
-- 3s Timeout mit Retry
-
----
-
-### 2.4 WebSocket Server
-
-**Purpose**: Echtzeit-Kommunikation für Multi-User und AI-Streaming.
-
-**Features**:
-- Room-basierte Sessions (max 10 User/Room)
-- Presence Tracking (Cursor-Position, Activity)
-- AI Response Streaming (token-by-token)
-- Automatic Reconnection
-
----
-
-### 2.5 Backend API
-
-**Purpose**: Business Logic, Validierung, Datenzugriff.
-
-**Routes**:
-- `/api/nodes/*` - CRUD für alle Node-Typen
-- `/api/relationships/*` - Relationship-Management
-- `/api/assistant/*` - AI-Assistant Endpoints ★
-- `/api/validation/*` - Ontologie-Validierung
-
-**Middleware**:
-- Authentication (JWT) - noch zu implementieren
-- Audit Logging (alle Operationen)
-- Error Handling (zentralisiert)
-- Rate Limiting (DoS-Protection)
-
----
-
-### 2.6 Neo4j Graph Database
-
-**Purpose**: Persistierung der Ontologie V3 Struktur.
-
-**Schema**:
-- 10 Node-Typen mit Properties
-- 6 Relationship-Typen mit Constraints
-- Indexes für Performance
-- Conversation History (Audit Trail)
-
----
-
-## 3. Primary Data Flows
-
-### 3.1 AI-Guided Node Creation ★
-
-```
-1. User Types Message
-   "Das System soll Bestellungen validieren"
-   │
-   ▼
-2. Frontend → AI Assistant
-   POST /api/assistant/chat
-   { message: "Das System soll...", context: {...} }
-   │
-   ▼
-3. AI Assistant Processing
-   ┌────────────────────────────────────┐
-   │ a) Conversation Management          │
-   │    → Verstehe Intent                │
-   │    → Aktualisiere Context           │
-   │                                     │
-   │ b) Ontology Extraction              │
-   │    → Erkenne: FUNC: ValidateOrder   │
-   │    → Erkenne: Relation zu UC        │
-   │                                     │
-   │ c) Generate Response                │
-   │    → "Ich habe die Funktion         │
-   │       'ValidateOrder' erstellt..."  │
-   │                                     │
-   │ d) Create Operations                │
-   │    → CREATE (f:FUNC {              │
-   │         uuid: "...",                │
-   │         Name: "ValidateOrder",      │
-   │         Descr: "Validates orders"   │
-   │       })                            │
-   └────────────────────────────────────┘
-   │
-   ▼
-4. Stream Response to Frontend
-   WebSocket: token-by-token streaming
-   │
-   ▼
-5. Execute Operations in Background
-   Canvas Sync Engine → Backend API → Neo4j
-   │
-   ▼
-6. Update All Canvas
-   - Chat: AI Response anzeigen
-   - Text: Neue Zeile in Functions-Tabelle
-   - Graph: Neuer FUNC-Node erscheint
-   │
-   ▼
-7. Broadcast to Other Users
-   WebSocket → alle Teilnehmer in Room
+const session = createSession(workspaceId, systemId, chatId);
 ```
 
----
+**Shared Implementation** (base class):
+```typescript
+abstract class CanvasBase {
+    protected parser: FormatEParser;
+    protected validator: FormatEValidator;
+    protected neo4jClient: Neo4jClient;
+    protected dirty: Set<string>;
 
-### 3.2 Auto-Derivation Flow ★
+    async applyDiff(diff: FormatEDiff): Promise<DiffResult> {
+        // Parse and apply Format E diff
+        const operations = this.parser.parseDiff(diff);
 
-```
-1. User Confirms Use Case
-   "Ja, der Use Case ist komplett"
-   │
-   ▼
-2. AI Assistant Triggers Derivation
-   POST /api/assistant/derive
-   { type: "functions", sourceUuid: "uc-123" }
-   │
-   ▼
-3. Derivation Engine
-   ┌────────────────────────────────────┐
-   │ a) Analyze Use Case                 │
-   │    MATCH (uc:UC {uuid: "uc-123"})  │
-   │    RETURN uc.Name, uc.Descr         │
-   │                                     │
-   │ b) LLM: Decompose into Functions    │
-   │    Prompt: "Decompose 'PlaceOrder'  │
-   │    into functions using SE best     │
-   │    practices..."                    │
-   │                                     │
-   │ c) LLM Response                      │
-   │    Functions:                        │
-   │    - ValidateCustomer               │
-   │    - CheckInventory                 │
-   │    - CreateOrder                    │
-   │    - ProcessPayment                 │
-   │                                     │
-   │ d) Create Nodes & Relationships      │
-   │    CREATE (f1:FUNC {Name: "..."})   │
-   │    CREATE (uc)-[:compose]->(f1)     │
-   └────────────────────────────────────┘
-   │
-   ▼
-4. Validate Created Elements
-   Ontology Validator → Check alle 12 Regeln
-   │
-   ▼
-5. Update Frontend
-   WebSocket → Neue Functions in allen Canvas
-   │
-   ▼
-6. AI Follow-up
-   "Ich habe 4 Funktionen abgeleitet.
-    Sollen wir die I/O Flows definieren?"
-```
+        // Validate
+        if (!this.validator.isValid(operations)) {
+            throw new ValidationError('...');
+        }
 
----
+        // Apply
+        for (const op of operations) {
+            this.applyOperation(op);
+        }
 
-### 3.3 Validation & Correction Flow
+        // Mark dirty
+        this.markDirty(operations.affectedIds);
 
-```
-1. AI Detects Potential Issue
-   (während Conversation oder explizit getriggert)
-   │
-   ▼
-2. Run Validation
-   POST /api/validation/graph
-   │
-   ▼
-3. Ontology Validator
-   Execute 12 Rules → Return Violations
-   │
-   ▼
-4. AI Interprets Violations
-   ┌────────────────────────────────────┐
-   │ Violation: Function "ValidateOrder"│
-   │ has no input FLOW                  │
-   │                                     │
-   │ AI Analysis:                        │
-   │ → User vergaß Input zu spezifizieren│
-   │ → Frage gezielt nach Input          │
-   │                                     │
-   │ Generated Response:                 │
-   │ "Die Funktion 'ValidateOrder'       │
-   │  braucht noch einen Input.          │
-   │  Welche Daten kommen rein?"         │
-   └────────────────────────────────────┘
-   │
-   ▼
-5. User Responds
-   "Die Bestelldaten vom Kunden"
-   │
-   ▼
-6. AI Creates Missing Elements
-   CREATE (flow:FLOW {Name: "OrderData"})
-   CREATE (flow)-[:io]->(func)
-   │
-   ▼
-7. Re-Validate
-   → Green ✓
+        // Broadcast
+        this.broadcastUpdate(diff, { source: '...' });
+
+        return { success: true };
+    }
+
+    async persistToNeo4j(force: boolean = false): Promise<PersistResult> {
+        // Save dirty state to Neo4j
+        if (!force && this.dirty.size === 0) {
+            return { skipped: true };
+        }
+
+        // Get dirty items
+        const dirtyItems = this.getDirtyItems();
+
+        // Persist
+        await this.neo4jClient.saveBatch(dirtyItems);
+
+        // Create audit log
+        await this.neo4jClient.createAuditLog({
+            chatId: this.chatId,
+            diff: this.serializeDirtyAsDiff(),
+            action: 'persist'
+        });
+
+        // Clear dirty tracking
+        this.dirty.clear();
+
+        return { success: true, savedCount: dirtyItems.length };
+    }
+
+    protected abstract applyOperation(op: Operation): void;
+}
 ```
 
----
+**Graph Canvas Specialization**:
+```typescript
+class GraphCanvas extends CanvasBase {
+    private nodes: Map<string, Node>;
+    private edges: Map<string, Edge>;
 
-### 3.4 Multi-User Collaboration Flow
-
-```
-User 1 (Chat)              AI Assistant           User 2 (Graph)
-    │                          │                        │
-    │ "Add function X"         │                        │
-    ├─────────────────────────>│                        │
-    │                          │                        │
-    │                     (Process)                     │
-    │                          │                        │
-    │                    Create FUNC:X                  │
-    │                          │                        │
-    │                          ├───────> WebSocket ────>│
-    │<──── Response Stream ────┤         Broadcast      │
-    │                          │                        │
-    │ Sieht: "Funktion X       │         User 2 sieht:  │
-    │ wurde erstellt"          │         Neuer Node X   │
-    │                          │         erscheint      │
-    │                          │                        │
-    │                          │                   User 2 drag Node
-    │                          │<────── WebSocket ──────┤
-    │<──── Position Update ────┤         Position       │
-    │                          │         changed        │
-    │                          │                        │
-    │ User 1 sieht in          │                        │
-    │ Graph Canvas:            │                        │
-    │ Node X bewegt sich       │                        │
+    protected applyOperation(op: Operation): void {
+        switch (op.type) {
+            case 'add_node':
+                this.nodes.set(op.semanticId, op.node);
+                break;
+            case 'remove_node':
+                this.nodes.delete(op.semanticId);
+                break;
+            // ... edges, updates
+        }
+    }
+}
 ```
 
----
+**Chat Canvas Specialization**:
+```typescript
+class ChatCanvas extends CanvasBase {
+    private messages: Message[];
+    private graphCanvas: GraphCanvas;
 
-### 3.5 Requirements → Test Derivation Flow
+    protected applyOperation(op: Operation): void {
+        if (op.type === 'add_message') {
+            this.messages.push(op.message);
 
-```
-1. User Specifies Requirement
-   "Das System muss Eingaben validieren"
-   │
-   ▼
-2. AI Creates REQ Node
-   CREATE (r:REQ {
-     Name: "InputValidation",
-     Descr: "System must validate all inputs"
-   })
-   │
-   ▼
-3. AI Asks Follow-up
-   "Welche Art von Validierung?
-    - Format-Prüfung
-    - Range-Prüfung
-    - Business Rules"
-   │
-   ▼
-4. User Specifies
-   "Format und Business Rules"
-   │
-   ▼
-5. AI Derives Test Cases
-   ┌────────────────────────────────────┐
-   │ Analyze Requirement Type            │
-   │ → Functional Requirement            │
-   │                                     │
-   │ Apply Pattern:                      │
-   │ Functional REQ → Unit Tests         │
-   │                                     │
-   │ Generate:                            │
-   │ - Test: ValidFormatAccepted         │
-   │ - Test: InvalidFormatRejected       │
-   │ - Test: BusinessRuleEnforced        │
-   │                                     │
-   │ CREATE (t1:TEST {...})              │
-   │ CREATE (r)-[:verify]-(t1)           │
-   └────────────────────────────────────┘
-   │
-   ▼
-6. Validate
-   Rule: "Each REQ must have ≥1 TEST" ✓
-   │
-   ▼
-7. Show in UI
-   Text Canvas: 3 neue Test-Zeilen
-   Graph Canvas: 3 TEST-Nodes mit verify-Edges
+            // If message contains graph operations, forward to Graph Canvas
+            if (op.message.operations) {
+                this.graphCanvas.applyDiff(op.message.operations);
+            }
+        }
+    }
+}
 ```
 
----
+### 4.2 Terminal UI (Renders Both Canvases)
 
-## 4. Technology Stack
-
-### 4.1 Frontend
-- **Framework**: React 18 with TypeScript
-- **State Management**: Zustand (global), React Hooks (local)
-- **Graph Visualization**: Cytoscape.js
-- **Real-time**: WebSocket (ws)
-- **Markdown**: react-markdown with remark-gfm
-- **Build**: Vite
-
-### 4.2 AI / LLM
-- **Primary**: Anthropic Claude (Claude 3.5 Sonnet)
-- **Fallback**: OpenAI GPT-4
-- **Streaming**: Server-Sent Events (SSE) or WebSocket
-- **Context**: Sliding window with summarization
-- **Prompting**: System prompts + Few-shot examples
-
-### 4.3 Backend
-- **Framework**: Express.js with TypeScript
-- **WebSocket**: ws library
-- **Validation**: Joi schemas
-- **Logging**: Winston
-- **Security**: Helmet, CORS, Rate Limiting
-
-### 4.4 Database
-- **Graph DB**: Neo4j 5.x Community Edition
-- **Driver**: neo4j-driver (official)
-- **Query Language**: Cypher
-
-### 4.5 Infrastructure
-- **Containerization**: Docker & Docker Compose
-- **Development**: ts-node-dev (hot reload)
-- **Testing**: Jest, Vitest, React Testing Library
-
----
-
-## 5. Security Architecture
-
-### 5.1 Authentication Flow (To Be Implemented)
-
+**Layout**:
 ```
-User Login
-   │
-   ▼
-Backend: Verify Credentials
-   │
-   ▼
-Issue JWT Token
-   │
-   ▼
-Frontend: Store Token (HttpOnly Cookie)
-   │
-   ▼
-All Requests: Include Token
-   │
-   ▼
-Backend Middleware: Verify Token
-   │
-   ├─ Valid → Continue
-   └─ Invalid → 401 Unauthorized
+┌─────────────────────────────────────────────────────────┐
+│ Terminal UI                                             │
+│                                                         │
+│ ┌─────────────────────┐  ┌──────────────────────────┐ │
+│ │  Chat Canvas        │  │  Graph Canvas            │ │
+│ │  (left panel)       │  │  (right panel)           │ │
+│ │                     │  │                          │ │
+│ │ User: Add payment   │  │    ┌────────────┐       │ │
+│ │ LLM: I'll add...    │  │    │ TestSystem │       │ │
+│ │ [_______________]   │  │    └─────┬──────┘       │ │
+│ │      ^ input        │  │          │              │ │
+│ │                     │  │    ┌─────▼──────┐       │ │
+│ │                     │  │    │ TestFunc   │       │ │
+│ │                     │  │    └────────────┘       │ │
+│ └─────────────────────┘  └──────────────────────────┘ │
+│                                                         │
+│ [View: Hierarchy ▼] [Save] [Undo] [Redo]              │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 Security Measures
+**Both panels update via WebSocket**:
+- Chat Canvas broadcasts → Left panel updates
+- Graph Canvas broadcasts → Right panel updates
 
-**Current**:
-- ✅ Helmet (Security Headers)
-- ✅ CORS (Cross-Origin Control)
-- ✅ Rate Limiting (100 req/min)
-- ✅ Input Validation (Joi)
-- ✅ Parameterized Queries (SQL Injection Prevention)
+### 4.3 Format E Diff Validator
 
-**To Be Added**:
-- ⚠️ JWT Authentication
-- ⚠️ Role-Based Access Control (RBAC)
-- ⚠️ API Key Management (for LLM)
-- ⚠️ Audit Logging (sensitive operations)
+**Single validator for ALL diffs** (graph + chat):
 
----
+```typescript
+class FormatEDiffValidator {
+    private parser: FormatEParser;
 
-## 6. Performance Characteristics
+    validate(diff: string, context: 'graph' | 'chat'): ValidationResult {
+        // Parse
+        const operations = this.parser.parseDiff(diff);
 
-| Component | Target | Achieved | Notes |
-|-----------|--------|----------|-------|
-| **AI Response Start** | <500ms | ~200ms | Time to first token |
-| **AI Streaming** | <50ms/token | ~20ms/token | Token delivery |
-| **Ontology Extraction** | <2s | ~1s | NLP → Nodes |
-| **REST API** | <100ms | ~50ms | CRUD operations |
-| **WebSocket Latency** | <50ms | 5-15ms | Message delivery |
-| **Canvas Sync** | <50ms | 5-15ms | Diff computation |
-| **Validation (1000 nodes)** | <2s | <2s | All 12 rules |
-| **Auto-Derivation** | <3s | ~2s | UC → Functions |
+        // Syntax validation (universal)
+        if (!this.validateSyntax(operations)) {
+            return { valid: false, errors: ['...'] };
+        }
 
----
+        // Semantic validation (context-specific)
+        if (context === 'graph') {
+            return this.validateGraphOperations(operations);
+        } else if (context === 'chat') {
+            return this.validateChatOperations(operations);
+        }
+    }
 
-## 7. Scalability
+    private validateGraphOperations(ops: Operations): ValidationResult {
+        // Validate against ontology rules
+        for (const op of ops.addNodes) {
+            // Check node type valid
+            if (!VALID_NODE_TYPES.includes(op.node.type)) {
+                return {
+                    valid: false,
+                    errors: [`Invalid type ${op.node.type}`]
+                };
+            }
 
-### 7.1 Current Limits
-- **Concurrent Users per Room**: 10
-- **Nodes per Graph**: ~10,000 (UI performance)
-- **WebSocket Connections**: ~1,000 (single server)
-- **LLM Requests**: Limited by API quota
+            // Check semantic ID format
+            if (!SEMANTIC_ID_PATTERN.test(op.node.semanticId)) {
+                return {
+                    valid: false,
+                    errors: ['Invalid semantic ID']
+                };
+            }
 
-### 7.2 Scaling Strategy
+            // Check ontology rules (e.g., FUNC must have IO)
+            // ...
+        }
+        return { valid: true, errors: [] };
+    }
 
-**Horizontal Scaling**:
-- Load Balancer → Multiple Backend Instances
-- Redis for WebSocket session sharing
-- Neo4j Cluster (Enterprise Edition)
+    private validateChatOperations(ops: Operations): ValidationResult {
+        // Validate chat message operations
+        for (const op of ops.addMessages) {
+            // Check role valid
+            const validRoles = ['user', 'assistant', 'system'] as const;
+            if (!validRoles.includes(op.message.role)) {
+                return {
+                    valid: false,
+                    errors: ['Invalid role']
+                };
+            }
 
-**Vertical Scaling**:
-- Increase server resources
-- Optimize Cypher queries
-- Index critical paths
-
-**LLM Scaling**:
-- Queue system for LLM requests
-- Caching for common questions
-- Local model for simple tasks
-
----
-
-## 8. Deployment Architecture
-
-### 8.1 Development
-
-```
-Developer Machine
-├── Frontend (Vite Dev Server) :5173
-├── Backend (ts-node-dev) :3001
-└── Neo4j (Docker) :7474/:7687
-```
-
-### 8.2 Production (Proposed)
-
-```
-Load Balancer (NGINX)
-    │
-    ├─> Frontend (Static Files)
-    │   Served via CDN
-    │
-    └─> Backend Cluster
-        ├─> Instance 1 :3001
-        ├─> Instance 2 :3001
-        └─> Instance N :3001
-            │
-            ├─> Redis (Session Store)
-            ├─> Neo4j Cluster
-            └─> LLM API (Anthropic/OpenAI)
+            // Check timestamp format
+            // Check content not empty
+            // ...
+        }
+        return { valid: true, errors: [] };
+    }
+}
 ```
 
 ---
 
-## 9. Error Handling & Resilience
+## 5. Data Flow Examples (Updated)
 
-### 9.1 AI Assistant Failures
+### 5.1 User Types in Chat → Graph Updates
 
-| Error | Handling |
-|-------|----------|
-| **LLM API Down** | Fallback to secondary provider (GPT-4) |
-| **Rate Limit** | Queue request, notify user of delay |
-| **Invalid Response** | Retry with adjusted prompt |
-| **Timeout** | Show partial response, offer retry |
+```
+1. User types: "Add payment function"
+   Terminal UI (Chat Panel) → Chat Canvas
 
-### 9.2 Database Failures
+2. Chat Canvas creates message diff:
+   <operations>
+   + user|2025-11-17T10:30:00Z|Add payment function
+   </operations>
 
-| Error | Handling |
-|-------|----------|
-| **Connection Lost** | Auto-reconnect (exponential backoff) |
-| **Query Timeout** | Cancel, show error, suggest simplification |
-| **Constraint Violation** | Return validation error with explanation |
+3. Chat Canvas applies diff (stores user message)
 
-### 9.3 WebSocket Failures
+4. Chat Canvas forwards to LLM:
+   POST /api/llm/chat {
+     message: "Add payment function",
+     canvasState: "<Graph Canvas serialized as Format E>",
+     chatHistory: "<Chat Canvas serialized as Format E>"
+   }
 
-| Error | Handling |
-|-------|----------|
-| **Disconnect** | Auto-reconnect, restore session |
-| **Message Loss** | Detect via sequence numbers, request resync |
-| **Room Full** | Queue user, notify when slot available |
+5. LLM responds (streaming):
+   "I'll add a payment function<operations>+ ProcessPayment|FUNC|...</operations>"
+
+6. Chat Canvas receives response chunks:
+   a) Text chunks → Chat Panel displays incrementally
+   b) Operations tag detected → Extract graph diff
+
+7. Chat Canvas stores assistant message:
+   <operations>
+   + assistant|2025-11-17T10:30:05Z|I'll add...|<operations>+ ProcessPayment|FUNC|...</operations>
+   </operations>
+
+8. Chat Canvas extracts graph operations and forwards to Graph Canvas:
+   <operations>
+   + ProcessPayment|FUNC|ProcessPayment.FN.002|...
+   </operations>
+
+9. Graph Canvas applies diff, broadcasts to Terminal UI (Graph Panel)
+
+10. Terminal UI (Graph Panel) requests layout, renders updated graph
+```
+
+### 5.2 User Edits Graph Directly (Future)
+
+```
+1. User clicks "Add Node" in Graph Panel
+   Terminal UI generates diff:
+   <operations>
+   + ManualNode|FUNC|ManualNode.FN.099|Created manually [x:300,y:200]
+   </operations>
+
+2. Terminal UI → Graph Canvas (WebSocket):
+   {
+     type: "user-edit",
+     diff: "<operations>...</operations>",
+     source: "graph-editor"
+   }
+
+3. Graph Canvas applies diff, broadcasts to all users
+
+4. Graph Canvas OPTIONALLY notifies Chat Canvas:
+   "User manually added node ManualNode"
+
+5. Chat Canvas OPTIONALLY creates system message:
+   <operations>
+   + system|timestamp|Graph edited: ManualNode added
+   </operations>
+
+6. Both panels update in all connected Terminal UIs
+```
 
 ---
 
-## 10. Future Enhancements
+## 6. Key Architectural Decisions (Updated)
 
-### 10.1 Short-term (1-3 months)
-- ✅ JWT Authentication
-- ✅ User Management
-- ✅ AI Response Caching
-- ✅ Template Library (common systems)
-- ✅ Offline Mode (IndexedDB)
-
-### 10.2 Medium-term (3-6 months)
-- ⚙️ Voice Input (Speech-to-Text)
-- ⚙️ Multi-Language Support
-- ⚙️ Mobile App (React Native)
-- ⚙️ Advanced Analytics Dashboard
-- ⚙️ Integration with Jira/Azure DevOps
-
-### 10.3 Long-term (6-12 months)
-- 🔮 AI-Powered Architecture Suggestions
-- 🔮 Automatic Code Generation from Functions
-- 🔮 Simulation & What-If Analysis
-- 🔮 Collaborative Workshops (Video Integration)
-- 🔮 Enterprise SSO (SAML, OAuth)
+1. ✅ **Dual Canvas Pattern**: Graph Canvas + Chat Canvas (same state manager pattern)
+2. ✅ **Universal Diff Protocol**: Format E Diff for ALL changes (graph, chat, user edits, LLM ops)
+3. ✅ **Canvas Decides Persistence**: Not LLM, not Terminal UI - Canvas owns the decision
+4. ✅ **Semantic IDs Standard**: All communication uses semantic IDs (not UUIDs)
+5. ✅ **Chat IDs for Audit**: Every operation traceable to conversation
+6. ✅ **FLOW Nodes as Ports**: Not rendered as separate symbols
+7. ✅ **Two-Layer Caching**: Anthropic native + AgentDB persistent
+8. ✅ **Chat is ALSO a Canvas**: Same pattern, same diff format, same broadcast mechanism
 
 ---
 
-## 11. Conclusion
-
-AiSE Reloaded ist eine **AI-First** Anwendung, bei der der **AI Assistant** das zentrale Element ist. Die Ontologie V3 ist die interne Darstellung, aber der Benutzer interagiert primär über **natürliche Sprache**.
-
-**Kernprinzipien**:
-1. **AI führt** - Der Benutzer muss die Ontologie nicht kennen
-2. **Automatische Ableitung** - Die KI baut die Struktur im Hintergrund auf
-3. **3 Ansichten** - Derselbe Graph, 3 verschiedene Perspektiven
-4. **Real-time Collaboration** - Mehrere Benutzer, eine Wahrheit
-5. **Validation by Design** - Ontologie V3 immer konsistent
-
-**Der Unterschied zu traditionellen Tools**: Andere Tools erfordern SE-Expertise. AiSE Reloaded **vermittelt** SE-Wissen während der Nutzung.
-
----
-
-**Version History**:
-- 1.0.0 (Nov 2025) - Initial architecture with AI Assistant as core
+**End of Architecture Specification**

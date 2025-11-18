@@ -1,0 +1,47 @@
+{
+  "name": "@graphengine/core",
+  "version": "2.0.0",
+  "description": "LLM-driven Systems Engineering platform with Canvas-centric architecture",
+  "author": "andreas@siglochconsulting",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "./graphengine.sh",
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc --noEmit && tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --testNamePattern=unit",
+    "test:integration": "vitest run --testNamePattern=integration",
+    "test:e2e": "vitest run --testNamePattern=e2e",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src tests --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "validate": "npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@fastify/websocket": "^10.0.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^4.28.0",
+    "ink": "^5.0.0",
+    "neo4j-driver": "^5.28.2",
+    "react": "^18.3.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/react": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}
