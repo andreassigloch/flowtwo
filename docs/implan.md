@@ -247,11 +247,25 @@ Config exists but not implemented:
 ## Phase 4: Terminal UI ✅ COMPLETE (100%)
 
 ### Status
-- ✅ Chat interface (Textual/Ink)
-- ✅ Graph canvas rendering (tmux-based)
-- ✅ WebSocket client for Canvas communication
-- ✅ View switching (dropdown/command)
-- ✅ Message streaming (token-by-token)
+- ✅ Chat interface (readline-based, clean conversation UI)
+- ✅ Graph visualization (ASCII tree, auto-refresh)
+- ✅ Application logging (separate STDOUT terminal)
+- ✅ 3-terminal architecture (macOS Terminal.app windows)
+- ✅ IPC via shared state file (polling-based, simple and debuggable)
+- ✅ View context tracking (hierarchy, functional, requirements, allocation, usecase)
+- ✅ LLM integration with streaming responses
+
+### Implementation Details
+**Architecture**: 3 separate terminals instead of tmux panels
+- **Terminal 1 (STDOUT)**: `tail -f /tmp/graphengine.log` - all debug output, LLM usage stats
+- **Terminal 2 (GRAPH)**: ASCII visualization polling `/tmp/graphengine-state.json` every 500ms
+- **Terminal 3 (CHAT)**: Clean readline interface for user interaction
+
+**Key Decisions**:
+- Abandoned tmux due to quote escaping complexity
+- Simple shared file IPC (debuggable, no FIFO/WebSocket needed for MVP)
+- Clean separation: logs, visualization, interaction
+- Ontology V3 compliant: only compose edges create hierarchy indentation
 
 ### Enhancements (Post-MVP)
 1. Interactive graph editing (node/edge creation via UI)

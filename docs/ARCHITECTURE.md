@@ -2,8 +2,17 @@
 
 **Version:** 2.0.0 Greenfield
 **Author:** andreas@siglochconsulting
-**Date:** 2025-11-17
-**Status:** Design Specification (No Implementation)
+**Date:** 2025-11-17 (Updated: 2025-11-18)
+**Status:** Design Specification + Partial Implementation
+
+**Implementation Status**:
+- ✅ Terminal UI (3-terminal architecture)
+- ✅ Canvas State Manager (Graph Canvas + Chat Canvas)
+- ✅ Format E Parser (Diff protocol)
+- ✅ LLM Engine (Anthropic integration with caching)
+- ✅ Neo4j Client (persistence layer)
+- ⏳ Graph Engine (layout algorithms - in progress)
+- ⏳ Multi-user sync (WebSocket broadcasting - planned)
 
 ---
 
@@ -419,33 +428,91 @@ class ChatCanvas extends CanvasBase {
 }
 ```
 
-### 4.2 Terminal UI (Renders Both Canvases)
+### 4.2 Terminal UI - 3-Terminal Architecture ✅ IMPLEMENTED
+
+**Implementation**: 3 separate Terminal.app windows (macOS native)
 
 **Layout**:
 ```
-┌─────────────────────────────────────────────────────────┐
-│ Terminal UI                                             │
-│                                                         │
-│ ┌─────────────────────┐  ┌──────────────────────────┐ │
-│ │  Chat Canvas        │  │  Graph Canvas            │ │
-│ │  (left panel)       │  │  (right panel)           │ │
-│ │                     │  │                          │ │
-│ │ User: Add payment   │  │    ┌────────────┐       │ │
-│ │ LLM: I'll add...    │  │    │ TestSystem │       │ │
-│ │ [_______________]   │  │    └─────┬──────┘       │ │
-│ │      ^ input        │  │          │              │ │
-│ │                     │  │    ┌─────▼──────┐       │ │
-│ │                     │  │    │ TestFunc   │       │ │
-│ │                     │  │    └────────────┘       │ │
-│ └─────────────────────┘  └──────────────────────────┘ │
-│                                                         │
-│ [View: Hierarchy ▼] [Save] [Undo] [Redo]              │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+│ Terminal 1: STDOUT   │  │ Terminal 2: GRAPH    │  │ Terminal 3: CHAT     │
+│ (Application Logs)   │  │ (Visualization)      │  │ (Main Interaction)   │
+├──────────────────────┤  ├──────────────────────┤  ├──────────────────────┤
+│ [10:30:00] 🚀 Chat   │  │ ╔═══════════════════╗│  │ ╔═══════════════════╗│
+│   interface started  │  │ ║  GRAPH VIEWER     ║│  │ ║  CHAT INTERFACE   ║│
+│ [10:30:05] 📨 User:  │  │ ╚═══════════════════╝│  │ ╚═══════════════════╝│
+│   Add payment func   │  │                      │  │                      │
+│ [10:30:06] 🤖 LLM... │  │ ────────────────────│  │ Commands: /help,     │
+│ [10:30:08] 📊 LLM:   │  │ Graph Update: 10:30  │  │  /save, /stats, exit │
+│   Input: 150 tokens  │  │ View: hierarchy      │  │                      │
+│   Output: 85 tokens  │  │ Nodes: 5 | Edges: 4  │  │ You: Add payment     │
+│   Cache: 97% savings │  │ ────────────────────│  │                      │
+│ [10:30:09] 📊 Graph  │  │                      │  │ 🤖 Processing...     │
+│   updated (5 nodes)  │  │ └─[SYS] TestSystem   │  │                      │
+│ [10:30:09] 📝 Wrote  │  │   └─[UC] PaymentUC   │  │ Assistant: I'll add  │
+│   state to /tmp/...  │  │     └─[FUNC] Pay...  │  │ a payment function   │
+│ [10:30:09] ✅ Done   │  │                      │  │                      │
+│                      │  │ (Scroll to see hist) │  │ ✓ Graph updated:     │
+│ tail -f /tmp/        │  │                      │  │   5 nodes, 4 edges   │
+│   graphengine.log    │  │ Auto-refresh: 500ms  │  │                      │
+│                      │  │                      │  │ You: _               │
+└──────────────────────┘  └──────────────────────┘  └──────────────────────┘
 ```
 
-**Both panels update via WebSocket**:
-- Chat Canvas broadcasts → Left panel updates
-- Graph Canvas broadcasts → Right panel updates
+**Terminal 1 (STDOUT)**:
+- Command: `tail -f /tmp/graphengine.log`
+- Shows: All application logs with timestamps
+- Purpose: Debugging, monitoring, LLM usage statistics
+- Updates: Real-time as processes write to log file
+
+**Terminal 2 (GRAPH)**:
+- Command: `npx tsx src/terminal-ui/graph-viewer.ts`
+- Shows: ASCII tree visualization of graph
+- Features:
+  - Color-coded node types (SYS=magenta, UC=yellow, FUNC=green, REQ=red)
+  - Hierarchical tree using only compose edges (per Ontology V3)
+  - Scrollable history (updates append, no clear)
+  - Update timestamp on each refresh
+- Updates: Polls `/tmp/graphengine-state.json` every 500ms
+
+**Terminal 3 (CHAT)**:
+- Command: `npx tsx src/terminal-ui/chat-interface.ts`
+- Shows: User input and LLM text responses only
+- Features:
+  - Readline-based input (standard terminal input)
+  - Streaming LLM responses
+  - Commands: /help, /save, /stats, /view, /clear, exit
+  - Brief graph update status (silent, non-intrusive)
+- Updates: User-initiated, LLM responses
+
+**IPC Mechanism**: Shared state file (NOT WebSocket)
+```typescript
+// Chat interface writes after graph update
+fs.writeFileSync('/tmp/graphengine-state.json', JSON.stringify({
+  nodes: Array.from(graphCanvas.getState().nodes.entries()),
+  edges: Array.from(graphCanvas.getState().edges.entries()),
+  ports: Array.from(graphCanvas.getState().ports.entries()),
+  currentView: state.currentView,
+  timestamp: Date.now()
+}));
+
+// Graph viewer polls and detects changes
+setInterval(async () => {
+  const stateData = JSON.parse(fs.readFileSync('/tmp/graphengine-state.json'));
+  if (stateData.timestamp > lastTimestamp) {
+    await graphCanvas.loadGraph({ nodes, edges, ports });
+    render();
+  }
+}, 500);
+```
+
+**Advantages of 3-Terminal Approach**:
+1. **Simple**: No tmux complexity, no quote escaping issues
+2. **Debuggable**: Each process independent, easy to inspect
+3. **Native**: Uses macOS Terminal.app (familiar UX)
+4. **Scrollable**: Full terminal history, Cmd+K to clear
+5. **Clean Separation**: Logs, visualization, interaction clearly separated
+6. **Fast Evaluation**: Immediately see if system works (goal: easy evaluation)
 
 ### 4.3 Format E Diff Validator
 

@@ -25,11 +25,36 @@
 
 ### FR-1: Natural Language Interface
 
-#### FR-1.1: Terminal UI Chat Interface
+#### FR-1.1: Terminal UI Chat Interface ✅ IMPLEMENTED
 - User MUST be able to type natural language commands/questions in a terminal-based UI
 - System MUST stream LLM responses in real-time (token-by-token)
 - System MUST support multi-turn conversations with context retention
 - System MUST display chat history within session
+
+**Implementation**: 3-Terminal Architecture (macOS Terminal.app windows)
+- **Terminal 1 (STDOUT)**: Application logs, LLM usage statistics, debug output
+  - Uses `tail -f /tmp/graphengine.log` for real-time log viewing
+  - All components write to shared log file with timestamps
+- **Terminal 2 (GRAPH)**: ASCII graph visualization with auto-refresh
+  - Displays hierarchical tree using compose edges only (per Ontology V3)
+  - Polls `/tmp/graphengine-state.json` every 500ms for updates
+  - Color-coded node types (SYS, UC, FCHAIN, FUNC, REQ, etc.)
+  - Scrollable history (no console.clear on updates)
+- **Terminal 3 (CHAT)**: Clean conversation interface
+  - Readline-based input/output
+  - Shows user messages and LLM text responses only
+  - Brief status updates for graph changes (e.g., "✓ Graph updated: 5 nodes")
+  - No debug output, no LLM usage stats (redirected to Terminal 1)
+
+**IPC Mechanism**: Shared state file (`/tmp/graphengine-state.json`)
+- Chat interface writes graph state after LLM operations
+- Graph viewer polls file and reloads on timestamp change
+- Simple, debuggable, no FIFO/WebSocket complexity
+
+**Launcher**: `./launch-3terminals.sh`
+- Uses osascript to spawn 3 separate Terminal.app windows
+- Each terminal runs independent TypeScript process
+- Clean separation of concerns for easy evaluation
 
 #### FR-1.2: LLM-Guided System Definition
 - LLM MUST guide users through SE methodology (INCOSE/SysML 2.0-inspired)
