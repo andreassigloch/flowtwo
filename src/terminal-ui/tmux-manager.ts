@@ -82,25 +82,34 @@ export class TmuxManager {
     await execAsync(`tmux set-option -t ${this.sessionName} history-limit 10000`);
 
     // Split into 4 panels
-    // 1. Split vertically (left | right)
+    // Layout goal:
+    // ┌─────────┬─────────┐
+    // │ CHAT(0) │ GRAPH(1)│
+    // ├─────────┼─────────┤
+    // │ VIEW(2) │STDOUT(3)│
+    // └─────────┴─────────┘
+
+    // 1. Split vertically (left | right) - creates pane 1
     await execAsync(`tmux split-window -h -t ${this.sessionName}:0`);
+    // Now: pane 0 (left) | pane 1 (right)
 
-    // 2. Split left pane horizontally (chat above, view below)
+    // 2. Split left pane horizontally (chat above, view below) - creates pane 2
     await execAsync(`tmux split-window -v -t ${this.sessionName}:0.0`);
+    // Now: pane 0 (chat) above pane 2 (view) | pane 1 (graph)
 
-    // 3. Split right pane horizontally (graph above, stdout below)
-    await execAsync(`tmux split-window -v -t ${this.sessionName}:0.2`);
+    // 3. Split right pane horizontally (graph above, stdout below) - creates pane 3
+    await execAsync(`tmux split-window -v -t ${this.sessionName}:0.1`);
+    // Now: pane 0 (chat) | pane 1 (graph)
+    //      pane 2 (view) | pane 3 (stdout)
 
     // Resize panes for optimal layout
-    // Left column: 50%, Right column: 50%
-    // Chat: 70% height, View: 30% height
-    // Graph: 70% height, Stdout: 30% height
     await execAsync(`tmux select-layout -t ${this.sessionName}:0 tiled`);
 
-    // Store panel IDs (0.0=chat, 0.1=view, 0.2=graph, 0.3=stdout)
+    // Store actual panel IDs
+    // After splits: 0=chat(top-left), 1=graph(top-right), 2=view(bottom-left), 3=stdout(bottom-right)
     this.panelIds.set(TmuxPanel.CHAT, `${this.sessionName}:0.0`);
-    this.panelIds.set(TmuxPanel.VIEW, `${this.sessionName}:0.1`);
-    this.panelIds.set(TmuxPanel.GRAPH, `${this.sessionName}:0.2`);
+    this.panelIds.set(TmuxPanel.GRAPH, `${this.sessionName}:0.1`);
+    this.panelIds.set(TmuxPanel.VIEW, `${this.sessionName}:0.2`);
     this.panelIds.set(TmuxPanel.STDOUT, `${this.sessionName}:0.3`);
 
     // Set panel titles

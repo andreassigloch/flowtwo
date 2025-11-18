@@ -156,22 +156,38 @@ export class GraphEngineApp {
       return;
     }
 
-    // Open FIFO for reading (non-blocking)
+    // Open FIFO for reading (continuously reopen after each message)
     const fifoPath = '/tmp/graphengine-input.fifo';
 
     // Process messages from FIFO in background
-    setImmediate(async () => {
-      const stream = fs.createReadStream(fifoPath, { encoding: 'utf8' });
-      const rl = readline.createInterface({
-        input: stream,
-        crlfDelay: Infinity,
-      });
+    const readMessages = async () => {
+      while (true) {
+        try {
+          // Open FIFO for reading (blocks until writer opens)
+          const stream = fs.createReadStream(fifoPath, { encoding: 'utf8' });
+          const rl = readline.createInterface({
+            input: stream,
+            crlfDelay: Infinity,
+          });
 
-      for await (const line of rl) {
-        if (line.trim()) {
-          await this.processUserMessage(line.trim());
+          for await (const line of rl) {
+            if (line.trim()) {
+              await this.processUserMessage(line.trim());
+            }
+          }
+
+          // Stream closed by writer, reopen to wait for next message
+          stream.close();
+        } catch (error) {
+          console.error('FIFO read error:', error);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
+    };
+
+    // Start in background
+    readMessages().catch((error) => {
+      console.error('Fatal FIFO error:', error);
     });
   }
 

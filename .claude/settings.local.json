@@ -40,7 +40,9 @@
       "Bash(./test-llm-integration.sh:*)",
       "Bash(/tmp/graphengine.log)",
       "Bash(git commit:*)",
-      "Bash(npm run test:e2e:*)"
+      "Bash(npm run test:e2e:*)",
+      "Bash(./test-tmux-fix.sh:*)",
+      "Bash(tmux send-keys -t graphengine-test:0.0 \"echo ''''TEST MESSAGE''''\" C-m sleep 1 tmux capture-pane -t graphengine-test:0.0 -p)"
     ],
     "deny": [],
     "ask": []
