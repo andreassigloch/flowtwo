@@ -221,12 +221,12 @@ async function processMessage(message: string): Promise<void> {
     // Add assistant response to chat canvas
     await chatCanvas.addAssistantMessage(response.textResponse, response.operations);
 
-    // Display response
+    // Display response (text only, no graph operations)
     console.log('');
     console.log(`\x1b[32mAssistant:\x1b[0m ${response.textResponse}`);
     console.log('');
 
-    // Apply operations to graph if present
+    // Apply operations to graph if present (silently)
     if (response.operations) {
       const diff = parser.parseDiff(response.operations);
       await graphCanvas.applyDiff(diff);
@@ -234,9 +234,11 @@ async function processMessage(message: string): Promise<void> {
       const state = graphCanvas.getState();
       log(`📊 Graph updated (${state.nodes.size} nodes, ${state.edges.size} edges)`);
 
-      // Notify graph viewer
+      // Notify graph viewer (silently)
       notifyGraphUpdate();
-      console.log('\x1b[90m(Graph updated - check GRAPH terminal)\x1b[0m');
+
+      // Show brief status
+      console.log(`\x1b[90m✓ Graph updated: ${state.nodes.size} nodes, ${state.edges.size} edges (see GRAPH terminal)\x1b[0m`);
       console.log('');
     }
 

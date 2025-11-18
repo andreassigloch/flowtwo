@@ -93,21 +93,26 @@ function generateAsciiGraph(): string {
     let typeColor = '\x1b[36m'; // cyan
     if (node.type === 'SYS') typeColor = '\x1b[1;35m'; // bold magenta
     if (node.type === 'UC') typeColor = '\x1b[1;33m'; // bold yellow
+    if (node.type === 'FCHAIN') typeColor = '\x1b[33m'; // yellow
     if (node.type === 'FUNC') typeColor = '\x1b[32m'; // green
     if (node.type === 'REQ') typeColor = '\x1b[31m'; // red
     if (node.type === 'FLOW') typeColor = '\x1b[34m'; // blue
+    if (node.type === 'MOD') typeColor = '\x1b[35m'; // magenta
+    if (node.type === 'ACTOR') typeColor = '\x1b[36m'; // cyan
 
     const prefix = isLast ? '└─' : '├─';
     lines.push(`${indent}${prefix}[${typeColor}${node.type}\x1b[0m] ${node.name}`);
 
-    // Get child nodes
-    const outEdges = Array.from(state.edges.values()).filter((e) => e.sourceId === nodeId);
+    // Get ONLY 'compose' edges for hierarchy (per Ontology V3)
+    const composeEdges = Array.from(state.edges.values()).filter(
+      (e) => e.sourceId === nodeId && e.type === 'compose'
+    );
     const childIndent = indent + (isLast ? '  ' : '│ ');
 
-    outEdges.forEach((edge, idx) => {
+    composeEdges.forEach((edge, idx) => {
       const target = state.nodes.get(edge.targetId);
       if (target && !visited.has(edge.targetId)) {
-        const childIsLast = idx === outEdges.length - 1;
+        const childIsLast = idx === composeEdges.length - 1;
         renderNode(edge.targetId, childIndent, childIsLast);
       }
     });
