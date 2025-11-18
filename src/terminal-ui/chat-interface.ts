@@ -83,13 +83,22 @@ function log(message: string): void {
 }
 
 /**
- * Notify graph viewer of update
+ * Notify graph viewer of update via shared state file
  */
 function notifyGraphUpdate(): void {
   try {
-    fs.writeFileSync('/tmp/graphengine-output.fifo', 'GRAPH_UPDATE\n');
+    const state = graphCanvas.getState();
+    const stateData = {
+      nodes: Array.from(state.nodes.entries()),
+      edges: Array.from(state.edges.entries()),
+      ports: Array.from(state.ports.entries()),
+      currentView: state.currentView,
+      timestamp: Date.now(),
+    };
+    fs.writeFileSync('/tmp/graphengine-state.json', JSON.stringify(stateData));
+    log('📝 Wrote graph state to shared file');
   } catch (error) {
-    // FIFO not open, ignore
+    log(`⚠️  Failed to write state: ${error}`);
   }
 }
 

@@ -154,32 +154,52 @@ function render(): void {
 }
 
 /**
- * Watch for updates via FIFO
+ * Watch for updates via shared state file (polling)
  */
 async function watchForUpdates(): Promise<void> {
-  const fifoPath = '/tmp/graphengine-output.fifo';
+  let lastTimestamp = 0;
 
-  while (true) {
+  setInterval(async () => {
     try {
-      const stream = fs.createReadStream(fifoPath, { encoding: 'utf8' });
-      const rl = readline.createInterface({
-        input: stream,
-        crlfDelay: Infinity,
-      });
-
-      for await (const line of rl) {
-        if (line.trim() === 'GRAPH_UPDATE') {
-          log('🔄 Graph update detected, re-rendering...');
-          render();
-        }
+      if (!fs.existsSync('/tmp/graphengine-state.json')) {
+        return;
       }
 
-      stream.close();
+      const stateData = JSON.parse(fs.readFileSync('/tmp/graphengine-state.json', 'utf8'));
+
+      // Check if state changed
+      if (stateData.timestamp <= lastTimestamp) {
+        return;
+      }
+
+      lastTimestamp = stateData.timestamp;
+
+      log('🔄 Graph state updated, reloading...');
+
+      // Load new state
+      const nodesMap = new Map(stateData.nodes);
+      const edgesMap = new Map(stateData.edges);
+      const portsMap = new Map(stateData.ports || []);
+
+      await graphCanvas.loadGraph({
+        nodes: nodesMap,
+        edges: edgesMap,
+        ports: portsMap,
+      });
+
+      // Update current view if changed
+      if (stateData.currentView) {
+        currentView = stateData.currentView;
+      }
+
+      // Re-render
+      render();
+      log(`✅ Rendered ${nodesMap.size} nodes, ${edgesMap.size} edges`);
+
     } catch (error) {
-      // FIFO not ready, wait and retry
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // File doesn't exist yet or parse error, ignore
     }
-  }
+  }, 500); // Poll every 500ms
 }
 
 /**
