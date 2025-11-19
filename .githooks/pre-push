@@ -1,0 +1,42 @@
+#!/bin/bash
+# Pre-push hook for GraphEngine
+# Runs quality checks before allowing push to remote
+set -e
+
+echo ""
+echo "🔍 Running Pre-Push Quality Checks..."
+echo "════════════════════════════════════════════════════════════════════"
+echo ""
+
+# Step 1: Documentation Audit
+echo "📋 Step 1/2: Documentation Audit..."
+npx tsx scripts/checks/documentation-audit.ts
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Documentation audit failed."
+  echo "   Fix root directory documentation before pushing."
+  echo "   Run: npx tsx scripts/checks/documentation-audit.ts"
+  exit 1
+fi
+
+echo ""
+
+# Step 2: Code Quality Checks
+echo "🔍 Step 2/2: Code Quality Checks..."
+npx tsx scripts/quality-check.ts
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Code quality checks failed."
+  echo "   Fix the issues above before pushing."
+  echo "   To bypass (not recommended): git push --no-verify"
+  exit 1
+fi
+
+echo ""
+echo "════════════════════════════════════════════════════════════════════"
+echo "✅ All quality checks passed! Proceeding with push..."
+echo ""
+
+exit 0

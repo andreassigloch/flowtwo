@@ -24,7 +24,6 @@ import {
 import {
   FormatEDiff,
   Operation,
-  OperationType,
   ChatCanvasState,
   Message,
 } from '../types/canvas.js';
@@ -71,6 +70,9 @@ const SYNTAX: FormatESyntax = {
  * TEST: tests/unit/parsers/format-e-parser.test.ts
  */
 export class FormatEParser implements IFormatEParser {
+  private currentWorkspaceId: string = 'default-ws';
+  private currentSystemId: string = 'default-sys';
+
   /**
    * Parse full graph from Format E string
    *
@@ -91,8 +93,8 @@ export class FormatEParser implements IFormatEParser {
     const ports = new Map<SemanticId, any[]>();
 
     let section: 'none' | 'view' | 'nodes' | 'edges' = 'none';
-    let workspaceId = 'default-workspace';
-    let systemId = 'default-system';
+    const workspaceId = 'default-workspace';
+    const systemId = 'default-system';
 
     for (const line of lines) {
       if (!line || line.startsWith('#')) {
@@ -150,9 +152,13 @@ export class FormatEParser implements IFormatEParser {
    * - SourceID -type-> TargetID
    * </operations>
    */
-  parseDiff(formatE: string): FormatEDiff {
+  parseDiff(formatE: string, workspaceId?: string, systemId?: string): FormatEDiff {
     const lines = formatE.split('\n').map((l) => l.trim());
     const operations: Operation[] = [];
+
+    // Store context for node/edge creation
+    this.currentWorkspaceId = workspaceId || 'default-ws';
+    this.currentSystemId = systemId || 'default-sys';
 
     let baseSnapshot = '';
     let viewContext: string | undefined;
@@ -277,9 +283,9 @@ export class FormatEParser implements IFormatEParser {
     const lines = formatE.split('\n').map((l) => l.trim());
     const messages: Message[] = [];
 
-    let chatId = 'default-chat';
-    let workspaceId = 'default-workspace';
-    let systemId = 'default-system';
+    const chatId = 'default-chat';
+    const workspaceId = 'default-workspace';
+    const systemId = 'default-system';
     let section: 'none' | 'messages' = 'none';
 
     for (const line of lines) {
@@ -408,7 +414,7 @@ export class FormatEParser implements IFormatEParser {
       return {
         type: 'add_node',
         semanticId: parsed.semanticId,
-        node: this.createNodeFromParsed(parsed, 'default-ws', 'default-sys'),
+        node: this.createNodeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
       };
     } else if (prefix === SYNTAX.REMOVE_PREFIX) {
       return {
@@ -434,7 +440,7 @@ export class FormatEParser implements IFormatEParser {
       return {
         type: 'add_edge',
         semanticId: `${parsed.sourceId}-${parsed.type}-${parsed.targetId}`,
-        edge: this.createEdgeFromParsed(parsed, 'default-ws', 'default-sys'),
+        edge: this.createEdgeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
       };
     } else if (prefix === SYNTAX.REMOVE_PREFIX) {
       const parsed = this.parseEdgeLine(content);

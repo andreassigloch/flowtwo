@@ -15,6 +15,7 @@ import * as fs from 'fs';
 import { LLMRequest, LLMResponse, LLMEngineConfig, StreamChunk } from '../shared/types/llm.js';
 import { PromptBuilder } from './prompt-builder.js';
 import { ResponseParser } from './response-parser.js';
+import { LOG_PATH, LLM_TEMPERATURE } from '../shared/config.js';
 
 /**
  * Log to STDOUT file
@@ -22,7 +23,7 @@ import { ResponseParser } from './response-parser.js';
 function log(message: string): void {
   const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
   const logMsg = `[${timestamp}] ${message}`;
-  fs.appendFileSync('/tmp/graphengine.log', logMsg + '\n');
+  fs.appendFileSync(LOG_PATH, logMsg + '\n');
 }
 
 /**
@@ -41,7 +42,7 @@ export class LLMEngine {
       apiKey: config.apiKey,
       model: config.model || 'claude-sonnet-4-5-20250929',
       maxTokens: config.maxTokens || 4096,
-      temperature: config.temperature || 0.7,
+      temperature: config.temperature ?? LLM_TEMPERATURE,
       enableCache: config.enableCache ?? true,
       agentDbUrl: config.agentDbUrl || '',
       cacheTTL: config.cacheTTL || 3600,

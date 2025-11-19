@@ -9,7 +9,7 @@
  */
 
 import { ViewConfig, FilteredGraph } from '../shared/types/view.js';
-import { GraphState, Node, Edge } from '../shared/types/ontology.js';
+import { GraphState, Node, Edge, NodeType, EdgeType } from '../shared/types/ontology.js';
 
 /**
  * View Filter
@@ -75,24 +75,28 @@ export class ViewFilter {
     // Filter nodes: show AND not hidden
     const filteredNodes = new Map<string, Node>();
     for (const [id, node] of layoutGraph.nodes) {
-      const shouldShow = showNodes.includes(node.type);
-      const shouldHide = hideNodes.includes(node.type);
+      if (typeof node === 'object' && node !== null && 'type' in node) {
+        const shouldShow = showNodes.includes(node.type as NodeType);
+        const shouldHide = hideNodes.includes(node.type as NodeType);
 
-      if (shouldShow && !shouldHide) {
-        filteredNodes.set(id, node);
+        if (shouldShow && !shouldHide) {
+          filteredNodes.set(id, node as Node);
+        }
       }
     }
 
     // Filter edges: show AND not hidden AND source/target exist
     const filteredEdges = new Map<string, Edge>();
     for (const [id, edge] of layoutGraph.edges) {
-      const shouldShow = showEdges.includes(edge.type);
-      const shouldHide = hideEdges.includes(edge.type);
-      const sourceExists = filteredNodes.has(edge.sourceId);
-      const targetExists = filteredNodes.has(edge.targetId);
+      if (typeof edge === 'object' && edge !== null && 'type' in edge && 'sourceId' in edge && 'targetId' in edge) {
+        const shouldShow = showEdges.includes(edge.type as EdgeType);
+        const shouldHide = hideEdges.includes(edge.type as EdgeType);
+        const sourceExists = filteredNodes.has(edge.sourceId as string);
+        const targetExists = filteredNodes.has(edge.targetId as string);
 
-      if (shouldShow && !shouldHide && sourceExists && targetExists) {
-        filteredEdges.set(id, edge);
+        if (shouldShow && !shouldHide && sourceExists && targetExists) {
+          filteredEdges.set(id, edge as Edge);
+        }
       }
     }
 

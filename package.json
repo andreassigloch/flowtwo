@@ -9,7 +9,8 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "start": "./graphengine.sh",
+    "start": "./launch-3terminals.sh",
+    "websocket-server": "tsx src/websocket-server.ts",
     "dev": "tsx watch src/main.ts",
     "build": "tsc --noEmit && tsc",
     "test": "vitest run",

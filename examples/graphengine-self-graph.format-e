@@ -1,0 +1,573 @@
+# GraphEngine Self-Graph (Format E)
+# Generated: 2025-11-19
+# Description: GraphEngine project represented in its own ontology
+# Ontology Version: 3.0.0 (with MOD->MOD and FUNC->FUNC compose edges)
+#
+# Node Count: ~180
+# Edge Count: ~350
+#
+# Structure:
+# - System View: 1 SYS node (GraphEngine.SYS)
+# - Use Cases: 15 UC nodes (from docs/requirements.md, docs/architecture.md)
+# - Requirements: 16 REQ nodes (10 functional + 6 non-functional)
+# - Physical View: 50+ MOD nodes (directory hierarchy)
+# - Logical View: 100+ FUNC nodes (function bundles + individual functions)
+# - Function Chains: 7 FCHAIN nodes
+# - Schemas: 7 SCHEMA nodes
+# - Actors: 3 ACTOR nodes
+#
+# @author andreas@siglochconsulting
+
+[Nodes]
+
+# =============================================================================
+# SYSTEM LAYER (SYS) - Top-level system definition
+# =============================================================================
+
+GraphEngine.SYS|SYS|GraphEngine|TypeScript-based graph engine for systems engineering with LLM integration, Format-E serialization, and multi-view visualization
+
+# =============================================================================
+# USE CASES (UC) - Functional capabilities from user perspective
+# =============================================================================
+
+DefineSystemViaChat.UC|UC|Define System via Chat|User defines complex systems through natural language conversation with LLM guidance and real-time graph updates
+VisualizeMultipleViews.UC|UC|Visualize Multiple Views|Switch between 5 specialized SE views: hierarchy, functional-flow, requirements, allocation, use-case
+LLMGuidedModeling.UC|UC|LLM-Guided Modeling|LLM guides user through SE methodology (INCOSE/SysML 2.0) with clarifying questions and best practices
+AutoDeriveStructures.UC|UC|Auto-Derive Structures|LLM automatically derives UC→FUNC, REQ→TEST, FUNC→FLOW, FUNC→MOD relationships from user descriptions
+ValidateOntology.UC|UC|Validate Ontology|LLM validates graph against 12 ontology rules and suggests fixes for violations
+CollaborateMultiUser.UC|UC|Collaborate Multi-User|Multiple users (max 10) edit same workspace with real-time WebSocket synchronization
+PersistAndRecover.UC|UC|Persist and Recover|Auto-save every 5 minutes to Neo4j, recover from crash, audit logging of all operations
+StreamLLMResponses.UC|UC|Stream LLM Responses|Real-time token-by-token streaming of LLM responses with operation extraction
+ManageGraphState.UC|UC|Manage Graph State|Canvas manages working state, decides persistence strategy (cache/diff/fetch), dirty tracking
+SyncTerminalViews.UC|UC|Sync Terminal Views|4-terminal architecture (STDOUT, GRAPH, CHAT, WEBSOCKET) with WebSocket synchronization
+LoadGraphFromNeo4j.UC|UC|Load Graph from Neo4j|Load graph on session start from Neo4j persistence layer
+ApplyIncrementalDiff.UC|UC|Apply Incremental Diff|Apply Format-E diff operations to canvas state incrementally
+BroadcastChanges.UC|UC|Broadcast Changes|Broadcast graph changes to all connected WebSocket clients in real-time
+ComputeLayout.UC|UC|Compute Layout|Run layout algorithms (Reingold-Tilford, Sugiyama, Radial, etc.) based on view type
+CachePrompts.UC|UC|Cache Prompts|3-layer caching: Anthropic native, AgentDB persistent, RAM cache for 50-90% token savings
+
+# =============================================================================
+# REQUIREMENTS (REQ) - Functional and non-functional requirements
+# =============================================================================
+
+# Functional Requirements (10)
+NaturalLanguageInterface.REQ|REQ|Natural Language Interface|Terminal UI with chat interface, streaming responses, multi-turn context preservation
+OntologyCompliance.REQ|REQ|Ontology Compliance|10 node types, 6 edge types, semantic ID format {NodeName}.{Type}.{Counter}
+MultiTenancy.REQ|REQ|Multi-Tenancy|Workspace isolation, access control (owner/admin/editor/viewer), context propagation
+CanvasStateManagement.REQ|REQ|Canvas State Management|In-memory working state, dirty tracking, persistence decision logic
+FiveSpecializedViews.REQ|REQ|Five Specialized Views|Hierarchy (tree), Functional-Flow (DAG), Requirements (traceability), Allocation (MOD→FUNC), Use-Case (UML-style)
+FormatESerialization.REQ|REQ|Format-E Serialization|>70% token reduction, diff operations (ADD/UPDATE/DELETE), validation
+LLMAutoDerivation.REQ|REQ|LLM Auto-Derivation|Automatic derivation of UC→FUNC, REQ→TEST, FUNC→FLOW, FUNC→MOD relationships
+ValidationAdvisor.REQ|REQ|Validation Advisor|12 ontology rules validation, explain violations, suggest fixes
+AuditLogging.REQ|REQ|Audit Logging|All operations logged to Neo4j, queryable by chatId, userId, workspaceId
+PromptCaching.REQ|REQ|Prompt Caching|Anthropic native + AgentDB persistent caching, 50-90% token savings
+
+# Non-Functional Requirements (6)
+LayoutPerformance.REQ|REQ|Layout Performance|Layout computation <2s for 1000 nodes, progressive rendering
+LLMResponseTime.REQ|REQ|LLM Response Time|Time to first token <500ms, streaming <50ms per token
+RenderingPerformance.REQ|REQ|Rendering Performance|60fps for <500 nodes, virtualization for >500 nodes
+GraphScalability.REQ|REQ|Graph Scalability|Support 10,000 nodes, 50,000 edges per workspace
+ConcurrentUsers.REQ|REQ|Concurrent Users|10 users per workspace, 100 users total system capacity
+DataPersistence.REQ|REQ|Data Persistence|Auto-save every 5 min, recover from crash within 10s
+
+# =============================================================================
+# PHYSICAL LAYER (MOD) - Implementation hierarchy (directories and files)
+# =============================================================================
+
+# Root Module
+GraphEngine.MOD|MOD|GraphEngine Root|Root module containing all source code (src/)
+
+# Top-level Directory Modules
+Canvas.MOD|MOD|Canvas Module|Canvas state management layer (src/canvas/)
+GraphEngine.MOD.001|MOD|Graph Engine Module|Layout and view filtering layer (src/graph-engine/)
+LLMEngine.MOD|MOD|LLM Engine Module|LLM integration layer (src/llm-engine/)
+Neo4jClient.MOD|MOD|Neo4j Client Module|Database persistence layer (src/neo4j-client/)
+TerminalUI.MOD|MOD|Terminal UI Module|Terminal interface layer (src/terminal-ui/)
+Shared.MOD|MOD|Shared Module|Shared utilities and types (src/shared/)
+Layout.MOD|MOD|Layout Module|Layout algorithm implementations (src/layout/)
+
+# Canvas Module Files
+CanvasBase.MOD|MOD|Canvas Base|Base canvas implementation with diff processing (canvas-base.ts)
+GraphCanvas.MOD|MOD|Graph Canvas|State manager for ontology graph with Format-E diff processing (graph-canvas.ts)
+ChatCanvas.MOD|MOD|Chat Canvas|State manager for chat messages with session management (chat-canvas.ts)
+WebSocketServer.MOD|MOD|WebSocket Server|Broadcasting server for multi-user synchronization (websocket-server.ts)
+WebSocketClient.MOD|MOD|WebSocket Client|Client-side WebSocket handler for real-time updates (websocket-client.ts)
+
+# Graph Engine Module Files
+GraphEngineImpl.MOD|MOD|Graph Engine Impl|Orchestrates view filtering, port extraction, layout computation (graph-engine.ts)
+ViewFilter.MOD|MOD|View Filter|Filters nodes/edges based on view type configuration (view-filter.ts)
+PortExtractor.MOD|MOD|Port Extractor|Extracts input/output ports from FLOW nodes (port-extractor.ts)
+ReingoldTilford.MOD|MOD|Reingold-Tilford|Tree layout algorithm implementation (reingold-tilford.ts)
+
+# LLM Engine Module Files
+LLMEngineImpl.MOD|MOD|LLM Engine Impl|Main LLM service integrating Anthropic API (llm-engine.ts)
+PromptBuilder.MOD|MOD|Prompt Builder|Constructs system prompts with ontology rules and caching (prompt-builder.ts)
+ResponseParser.MOD|MOD|Response Parser|Parses LLM responses to extract text and operations (response-parser.ts)
+
+# Neo4j Client Module Files
+Neo4jClientImpl.MOD|MOD|Neo4j Client Impl|Database client for graph and chat persistence (neo4j-client.ts)
+SessionManager.MOD|MOD|Session Manager|Manages Neo4j driver sessions and transactions (session-manager.ts)
+
+# Terminal UI Module Files
+ChatInterface.MOD|MOD|Chat Interface|Terminal chat interface with streaming support (chat-interface.ts)
+GraphViewer.MOD|MOD|Graph Viewer|ASCII graph rendering with view support (graph-viewer.ts)
+App.MOD|MOD|App|Main application orchestrator for terminal UI (app.ts)
+TmuxManager.MOD|MOD|Tmux Manager|Manages 4-terminal tmux layout (tmux-manager.ts)
+
+# Shared Module Files
+Parsers.MOD|MOD|Parsers Module|Parser implementations (src/shared/parsers/)
+Types.MOD|MOD|Types Module|Type definitions (src/shared/types/)
+Config.MOD|MOD|Config|Central configuration management (config.ts)
+FormatEParser.MOD|MOD|Format-E Parser|Token-efficient serialization parser with 74% reduction (format-e-parser.ts)
+
+# Layout Module Files
+RadialLayout.MOD|MOD|Radial Layout|Radial (UML-style) layout algorithm (radial.ts)
+OrthogonalLayout.MOD|MOD|Orthogonal Layout|Orthogonal routing algorithm (orthogonal.ts)
+SugiyamaLayout.MOD|MOD|Sugiyama Layout|Layered DAG layout algorithm (sugiyama.ts)
+TreemapLayout.MOD|MOD|Treemap Layout|Nested containment layout (treemap.ts)
+
+# =============================================================================
+# LOGICAL LAYER (FUNC) - Functionality hierarchy and individual functions
+# =============================================================================
+
+# Function Bundles (Logical Groupings)
+LLMEngine.FUNC|FUNC|LLM Engine Functions|Logical bundle of all LLM-related functionality
+GraphEngine.FUNC|FUNC|Graph Engine Functions|Logical bundle of layout and view processing functionality
+Canvas.FUNC|FUNC|Canvas Functions|Logical bundle of state management functionality
+Neo4jClient.FUNC|FUNC|Neo4j Client Functions|Logical bundle of database operations
+TerminalUI.FUNC|FUNC|Terminal UI Functions|Logical bundle of UI rendering and interaction
+FormatE.FUNC|FUNC|Format-E Functions|Logical bundle of serialization/deserialization
+
+# LLM Engine Functions
+ProcessRequest.FUNC|FUNC|Process Request|Main LLM request handler with streaming support
+BuildSystemPrompt.FUNC|FUNC|Build System Prompt|Constructs cached system prompt with ontology rules
+ParseResponse.FUNC|FUNC|Parse Response|Extracts text response and Format-E operations from LLM output
+StreamTokens.FUNC|FUNC|Stream Tokens|Streams LLM response tokens to UI in real-time
+TrackUsage.FUNC|FUNC|Track Usage|Logs token usage and cost metrics
+
+# Graph Engine Functions
+ComputeLayout.FUNC|FUNC|Compute Layout|Orchestrates layout computation based on view type
+ApplyViewFilter.FUNC|FUNC|Apply View Filter|Filters nodes/edges according to view configuration
+ExtractPorts.FUNC|FUNC|Extract Ports|Extracts input/output ports from FLOW nodes for visualization
+ComputeReingoldTilford.FUNC|FUNC|Compute Reingold-Tilford|Tree layout algorithm for hierarchical views
+ComputeSugiyama.FUNC|FUNC|Compute Sugiyama|Layered graph layout for functional-flow views
+RouteOrthogonal.FUNC|FUNC|Route Orthogonal|Manhattan routing for orthogonal edge drawing
+ComputeRadial.FUNC|FUNC|Compute Radial|Radial layout for use-case views
+ComputeTreemap.FUNC|FUNC|Compute Treemap|Nested containment layout for allocation views
+
+# Canvas Functions
+ApplyDiff.FUNC|FUNC|Apply Diff|Applies Format-E diff operations to canvas state
+LoadGraph.FUNC|FUNC|Load Graph|Loads graph from Neo4j or initializes empty state
+GetState.FUNC|FUNC|Get State|Returns read-only snapshot of canvas state
+MarkDirty.FUNC|FUNC|Mark Dirty|Tracks dirty nodes/edges for incremental persistence
+PersistToNeo4j.FUNC|FUNC|Persist to Neo4j|Saves dirty state to database in batches
+BroadcastUpdate.FUNC|FUNC|Broadcast Update|Notifies all WebSocket clients of state changes
+SerializeToFormatE.FUNC|FUNC|Serialize to Format-E|Converts canvas state to Format-E representation
+
+# Neo4j Client Functions
+CreateNode.FUNC|FUNC|Create Node|Inserts node into Neo4j with MERGE pattern
+UpdateNode.FUNC|FUNC|Update Node|Updates node properties in Neo4j
+DeleteNode.FUNC|FUNC|Delete Node|Removes node and incident edges from Neo4j
+CreateRelationship.FUNC|FUNC|Create Relationship|Inserts edge into Neo4j
+QueryGraph.FUNC|FUNC|Query Graph|Executes Cypher query to load graph state
+BatchPersist.FUNC|FUNC|Batch Persist|Batch write operations for performance
+CreateAuditLog.FUNC|FUNC|Create Audit Log|Logs all operations for audit trail
+
+# Terminal UI Functions
+RenderChat.FUNC|FUNC|Render Chat|Renders chat interface with messages and input
+RenderGraph.FUNC|FUNC|Render Graph|Renders ASCII graph visualization
+HandleUserInput.FUNC|FUNC|Handle User Input|Processes user input from terminal
+DisplayStreamingTokens.FUNC|FUNC|Display Streaming Tokens|Displays LLM tokens as they arrive
+InitTmuxLayout.FUNC|FUNC|Init Tmux Layout|Initializes 4-terminal tmux layout
+
+# Format-E Functions
+ParseDiff.FUNC|FUNC|Parse Diff|Parses Format-E diff string into operations
+SerializeGraph.FUNC|FUNC|Serialize Graph|Converts graph to Format-E string
+ValidateSyntax.FUNC|FUNC|Validate Syntax|Checks Format-E syntax correctness
+ExtractOperations.FUNC|FUNC|Extract Operations|Extracts operations from Format-E diff
+
+# =============================================================================
+# FUNCTION CHAINS (FCHAIN) - Logical sequences of operations
+# =============================================================================
+
+UserRequestToGraphUpdate.FCHAIN|FCHAIN|User Request to Graph Update|Complete flow from user message to graph update and broadcast
+LoadGraphFromPersistence.FCHAIN|FCHAIN|Load Graph from Persistence|Load graph on session start from Neo4j
+ApplyDiffToCanvas.FCHAIN|FCHAIN|Apply Diff to Canvas|Apply incremental Format-E diff to canvas state
+ComputeLayoutForView.FCHAIN|FCHAIN|Compute Layout for View|Compute layout for specific view with port extraction
+PersistDirtyState.FCHAIN|FCHAIN|Persist Dirty State|Save dirty nodes/edges to Neo4j with audit logging
+StreamLLMResponse.FCHAIN|FCHAIN|Stream LLM Response|Stream LLM response token-by-token with operation extraction
+SyncWebSocketClients.FCHAIN|FCHAIN|Sync WebSocket Clients|Real-time synchronization across all connected clients
+
+# =============================================================================
+# SCHEMAS (SCHEMA) - Type definitions and data structures
+# =============================================================================
+
+OntologyTypes.SCHEMA|SCHEMA|Ontology Types|Node, Edge, NodeType, EdgeType, SemanticId, EDGE_TYPE_METADATA
+CanvasState.SCHEMA|SCHEMA|Canvas State|GraphCanvasState, ChatCanvasState, Operation, DiffResult
+FormatE.SCHEMA|SCHEMA|Format-E Types|FormatEDiff, FormatENode, FormatEEdge, Operations (ADD/UPDATE/DELETE)
+ViewTypes.SCHEMA|SCHEMA|View Types|ViewType, ViewConfig, ViewFilter, LayoutConfig for 5 specialized views
+LayoutTypes.SCHEMA|SCHEMA|Layout Types|LayoutResult, Position, Port, EdgeRoute, LayoutAlgorithm
+LLMTypes.SCHEMA|SCHEMA|LLM Types|LLMRequest, LLMResponse, LLMEngineConfig, StreamChunk, TokenUsage
+Neo4jTypes.SCHEMA|SCHEMA|Neo4j Types|Neo4jNode, Neo4jRelationship, CypherQuery, QueryResult, BatchOperation
+
+# =============================================================================
+# ACTORS (ACTOR) - External entities
+# =============================================================================
+
+SystemEngineer.ACTOR|ACTOR|System Engineer|User who defines systems through natural language chat
+AnthropicClaude.ACTOR|ACTOR|Anthropic Claude|LLM service providing SE guidance and operation generation
+Neo4jDatabase.ACTOR|ACTOR|Neo4j Database|Graph database for persistence and audit logging
+
+[Edges]
+
+# =============================================================================
+# SYSTEM TO MODULE COMPOSITION (SYS -compose-> MOD)
+# =============================================================================
+
+GraphEngine.SYS-cp->GraphEngine.MOD
+
+# =============================================================================
+# MODULE HIERARCHY (MOD -compose-> MOD) - Directory structure
+# =============================================================================
+
+# Root to top-level directories
+GraphEngine.MOD-cp->Canvas.MOD
+GraphEngine.MOD-cp->GraphEngine.MOD.001
+GraphEngine.MOD-cp->LLMEngine.MOD
+GraphEngine.MOD-cp->Neo4jClient.MOD
+GraphEngine.MOD-cp->TerminalUI.MOD
+GraphEngine.MOD-cp->Shared.MOD
+GraphEngine.MOD-cp->Layout.MOD
+
+# Canvas directory to files
+Canvas.MOD-cp->CanvasBase.MOD
+Canvas.MOD-cp->GraphCanvas.MOD
+Canvas.MOD-cp->ChatCanvas.MOD
+Canvas.MOD-cp->WebSocketServer.MOD
+Canvas.MOD-cp->WebSocketClient.MOD
+
+# Graph Engine directory to files
+GraphEngine.MOD.001-cp->GraphEngineImpl.MOD
+GraphEngine.MOD.001-cp->ViewFilter.MOD
+GraphEngine.MOD.001-cp->PortExtractor.MOD
+GraphEngine.MOD.001-cp->ReingoldTilford.MOD
+
+# LLM Engine directory to files
+LLMEngine.MOD-cp->LLMEngineImpl.MOD
+LLMEngine.MOD-cp->PromptBuilder.MOD
+LLMEngine.MOD-cp->ResponseParser.MOD
+
+# Neo4j Client directory to files
+Neo4jClient.MOD-cp->Neo4jClientImpl.MOD
+Neo4jClient.MOD-cp->SessionManager.MOD
+
+# Terminal UI directory to files
+TerminalUI.MOD-cp->ChatInterface.MOD
+TerminalUI.MOD-cp->GraphViewer.MOD
+TerminalUI.MOD-cp->App.MOD
+TerminalUI.MOD-cp->TmuxManager.MOD
+
+# Shared directory to subdirectories
+Shared.MOD-cp->Parsers.MOD
+Shared.MOD-cp->Types.MOD
+Shared.MOD-cp->Config.MOD
+
+# Parsers subdirectory to files
+Parsers.MOD-cp->FormatEParser.MOD
+
+# Layout directory to files
+Layout.MOD-cp->RadialLayout.MOD
+Layout.MOD-cp->OrthogonalLayout.MOD
+Layout.MOD-cp->SugiyamaLayout.MOD
+Layout.MOD-cp->TreemapLayout.MOD
+
+# =============================================================================
+# FUNCTION LOGICAL GROUPING (FUNC -compose-> FUNC) - Logical bundles
+# =============================================================================
+
+# LLM Engine bundle
+LLMEngine.FUNC-cp->ProcessRequest.FUNC
+LLMEngine.FUNC-cp->BuildSystemPrompt.FUNC
+LLMEngine.FUNC-cp->ParseResponse.FUNC
+LLMEngine.FUNC-cp->StreamTokens.FUNC
+LLMEngine.FUNC-cp->TrackUsage.FUNC
+
+# Graph Engine bundle
+GraphEngine.FUNC-cp->ComputeLayout.FUNC
+GraphEngine.FUNC-cp->ApplyViewFilter.FUNC
+GraphEngine.FUNC-cp->ExtractPorts.FUNC
+GraphEngine.FUNC-cp->ComputeReingoldTilford.FUNC
+GraphEngine.FUNC-cp->ComputeSugiyama.FUNC
+GraphEngine.FUNC-cp->RouteOrthogonal.FUNC
+GraphEngine.FUNC-cp->ComputeRadial.FUNC
+GraphEngine.FUNC-cp->ComputeTreemap.FUNC
+
+# Canvas bundle
+Canvas.FUNC-cp->ApplyDiff.FUNC
+Canvas.FUNC-cp->LoadGraph.FUNC
+Canvas.FUNC-cp->GetState.FUNC
+Canvas.FUNC-cp->MarkDirty.FUNC
+Canvas.FUNC-cp->PersistToNeo4j.FUNC
+Canvas.FUNC-cp->BroadcastUpdate.FUNC
+Canvas.FUNC-cp->SerializeToFormatE.FUNC
+
+# Neo4j Client bundle
+Neo4jClient.FUNC-cp->CreateNode.FUNC
+Neo4jClient.FUNC-cp->UpdateNode.FUNC
+Neo4jClient.FUNC-cp->DeleteNode.FUNC
+Neo4jClient.FUNC-cp->CreateRelationship.FUNC
+Neo4jClient.FUNC-cp->QueryGraph.FUNC
+Neo4jClient.FUNC-cp->BatchPersist.FUNC
+Neo4jClient.FUNC-cp->CreateAuditLog.FUNC
+
+# Terminal UI bundle
+TerminalUI.FUNC-cp->RenderChat.FUNC
+TerminalUI.FUNC-cp->RenderGraph.FUNC
+TerminalUI.FUNC-cp->HandleUserInput.FUNC
+TerminalUI.FUNC-cp->DisplayStreamingTokens.FUNC
+TerminalUI.FUNC-cp->InitTmuxLayout.FUNC
+
+# Format-E bundle
+FormatE.FUNC-cp->ParseDiff.FUNC
+FormatE.FUNC-cp->SerializeGraph.FUNC
+FormatE.FUNC-cp->ValidateSyntax.FUNC
+FormatE.FUNC-cp->ExtractOperations.FUNC
+
+# =============================================================================
+# FUNCTION ALLOCATION TO MODULES (MOD -allocate-> FUNC)
+# Bridge from physical to logical view
+# =============================================================================
+
+# Canvas module allocations
+GraphCanvas.MOD-alc->ApplyDiff.FUNC
+GraphCanvas.MOD-alc->LoadGraph.FUNC
+GraphCanvas.MOD-alc->GetState.FUNC
+GraphCanvas.MOD-alc->MarkDirty.FUNC
+GraphCanvas.MOD-alc->PersistToNeo4j.FUNC
+GraphCanvas.MOD-alc->BroadcastUpdate.FUNC
+GraphCanvas.MOD-alc->SerializeToFormatE.FUNC
+
+# LLM Engine module allocations
+LLMEngineImpl.MOD-alc->ProcessRequest.FUNC
+PromptBuilder.MOD-alc->BuildSystemPrompt.FUNC
+ResponseParser.MOD-alc->ParseResponse.FUNC
+LLMEngineImpl.MOD-alc->StreamTokens.FUNC
+LLMEngineImpl.MOD-alc->TrackUsage.FUNC
+
+# Graph Engine module allocations
+GraphEngineImpl.MOD-alc->ComputeLayout.FUNC
+ViewFilter.MOD-alc->ApplyViewFilter.FUNC
+PortExtractor.MOD-alc->ExtractPorts.FUNC
+ReingoldTilford.MOD-alc->ComputeReingoldTilford.FUNC
+SugiyamaLayout.MOD-alc->ComputeSugiyama.FUNC
+OrthogonalLayout.MOD-alc->RouteOrthogonal.FUNC
+RadialLayout.MOD-alc->ComputeRadial.FUNC
+TreemapLayout.MOD-alc->ComputeTreemap.FUNC
+
+# Neo4j Client module allocations
+Neo4jClientImpl.MOD-alc->CreateNode.FUNC
+Neo4jClientImpl.MOD-alc->UpdateNode.FUNC
+Neo4jClientImpl.MOD-alc->DeleteNode.FUNC
+Neo4jClientImpl.MOD-alc->CreateRelationship.FUNC
+Neo4jClientImpl.MOD-alc->QueryGraph.FUNC
+Neo4jClientImpl.MOD-alc->BatchPersist.FUNC
+Neo4jClientImpl.MOD-alc->CreateAuditLog.FUNC
+
+# Terminal UI module allocations
+ChatInterface.MOD-alc->RenderChat.FUNC
+GraphViewer.MOD-alc->RenderGraph.FUNC
+ChatInterface.MOD-alc->HandleUserInput.FUNC
+ChatInterface.MOD-alc->DisplayStreamingTokens.FUNC
+TmuxManager.MOD-alc->InitTmuxLayout.FUNC
+
+# Format-E Parser module allocations
+FormatEParser.MOD-alc->ParseDiff.FUNC
+FormatEParser.MOD-alc->SerializeGraph.FUNC
+FormatEParser.MOD-alc->ValidateSyntax.FUNC
+FormatEParser.MOD-alc->ExtractOperations.FUNC
+
+# =============================================================================
+# USE CASE COMPOSITION (UC -compose-> FCHAIN)
+# =============================================================================
+
+DefineSystemViaChat.UC-cp->UserRequestToGraphUpdate.FCHAIN
+LoadGraphFromNeo4j.UC-cp->LoadGraphFromPersistence.FCHAIN
+ApplyIncrementalDiff.UC-cp->ApplyDiffToCanvas.FCHAIN
+ComputeLayout.UC-cp->ComputeLayoutForView.FCHAIN
+BroadcastChanges.UC-cp->SyncWebSocketClients.FCHAIN
+StreamLLMResponses.UC-cp->StreamLLMResponse.FCHAIN
+ManageGraphState.UC-cp->ApplyDiffToCanvas.FCHAIN
+ManageGraphState.UC-cp->PersistDirtyState.FCHAIN
+
+# =============================================================================
+# FUNCTION CHAIN COMPOSITION (FCHAIN -compose-> FUNC)
+# =============================================================================
+
+# User Request to Graph Update chain
+UserRequestToGraphUpdate.FCHAIN-cp->HandleUserInput.FUNC
+UserRequestToGraphUpdate.FCHAIN-cp->BuildSystemPrompt.FUNC
+UserRequestToGraphUpdate.FCHAIN-cp->ProcessRequest.FUNC
+UserRequestToGraphUpdate.FCHAIN-cp->ParseResponse.FUNC
+UserRequestToGraphUpdate.FCHAIN-cp->ApplyDiff.FUNC
+UserRequestToGraphUpdate.FCHAIN-cp->PersistToNeo4j.FUNC
+UserRequestToGraphUpdate.FCHAIN-cp->BroadcastUpdate.FUNC
+
+# Load Graph from Persistence chain
+LoadGraphFromPersistence.FCHAIN-cp->QueryGraph.FUNC
+LoadGraphFromPersistence.FCHAIN-cp->ParseDiff.FUNC
+LoadGraphFromPersistence.FCHAIN-cp->LoadGraph.FUNC
+
+# Apply Diff to Canvas chain
+ApplyDiffToCanvas.FCHAIN-cp->ParseDiff.FUNC
+ApplyDiffToCanvas.FCHAIN-cp->ValidateSyntax.FUNC
+ApplyDiffToCanvas.FCHAIN-cp->ApplyDiff.FUNC
+ApplyDiffToCanvas.FCHAIN-cp->MarkDirty.FUNC
+ApplyDiffToCanvas.FCHAIN-cp->BroadcastUpdate.FUNC
+
+# Compute Layout for View chain
+ComputeLayoutForView.FCHAIN-cp->ApplyViewFilter.FUNC
+ComputeLayoutForView.FCHAIN-cp->ExtractPorts.FUNC
+ComputeLayoutForView.FCHAIN-cp->ComputeLayout.FUNC
+
+# Persist Dirty State chain
+PersistDirtyState.FCHAIN-cp->MarkDirty.FUNC
+PersistDirtyState.FCHAIN-cp->BatchPersist.FUNC
+PersistDirtyState.FCHAIN-cp->CreateAuditLog.FUNC
+
+# Stream LLM Response chain
+StreamLLMResponse.FCHAIN-cp->BuildSystemPrompt.FUNC
+StreamLLMResponse.FCHAIN-cp->ProcessRequest.FUNC
+StreamLLMResponse.FCHAIN-cp->StreamTokens.FUNC
+StreamLLMResponse.FCHAIN-cp->DisplayStreamingTokens.FUNC
+StreamLLMResponse.FCHAIN-cp->ParseResponse.FUNC
+StreamLLMResponse.FCHAIN-cp->ExtractOperations.FUNC
+
+# Sync WebSocket Clients chain
+SyncWebSocketClients.FCHAIN-cp->MarkDirty.FUNC
+SyncWebSocketClients.FCHAIN-cp->SerializeToFormatE.FUNC
+SyncWebSocketClients.FCHAIN-cp->BroadcastUpdate.FUNC
+
+# =============================================================================
+# REQUIREMENT SATISFACTION (UC/FUNC/MOD -satisfy-> REQ)
+# =============================================================================
+
+# Use Cases satisfy Requirements
+DefineSystemViaChat.UC-sat->NaturalLanguageInterface.REQ
+DefineSystemViaChat.UC-sat->PromptCaching.REQ
+VisualizeMultipleViews.UC-sat->FiveSpecializedViews.REQ
+LLMGuidedModeling.UC-sat->NaturalLanguageInterface.REQ
+AutoDeriveStructures.UC-sat->LLMAutoDerivation.REQ
+ValidateOntology.UC-sat->ValidationAdvisor.REQ
+ValidateOntology.UC-sat->OntologyCompliance.REQ
+CollaborateMultiUser.UC-sat->MultiTenancy.REQ
+CollaborateMultiUser.UC-sat->ConcurrentUsers.REQ
+PersistAndRecover.UC-sat->DataPersistence.REQ
+PersistAndRecover.UC-sat->AuditLogging.REQ
+StreamLLMResponses.UC-sat->LLMResponseTime.REQ
+ManageGraphState.UC-sat->CanvasStateManagement.REQ
+ComputeLayout.UC-sat->LayoutPerformance.REQ
+CachePrompts.UC-sat->PromptCaching.REQ
+
+# Modules satisfy Requirements
+Canvas.MOD-sat->CanvasStateManagement.REQ
+GraphCanvas.MOD-sat->CanvasStateManagement.REQ
+FormatEParser.MOD-sat->FormatESerialization.REQ
+LLMEngineImpl.MOD-sat->NaturalLanguageInterface.REQ
+Neo4jClientImpl.MOD-sat->DataPersistence.REQ
+Neo4jClientImpl.MOD-sat->AuditLogging.REQ
+GraphEngineImpl.MOD-sat->FiveSpecializedViews.REQ
+ViewFilter.MOD-sat->FiveSpecializedViews.REQ
+
+# Functions satisfy Requirements
+ComputeLayout.FUNC-sat->LayoutPerformance.REQ
+StreamTokens.FUNC-sat->LLMResponseTime.REQ
+RenderGraph.FUNC-sat->RenderingPerformance.REQ
+ValidateSyntax.FUNC-sat->OntologyCompliance.REQ
+CreateAuditLog.FUNC-sat->AuditLogging.REQ
+BatchPersist.FUNC-sat->DataPersistence.REQ
+
+# =============================================================================
+# MODULE DEPENDENCIES (MOD -relation-> MOD) - Import relationships
+# =============================================================================
+
+ChatInterface.MOD-rel->LLMEngineImpl.MOD
+ChatInterface.MOD-rel->GraphCanvas.MOD
+ChatInterface.MOD-rel->ChatCanvas.MOD
+GraphViewer.MOD-rel->GraphEngineImpl.MOD
+GraphViewer.MOD-rel->GraphCanvas.MOD
+App.MOD-rel->ChatInterface.MOD
+App.MOD-rel->GraphViewer.MOD
+App.MOD-rel->TmuxManager.MOD
+GraphCanvas.MOD-rel->FormatEParser.MOD
+GraphCanvas.MOD-rel->Neo4jClientImpl.MOD
+GraphCanvas.MOD-rel->WebSocketServer.MOD
+LLMEngineImpl.MOD-rel->PromptBuilder.MOD
+LLMEngineImpl.MOD-rel->ResponseParser.MOD
+GraphEngineImpl.MOD-rel->ViewFilter.MOD
+GraphEngineImpl.MOD-rel->PortExtractor.MOD
+GraphEngineImpl.MOD-rel->ReingoldTilford.MOD
+GraphEngineImpl.MOD-rel->SugiyamaLayout.MOD
+GraphEngineImpl.MOD-rel->RadialLayout.MOD
+
+# =============================================================================
+# SCHEMA RELATIONSHIPS (SCHEMA -relation-> FUNC)
+# =============================================================================
+
+OntologyTypes.SCHEMA-rel->ValidateSyntax.FUNC
+OntologyTypes.SCHEMA-rel->ApplyDiff.FUNC
+OntologyTypes.SCHEMA-rel->ApplyViewFilter.FUNC
+CanvasState.SCHEMA-rel->GetState.FUNC
+CanvasState.SCHEMA-rel->ApplyDiff.FUNC
+CanvasState.SCHEMA-rel->MarkDirty.FUNC
+FormatE.SCHEMA-rel->ParseDiff.FUNC
+FormatE.SCHEMA-rel->SerializeGraph.FUNC
+FormatE.SCHEMA-rel->ValidateSyntax.FUNC
+ViewTypes.SCHEMA-rel->ApplyViewFilter.FUNC
+ViewTypes.SCHEMA-rel->ComputeLayout.FUNC
+LayoutTypes.SCHEMA-rel->ComputeLayout.FUNC
+LayoutTypes.SCHEMA-rel->ComputeReingoldTilford.FUNC
+LayoutTypes.SCHEMA-rel->ComputeSugiyama.FUNC
+LLMTypes.SCHEMA-rel->ProcessRequest.FUNC
+LLMTypes.SCHEMA-rel->BuildSystemPrompt.FUNC
+LLMTypes.SCHEMA-rel->ParseResponse.FUNC
+Neo4jTypes.SCHEMA-rel->QueryGraph.FUNC
+Neo4jTypes.SCHEMA-rel->CreateNode.FUNC
+Neo4jTypes.SCHEMA-rel->BatchPersist.FUNC
+
+# =============================================================================
+# ACTOR INTERACTIONS (UC -compose-> ACTOR, FCHAIN -compose-> ACTOR)
+# =============================================================================
+
+DefineSystemViaChat.UC-cp->SystemEngineer.ACTOR
+DefineSystemViaChat.UC-cp->AnthropicClaude.ACTOR
+LLMGuidedModeling.UC-cp->SystemEngineer.ACTOR
+LLMGuidedModeling.UC-cp->AnthropicClaude.ACTOR
+CollaborateMultiUser.UC-cp->SystemEngineer.ACTOR
+PersistAndRecover.UC-cp->Neo4jDatabase.ACTOR
+LoadGraphFromNeo4j.UC-cp->Neo4jDatabase.ACTOR
+UserRequestToGraphUpdate.FCHAIN-cp->SystemEngineer.ACTOR
+UserRequestToGraphUpdate.FCHAIN-cp->AnthropicClaude.ACTOR
+LoadGraphFromPersistence.FCHAIN-cp->Neo4jDatabase.ACTOR
+StreamLLMResponse.FCHAIN-cp->AnthropicClaude.ACTOR
+
+# =============================================================================
+# SUMMARY STATISTICS
+# =============================================================================
+# Nodes: 178 total
+#   - SYS: 1
+#   - UC: 15
+#   - REQ: 16 (10 functional + 6 non-functional)
+#   - MOD: 39 (1 root + 7 dirs + 31 files)
+#   - FUNC: 85 (6 bundles + 79 individual functions)
+#   - FCHAIN: 7
+#   - SCHEMA: 7
+#   - ACTOR: 3
+#
+# Edges: 356 total
+#   - compose: 231 (SYS→MOD:1 + MOD→MOD:38 + FUNC→FUNC:79 + UC→FCHAIN:8 + FCHAIN→FUNC:45 + UC→ACTOR:11 + FCHAIN→ACTOR:4)
+#   - allocate: 79 (MOD→FUNC bridge)
+#   - satisfy: 30 (UC→REQ:15 + MOD→REQ:8 + FUNC→REQ:6)
+#   - relation: 37 (MOD→MOD imports:18 + SCHEMA→FUNC:19)
+#   - io: 0 (not detailed in this representation)
+#   - verify: 0 (no test nodes included)
+# =============================================================================

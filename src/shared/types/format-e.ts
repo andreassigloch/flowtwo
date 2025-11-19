@@ -13,8 +13,8 @@
  * @version 2.0.0
  */
 
-import { Node, Edge, SemanticId, NodeType, EdgeType, GraphState } from './ontology.js';
-import { FormatEDiff, Message, ChatCanvasState } from './canvas.js';
+import { SemanticId, NodeType, EdgeType, GraphState } from './ontology.js';
+import type { FormatEDiff, ChatCanvasState } from './canvas.js';
 
 /** Format E Parser Interface */
 export interface IFormatEParser {

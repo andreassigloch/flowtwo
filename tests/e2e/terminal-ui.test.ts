@@ -25,7 +25,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 describe('e2e: Terminal UI', () => {
   const SESSION_NAME = 'graphengine-test';
   const LOG_FILE = '/tmp/graphengine-test.log';
-  let appProcess: ChildProcess | null = null;
+  const appProcess: ChildProcess | null = null;
 
   beforeAll(async () => {
     // Clean up any existing test session

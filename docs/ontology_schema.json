@@ -1,6 +1,6 @@
 {
-  "version": "3.0.0",
-  "change_comment": "FLOW nodes as first-class citizens, io relationships replace flow edges",
+  "version": "3.0.1",
+  "change_comment": "Added MOD->MOD and FUNC->FUNC to compose relationships for directory hierarchy and logical function grouping",
   "schema": {
     "nodes": {
       "SYS": {
@@ -97,13 +97,15 @@
         "valid_connections": [
           ["SYS", "SYS"],
           ["SYS", "UC"],
+          ["SYS", "MOD"],
           ["UC", "UC"],
           ["UC", "ACTOR"],
-          ["FCHAIN", "ACTOR"],
           ["UC", "FCHAIN"],
+          ["FCHAIN", "ACTOR"],
           ["FCHAIN", "FUNC"],
           ["FCHAIN", "FLOW"],
-          ["SYS", "MOD"]
+          ["MOD", "MOD"],
+          ["FUNC", "FUNC"]
         ]
       },
       "io": {

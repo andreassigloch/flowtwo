@@ -151,14 +151,14 @@ export class GraphCanvas extends CanvasBase {
       case 'add_node':
         if (op.node) {
           this.state.nodes.set(op.node.semanticId, op.node);
-          this.state.dirtyNodeIds.add(op.node.semanticId);
+          // Note: dirty tracking handled by base class markDirty() after this method
           this.state.version++;
         }
         break;
 
       case 'remove_node':
         this.state.nodes.delete(op.semanticId);
-        this.state.dirtyNodeIds.add(op.semanticId);
+        // Note: dirty tracking handled by base class markDirty() after this method
         this.state.version++;
         break;
 
@@ -167,7 +167,7 @@ export class GraphCanvas extends CanvasBase {
           const existing = this.state.nodes.get(op.semanticId)!;
           const updated = { ...existing, ...op.updates, updatedAt: new Date() };
           this.state.nodes.set(op.semanticId, updated as Node);
-          this.state.dirtyNodeIds.add(op.semanticId);
+          // Note: dirty tracking handled by base class markDirty() after this method
           this.state.version++;
         }
         break;
@@ -176,7 +176,7 @@ export class GraphCanvas extends CanvasBase {
         if (op.edge) {
           const key = `${op.edge.sourceId}-${op.edge.type}-${op.edge.targetId}`;
           this.state.edges.set(key, op.edge);
-          this.state.dirtyEdgeIds.add(key);
+          // Note: dirty tracking handled by base class markDirty() after this method
           this.state.version++;
         }
         break;
@@ -185,7 +185,7 @@ export class GraphCanvas extends CanvasBase {
         if (op.edge) {
           const key = `${op.edge.sourceId}-${op.edge.type}-${op.edge.targetId}`;
           this.state.edges.delete(key);
-          this.state.dirtyEdgeIds.add(key);
+          // Note: dirty tracking handled by base class markDirty() after this method
           this.state.version++;
         }
         break;
@@ -200,17 +200,17 @@ export class GraphCanvas extends CanvasBase {
   protected getDirtyItems(): Array<Node | Edge> {
     const items: Array<Node | Edge> = [];
 
-    // Dirty nodes
-    for (const nodeId of this.state.dirtyNodeIds) {
-      const node = this.state.nodes.get(nodeId);
+    // Use base class dirty set (populated by markDirty())
+    for (const id of this.dirty) {
+      // Try as node first
+      const node = this.state.nodes.get(id);
       if (node) {
         items.push(node);
+        continue;
       }
-    }
 
-    // Dirty edges
-    for (const edgeKey of this.state.dirtyEdgeIds) {
-      const edge = this.state.edges.get(edgeKey);
+      // Try as edge
+      const edge = this.state.edges.get(id);
       if (edge) {
         items.push(edge);
       }
@@ -330,8 +330,8 @@ export class GraphCanvas extends CanvasBase {
    * Clear subclass dirty tracking
    */
   protected clearSubclassDirtyTracking(): void {
-    this.state.dirtyNodeIds.clear();
-    this.state.dirtyEdgeIds.clear();
+    // Using base class dirty set - no subclass tracking needed
+    // (Legacy dirtyNodeIds/dirtyEdgeIds are unused)
   }
 
   /**
@@ -345,15 +345,22 @@ export class GraphCanvas extends CanvasBase {
       );
     }
 
+    // Items are already Node/Edge objects from getDirtyItems()
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 
     for (const item of items) {
-      if (this.state.nodes.has(item as string)) {
-        nodes.push(this.state.nodes.get(item as string)!);
+      // Check if it's a Node (has semanticId and is in nodes map)
+      const asNode = item as Node;
+      if (asNode.semanticId && this.state.nodes.has(asNode.semanticId)) {
+        nodes.push(asNode);
+        continue;
       }
-      if (this.state.edges.has(item as string)) {
-        edges.push(this.state.edges.get(item as string)!);
+
+      // Check if it's an Edge (has sourceId, targetId, type)
+      const asEdge = item as Edge;
+      if (asEdge.sourceId && asEdge.targetId && asEdge.type) {
+        edges.push(asEdge);
       }
     }
 

@@ -8,6 +8,7 @@
  */
 
 import { WebSocketServer, WebSocket } from 'ws';
+import { WS_PORT } from '../shared/config.js';
 
 export interface BroadcastUpdate {
   type: 'graph_update' | 'chat_update';
@@ -42,7 +43,7 @@ export class CanvasWebSocketServer {
   private clients: Map<string, Client> = new Map();
   private port: number;
 
-  constructor(port: number = 3001) {
+  constructor(port: number = WS_PORT) {
     this.port = port;
     this.wss = new WebSocketServer({ port });
     this.setupServer();
@@ -105,6 +106,11 @@ export class CanvasWebSocketServer {
           ws.send(JSON.stringify({ type: 'pong', timestamp: new Date() }));
           break;
 
+        case 'graph_update':
+        case 'chat_update':
+          this.handleBroadcast(message as BroadcastUpdate);
+          break;
+
         default:
           console.warn(`[WebSocket] Unknown message type: ${message.type}`);
       }
@@ -164,6 +170,36 @@ export class CanvasWebSocketServer {
       );
       this.clients.delete(clientId);
     }
+  }
+
+  /**
+   * Handle broadcast request from client
+   */
+  private handleBroadcast(update: BroadcastUpdate): void {
+    const message = JSON.stringify(update);
+    let broadcastCount = 0;
+
+    for (const [clientId, client] of this.clients.entries()) {
+      // Broadcast to ALL clients in same workspace+system
+      // (Don't filter by userId - we want same-user updates across terminals)
+      if (
+        client.subscription.workspaceId &&
+        client.subscription.systemId
+      ) {
+        try {
+          if (client.ws.readyState === WebSocket.OPEN) {
+            client.ws.send(message);
+            broadcastCount++;
+          }
+        } catch (error) {
+          console.error(`[WebSocket] Broadcast error to client ${clientId}:`, error);
+        }
+      }
+    }
+
+    console.log(
+      `[WebSocket] Broadcast ${update.type} to ${broadcastCount} clients`
+    );
   }
 
   /**

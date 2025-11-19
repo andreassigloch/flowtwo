@@ -49,13 +49,15 @@ export const EDGE_TYPE_METADATA = {
     validConnections: [
       'SYS -> SYS', // System contains subsystem
       'SYS -> UC', // System contains use cases
+      'SYS -> MOD', // System contains top-level modules
       'UC -> UC', // Use case contains sub-use-cases
       'UC -> ACTOR', // Use case composes actor
-      'FCHAIN -> ACTOR', // Function chain composes actor
       'UC -> FCHAIN', // Use case contains function chains
+      'FCHAIN -> ACTOR', // Function chain composes actor
       'FCHAIN -> FUNC', // Function chain contains functions
       'FCHAIN -> FLOW', // Function chain contains flows
-      'SYS -> MOD', // System contains modules
+      'MOD -> MOD', // Module contains modules (directory hierarchy)
+      'FUNC -> FUNC', // Function contains functions (logical grouping)
     ],
   },
   io: {
@@ -251,3 +253,6 @@ export interface User {
   name: string;
   createdAt: Date;
 }
+
+/** Re-export Message from canvas types */
+export type { Message } from './canvas.js';

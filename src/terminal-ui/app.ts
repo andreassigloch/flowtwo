@@ -24,6 +24,7 @@ import type { LLMRequest } from '../shared/types/llm.js';
 import * as fs from 'fs';
 import * as readline from 'readline';
 import { spawn } from 'child_process';
+import { FIFO_PATH, LOG_PATH, LLM_TEMPERATURE } from '../shared/config.js';
 
 /**
  * Application Configuration
@@ -98,7 +99,7 @@ export class GraphEngineApp {
         apiKey: config.anthropicApiKey,
         model: 'claude-sonnet-4-5-20250929',
         maxTokens: 4096,
-        temperature: 0.7,
+        temperature: LLM_TEMPERATURE,
         enableCache: true,
       });
     }
@@ -157,7 +158,7 @@ export class GraphEngineApp {
     }
 
     // Open FIFO for reading (continuously reopen after each message)
-    const fifoPath = '/tmp/graphengine-input.fifo';
+    const fifoPath = FIFO_PATH;
 
     // Process messages from FIFO in background
     const readMessages = async () => {
@@ -255,7 +256,7 @@ export class GraphEngineApp {
     const logMsg = `[${timestamp}] ${message}`;
 
     // Append to log file
-    fs.appendFileSync('/tmp/graphengine.log', logMsg + '\n');
+    fs.appendFileSync(LOG_PATH, logMsg + '\n');
 
     // Send to stdout panel
     await this.tmux.sendToPanel(
@@ -335,7 +336,7 @@ export class GraphEngineApp {
     await this.tmux.sendToPanel(TmuxPanel.STDOUT, 'echo ""', true);
 
     // Tail application log file
-    await this.tmux.runInPanel(TmuxPanel.STDOUT, 'tail', ['-f', '/tmp/graphengine.log']);
+    await this.tmux.runInPanel(TmuxPanel.STDOUT, 'tail', ['-f', LOG_PATH]);
   }
 
   /**

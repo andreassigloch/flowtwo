@@ -18,11 +18,15 @@ import { ChatCanvas } from '../canvas/chat-canvas.js';
 import { LLMEngine } from '../llm-engine/llm-engine.js';
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
 import { FormatEParser } from '../shared/parsers/format-e-parser.js';
+import { CanvasWebSocketClient } from '../canvas/websocket-client.js';
+import type { BroadcastUpdate } from '../canvas/websocket-server.js';
+import { SessionManager } from '../session.js';
+import { WS_URL, LOG_PATH, LLM_TEMPERATURE } from '../shared/config.js';
 
 // Configuration
 const config = {
   workspaceId: process.env.WORKSPACE_ID || 'demo-workspace',
-  systemId: process.env.SYSTEM_ID || 'UrbanMobility.SY.001',
+  systemId: process.env.SYSTEM_ID || 'new-system', // Will be auto-detected from first SYS node
   chatId: process.env.CHAT_ID || 'demo-chat-001',
   userId: process.env.USER_ID || 'andreas@siglochconsulting',
 };
@@ -32,6 +36,8 @@ let graphCanvas: GraphCanvas;
 let chatCanvas: ChatCanvas;
 let llmEngine: LLMEngine | undefined;
 let neo4jClient: Neo4jClient | undefined;
+let sessionManager: SessionManager | undefined;
+let wsClient: CanvasWebSocketClient;
 const parser = new FormatEParser();
 
 // Initialize Neo4j (optional)
@@ -41,6 +47,7 @@ if (process.env.NEO4J_URI && process.env.NEO4J_USER && process.env.NEO4J_PASSWOR
     user: process.env.NEO4J_USER,
     password: process.env.NEO4J_PASSWORD,
   });
+  sessionManager = new SessionManager(neo4jClient);
 }
 
 // Initialize canvases
@@ -68,7 +75,7 @@ if (process.env.ANTHROPIC_API_KEY) {
     apiKey: process.env.ANTHROPIC_API_KEY,
     model: 'claude-sonnet-4-5-20250929',
     maxTokens: 4096,
-    temperature: 0.7,
+    temperature: LLM_TEMPERATURE,
     enableCache: true,
   });
 }
@@ -79,27 +86,43 @@ if (process.env.ANTHROPIC_API_KEY) {
 function log(message: string): void {
   const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
   const logMsg = `[${timestamp}] ${message}`;
-  fs.appendFileSync('/tmp/graphengine.log', logMsg + '\n');
+  fs.appendFileSync(LOG_PATH, logMsg + '\n');
 }
 
 /**
- * Notify graph viewer of update via shared state file
+ * Notify graph viewer of update via WebSocket
+ * Uses same JSON format as file-based polling
  */
 function notifyGraphUpdate(): void {
-  try {
-    const state = graphCanvas.getState();
-    const stateData = {
-      nodes: Array.from(state.nodes.entries()),
-      edges: Array.from(state.edges.entries()),
-      ports: Array.from(state.ports.entries()),
-      currentView: state.currentView,
-      timestamp: Date.now(),
-    };
-    fs.writeFileSync('/tmp/graphengine-state.json', JSON.stringify(stateData));
-    log('📝 Wrote graph state to shared file');
-  } catch (error) {
-    log(`⚠️  Failed to write state: ${error}`);
+  const state = graphCanvas.getState();
+
+  if (!wsClient || !wsClient.isConnected()) {
+    const error = 'WebSocket not connected - cannot notify graph viewer';
+    log(`❌ ${error}`);
+    console.error(`\x1b[31m❌ ${error}\x1b[0m`);
+    return;
   }
+
+  // Serialize graph state as JSON (same format as file-based polling)
+  const stateData = {
+    nodes: Array.from(state.nodes.entries()),
+    edges: Array.from(state.edges.entries()),
+    ports: Array.from(state.ports.entries()),
+    currentView: state.currentView,
+    timestamp: Date.now(),
+  };
+
+  wsClient.broadcastUpdate(
+    'graph_update',
+    JSON.stringify(stateData),  // JSON serialized state (not Format E)
+    {
+      userId: config.userId,
+      sessionId: config.chatId,
+      origin: 'llm-operation',
+    }
+  );
+
+  log('📡 Broadcast graph update via WebSocket');
 }
 
 /**
@@ -111,11 +134,144 @@ function printHeader(): void {
   console.log('\x1b[36m║     TERMINAL 3: CHAT INTERFACE       ║\x1b[0m');
   console.log('\x1b[36m╚═══════════════════════════════════════╝\x1b[0m');
   console.log('');
-  console.log('Commands: /help, /save, /stats, /view <name>, exit');
+  console.log('Commands: /help, /new, /load, /save, /stats, /view <name>, /exit');
   console.log('');
 
   if (!llmEngine) {
     console.log('\x1b[33m⚠️  LLM Engine not configured (set ANTHROPIC_API_KEY in .env)\x1b[0m');
+    console.log('');
+  }
+}
+
+/**
+ * Handle /load command - list and load systems from Neo4j
+ */
+async function handleLoadCommand(): Promise<void> {
+  if (!neo4jClient) return;
+
+  try {
+    console.log('');
+    console.log('🔍 Scanning Neo4j for available systems...');
+    log('🔍 Scanning Neo4j for systems');
+
+    // Get all systems in workspace
+    const systems = await neo4jClient.listSystems(config.workspaceId);
+
+    if (systems.length === 0) {
+      console.log('\x1b[33m⚠️  No systems found in workspace: ' + config.workspaceId + '\x1b[0m');
+      console.log('');
+      return;
+    }
+
+    // Display available systems
+    console.log('');
+    console.log('\x1b[1;36mAvailable Systems:\x1b[0m');
+    console.log('');
+
+    systems.forEach((sys, idx) => {
+      console.log(`  ${idx + 1}. \x1b[35m${sys.systemId}\x1b[0m \x1b[90m(${sys.nodeCount} nodes)\x1b[0m`);
+    });
+
+    console.log('');
+    console.log('\x1b[90mEnter number (1-' + systems.length + ') or semantic ID to load:\x1b[0m');
+    console.log('');
+
+    // Wait for user input
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    rl.question('\x1b[34mLoad:\x1b[0m ', async (answer) => {
+      rl.close();
+
+      const trimmed = answer.trim();
+      if (!trimmed) {
+        console.log('\x1b[33m❌ Cancelled\x1b[0m');
+        console.log('');
+        return;
+      }
+
+      // Check if numeric index
+      const index = parseInt(trimmed, 10);
+      let selectedSystem: { systemId: string; nodeCount: number } | undefined;
+
+      if (!isNaN(index) && index >= 1 && index <= systems.length) {
+        selectedSystem = systems[index - 1];
+      } else {
+        // Try to find by semantic ID
+        selectedSystem = systems.find((s) => s.systemId === trimmed);
+      }
+
+      if (!selectedSystem) {
+        console.log(`\x1b[31m❌ Invalid selection: ${trimmed}\x1b[0m`);
+        console.log('');
+        return;
+      }
+
+      // Load the selected system
+      console.log('');
+      console.log(`📥 Loading \x1b[35m${selectedSystem.systemId}\x1b[0m...`);
+      log(`📥 Loading system: ${selectedSystem.systemId}`);
+
+      try {
+        const { nodes, edges } = await neo4jClient!.loadGraph({
+          workspaceId: config.workspaceId,
+          systemId: selectedSystem.systemId,
+        });
+
+        if (nodes.length === 0) {
+          console.log('\x1b[33m⚠️  System has no nodes\x1b[0m');
+          console.log('');
+          return;
+        }
+
+        // Update config
+        config.systemId = selectedSystem.systemId;
+
+        // Load into graph canvas
+        const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
+        const edgesMap = new Map(edges.filter((e) => e.semanticId).map((e) => [e.semanticId!, e]));
+
+        await graphCanvas.loadGraph({
+          nodes: nodesMap,
+          edges: edgesMap,
+          ports: new Map(),
+        });
+
+        console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges\x1b[0m`);
+        log(`✅ Loaded ${nodes.length} nodes, ${edges.length} edges`);
+
+        // Save session with new system ID
+        if (sessionManager) {
+          const state = graphCanvas.getState();
+          await sessionManager.saveSession({
+            userId: config.userId,
+            workspaceId: config.workspaceId,
+            activeSystemId: config.systemId,
+            currentView: state.currentView,
+            chatId: config.chatId,
+            lastActive: new Date(),
+          });
+          log(`💾 Session updated: ${config.systemId}`);
+        }
+
+        // Notify graph viewer
+        notifyGraphUpdate();
+
+        console.log('');
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.log(`\x1b[31m❌ Error loading system: ${errorMsg}\x1b[0m`);
+        log(`❌ Error loading system: ${errorMsg}`);
+        console.log('');
+      }
+    });
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Error scanning systems: ${errorMsg}\x1b[0m`);
+    log(`❌ Error scanning systems: ${errorMsg}`);
     console.log('');
   }
 }
@@ -131,12 +287,46 @@ async function handleCommand(cmd: string): Promise<void> {
       console.log('');
       console.log('Available commands:');
       console.log('  /help           - Show this help');
+      console.log('  /new            - Start new system (clear graph)');
+      console.log('  /load           - List and load systems from Neo4j');
       console.log('  /save           - Save graph to Neo4j');
       console.log('  /stats          - Show graph statistics');
-      console.log('  /view <name>    - Switch view (hierarchy, functional, requirements, allocation, usecase)');
+      console.log('  /view <name>    - Switch view (hierarchy, functional-flow, requirements, allocation, use-case)');
       console.log('  /clear          - Clear chat history');
-      console.log('  exit            - Quit application');
+      console.log('  /exit           - Save session and quit (also: exit, quit)');
       console.log('');
+      break;
+
+    case '/new':
+      console.log('');
+      console.log('🗑️  Starting new system...');
+      log('🗑️  Starting new system');
+
+      // Clear graph state
+      await graphCanvas.loadGraph({
+        nodes: new Map(),
+        edges: new Map(),
+        ports: new Map(),
+      });
+
+      // Reset system ID to placeholder
+      config.systemId = 'new-system';
+
+      // Notify graph viewer
+      notifyGraphUpdate();
+
+      console.log('\x1b[32m✅ Graph cleared - ready for new system\x1b[0m');
+      console.log('\x1b[90m   (System ID will be auto-detected from first SYS node)\x1b[0m');
+      log('✅ Graph cleared');
+      console.log('');
+      break;
+
+    case '/load':
+      if (!neo4jClient) {
+        console.log('\x1b[33m⚠️  Neo4j not configured\x1b[0m');
+        break;
+      }
+      await handleLoadCommand();
       break;
 
     case '/save':
@@ -146,10 +336,19 @@ async function handleCommand(cmd: string): Promise<void> {
       }
       console.log('💾 Saving to Neo4j...');
       log('💾 Saving to Neo4j...');
-      await graphCanvas.persistToNeo4j();
-      await chatCanvas.persistToNeo4j();
-      console.log('\x1b[32m✅ Saved successfully\x1b[0m');
-      log('✅ Saved successfully');
+
+      const graphResult = await graphCanvas.persistToNeo4j();
+      const chatResult = await chatCanvas.persistToNeo4j();
+
+      if (graphResult.skipped && chatResult.skipped) {
+        console.log('\x1b[33m⚠️  No changes to save (graph is up to date)\x1b[0m');
+        log('⚠️  No changes to save');
+      } else {
+        const graphCount = graphResult.savedCount || 0;
+        const chatCount = chatResult.savedCount || 0;
+        console.log(`\x1b[32m✅ Saved successfully: ${graphCount} graph items, ${chatCount} messages\x1b[0m`);
+        log(`✅ Saved successfully: ${graphCount} graph items, ${chatCount} messages`);
+      }
       break;
 
     case '/stats':
@@ -167,13 +366,20 @@ async function handleCommand(cmd: string): Promise<void> {
     case '/view':
       if (args.length === 0) {
         console.log('\x1b[33mUsage: /view <name>\x1b[0m');
-        console.log('Views: hierarchy, functional, requirements, allocation, usecase');
+        console.log('Views: hierarchy, functional-flow, requirements, allocation, use-case');
         break;
       }
       const viewName = args[0];
+      const validViews = ['hierarchy', 'functional-flow', 'requirements', 'allocation', 'use-case'];
+      if (!validViews.includes(viewName)) {
+        console.log(`\x1b[33m❌ Invalid view: ${viewName}\x1b[0m`);
+        console.log('Valid views: hierarchy, functional-flow, requirements, allocation, use-case');
+        break;
+      }
       // Update graph canvas view
       console.log(`🔄 Switching to ${viewName} view...`);
       log(`🔄 Switching to ${viewName} view`);
+      graphCanvas.setCurrentView(viewName);
       notifyGraphUpdate();
       console.log('\x1b[32m✅ View updated (check GRAPH terminal)\x1b[0m');
       break;
@@ -242,11 +448,22 @@ async function processMessage(message: string): Promise<void> {
 
         // Apply operations to graph if present (silently)
         if (response.operations) {
-          const diff = parser.parseDiff(response.operations);
+          const diff = parser.parseDiff(response.operations, config.workspaceId, config.systemId);
           await graphCanvas.applyDiff(diff);
 
           const state = graphCanvas.getState();
           log(`📊 Graph updated (${state.nodes.size} nodes, ${state.edges.size} edges)`);
+
+          // Auto-detect system ID from first SYS node (only if placeholder)
+          if (config.systemId === 'new-system') {
+            const sysNodes = Array.from(state.nodes.values()).filter(n => n.type === 'SYS');
+            if (sysNodes.length > 0) {
+              const newSystemId = sysNodes[0].semanticId;
+              console.log(`\x1b[90m✓ Detected new system: ${newSystemId}\x1b[0m`);
+              log(`📌 System ID detected: ${newSystemId}`);
+              config.systemId = newSystemId;
+            }
+          }
 
           // Notify graph viewer (silently)
           notifyGraphUpdate();
@@ -274,6 +491,22 @@ async function main(): Promise<void> {
   printHeader();
 
   log('🚀 Chat interface started');
+
+  // Load session from Neo4j if available
+  if (sessionManager) {
+    try {
+      const session = await sessionManager.loadSession(config.userId, config.workspaceId);
+      if (session) {
+        // Restore session state
+        config.systemId = session.activeSystemId;
+        config.chatId = session.chatId;
+        console.log(`\x1b[90m✓ Session restored: ${session.activeSystemId}\x1b[0m`);
+        log(`📋 Session restored: ${session.activeSystemId}`);
+      }
+    } catch (error) {
+      log('⚠️  Could not load session (starting fresh)');
+    }
+  }
 
   // Load graph from Neo4j if available
   if (neo4jClient) {
@@ -305,6 +538,49 @@ async function main(): Promise<void> {
 
   console.log('');
 
+  // Connect to WebSocket server
+  wsClient = new CanvasWebSocketClient(
+    process.env.WS_URL || WS_URL,
+    {
+      workspaceId: config.workspaceId,
+      systemId: config.systemId,
+      userId: config.userId,
+    },
+    (update: BroadcastUpdate) => {
+      // Handle updates from other clients (not used in chat terminal)
+      log(`📡 Received ${update.type} from ${update.source.userId}`);
+    }
+  );
+
+  try {
+    await wsClient.connect();
+    console.log('\x1b[32m✅ Connected to WebSocket server\x1b[0m');
+    log('✅ WebSocket connected');
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const wsUrl = process.env.WS_URL || WS_URL;
+    console.error('');
+    console.error('\x1b[31m╔═══════════════════════════════════════╗\x1b[0m');
+    console.error('\x1b[31m║  ERROR: WebSocket Connection Failed  ║\x1b[0m');
+    console.error('\x1b[31m╚═══════════════════════════════════════╝\x1b[0m');
+    console.error('');
+    console.error(`\x1b[31mCould not connect to WebSocket server at ${wsUrl}\x1b[0m`);
+    console.error(`\x1b[31mError: ${errorMsg}\x1b[0m`);
+    console.error('');
+    console.error('\x1b[33mPlease ensure the WebSocket server is running:\x1b[0m');
+    console.error('\x1b[33m  npm run websocket-server\x1b[0m');
+    console.error('');
+    log(`❌ WebSocket connection failed: ${errorMsg}`);
+    process.exit(1);
+  }
+
+  // Register components with session manager for cleanup
+  if (sessionManager) {
+    sessionManager.registerComponents(wsClient, graphCanvas, chatCanvas);
+  }
+
+  console.log('');
+
   // Create readline interface
   const rl = readline.createInterface({
     input: process.stdin,
@@ -322,18 +598,29 @@ async function main(): Promise<void> {
       return;
     }
 
-    if (trimmed === 'exit' || trimmed === 'quit') {
-      console.log('');
-      console.log('💾 Saving before exit...');
+    if (trimmed === 'exit' || trimmed === 'quit' || trimmed === '/exit') {
       log('🛑 Shutting down...');
 
-      if (neo4jClient) {
+      if (sessionManager) {
+        const state = graphCanvas.getState();
+        await sessionManager.shutdown({
+          userId: config.userId,
+          workspaceId: config.workspaceId,
+          activeSystemId: config.systemId,
+          currentView: state.currentView,
+          chatId: config.chatId,
+          lastActive: new Date(),
+        });
+      } else if (neo4jClient) {
+        // Fallback if no session manager
+        console.log('');
+        console.log('💾 Saving before exit...');
         await graphCanvas.persistToNeo4j();
         await chatCanvas.persistToNeo4j();
         await neo4jClient.close();
+        console.log('\x1b[32m✅ Goodbye!\x1b[0m');
       }
 
-      console.log('\x1b[32m✅ Goodbye!\x1b[0m');
       log('✅ Shutdown complete');
       process.exit(0);
     }
@@ -349,10 +636,26 @@ async function main(): Promise<void> {
   });
 
   rl.on('close', async () => {
-    console.log('');
-    await graphCanvas.persistToNeo4j();
-    await chatCanvas.persistToNeo4j();
-    if (neo4jClient) await neo4jClient.close();
+    log('🛑 SIGINT received - shutting down...');
+
+    if (sessionManager) {
+      const state = graphCanvas.getState();
+      await sessionManager.shutdown({
+        userId: config.userId,
+        workspaceId: config.workspaceId,
+        activeSystemId: config.systemId,
+        currentView: state.currentView,
+        chatId: config.chatId,
+        lastActive: new Date(),
+      });
+    } else if (neo4jClient) {
+      console.log('');
+      await graphCanvas.persistToNeo4j();
+      await chatCanvas.persistToNeo4j();
+      await neo4jClient.close();
+    }
+
+    log('✅ Shutdown complete');
     process.exit(0);
   });
 }

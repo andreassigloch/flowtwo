@@ -44,7 +44,14 @@
       "Bash(./test-tmux-fix.sh:*)",
       "Bash(tmux send-keys -t graphengine-test:0.0 \"echo ''''TEST MESSAGE''''\" C-m sleep 1 tmux capture-pane -t graphengine-test:0.0 -p)",
       "Bash(./launch-3terminals.sh)",
-      "Bash(npm run test:unit:*)"
+      "Bash(npm run test:unit:*)",
+      "Bash(docker exec:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(npm run lint:*)",
+      "Bash(git config:*)",
+      "Bash(.githooks/pre-push)"
     ],
     "deny": [],
     "ask": []

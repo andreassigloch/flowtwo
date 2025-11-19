@@ -11,7 +11,7 @@
  * @version 2.0.0
  */
 
-import { GraphState } from '../shared/types/ontology.js';
+import { GraphState, Node, Edge } from '../shared/types/ontology.js';
 import { ViewType, ViewConfig, DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
 import { LayoutResult } from '../shared/types/layout.js';
 import { ViewFilter } from './view-filter.js';
@@ -51,14 +51,14 @@ export class GraphEngine {
 
     // 2. Apply view filter (layout filter)
     const viewFilter = new ViewFilter(viewConfig);
-    const filteredGraph = viewFilter.applyLayoutFilter(graph);
+    // const filteredGraph = viewFilter.applyLayoutFilter(graph);
 
     // 3. Extract ports from FLOW nodes
     const portExtractor = new PortExtractor();
     const ports = portExtractor.extractAllPorts({
       ...graph,
-      nodes: filteredGraph.nodes,
-      edges: filteredGraph.edges,
+      nodes: new Map(nodes.map(n => [n.semanticId, n as Node])),
+      edges: new Map(edges.map(e => [e.uuid, e as Edge])),
     });
 
     // 4. Compute layout based on algorithm
@@ -70,8 +70,8 @@ export class GraphEngine {
         const rtLayout = new ReingoldTilfordLayout(viewConfig.layoutConfig.parameters);
         layoutResult = rtLayout.compute({
           ...graph,
-          nodes: filteredGraph.nodes,
-          edges: filteredGraph.edges,
+          nodes: new Map(nodes.map(n => [n.semanticId, n as Node])),
+          edges: new Map(edges.map(e => [e.uuid, e as Edge])),
         });
         break;
 

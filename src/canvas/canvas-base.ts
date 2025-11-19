@@ -13,12 +13,11 @@ import {
   DiffResult,
   PersistResult,
   Operation,
-  BroadcastUpdate,
   CacheDecision,
   CacheContext,
 } from '../shared/types/canvas.js';
 import { IFormatEParser } from '../shared/types/format-e.js';
-import { CanvasWebSocketServer } from './websocket-server.js';
+import { CanvasWebSocketServer, BroadcastUpdate } from './websocket-server.js';
 
 /**
  * Abstract Canvas Base Class
@@ -185,7 +184,7 @@ export abstract class CanvasBase {
   /**
    * Broadcast update to connected users (WebSocket)
    */
-  protected async broadcastUpdate(diff: FormatEDiff, origin: 'user-edit' | 'llm' | 'sync' = 'user-edit'): Promise<void> {
+  protected async broadcastUpdate(diff: FormatEDiff, origin: 'user-edit' | 'llm-operation' | 'system' = 'user-edit'): Promise<void> {
     if (!this.wsServer) {
       // WebSocket server not configured - skip broadcasting
       // This is acceptable for single-user scenarios or testing
@@ -194,7 +193,7 @@ export abstract class CanvasBase {
 
     const update: BroadcastUpdate = {
       type: 'graph_update', // Override in subclass if needed
-      diff,
+      diff: this.parser.serializeDiff(diff), // Convert FormatEDiff to string
       source: {
         userId: this.userId,
         sessionId: this.chatId, // Use chatId as session identifier

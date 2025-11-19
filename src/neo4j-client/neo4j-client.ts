@@ -438,20 +438,27 @@ export class Neo4jClient {
     const session = this.getSession();
 
     try {
+      // Query for both :Node and :OntologyNode labels
+      // Filter out null systemIds (from legacy data)
       const query = `
-        MATCH (n:Node)
-        WHERE n.workspaceId = $workspaceId
-        WITH n.systemId as systemId, count(n) as nodeCount
+        MATCH (n)
+        WHERE (n:Node OR n:OntologyNode)
+          AND n.workspaceId = $workspaceId
+          AND n.systemId IS NOT NULL
+        WITH DISTINCT n.systemId as systemId, count(n) as nodeCount
+        WHERE systemId IS NOT NULL
         RETURN systemId, nodeCount
         ORDER BY systemId
       `;
 
       const result = await session.run(query, { workspaceId });
 
-      return result.records.map((record) => ({
-        systemId: record.get('systemId'),
-        nodeCount: record.get('nodeCount').toNumber(),
-      }));
+      return result.records
+        .map((record) => ({
+          systemId: record.get('systemId'),
+          nodeCount: record.get('nodeCount').toNumber(),
+        }))
+        .filter((sys) => sys.systemId !== null && sys.systemId !== undefined);
     } finally {
       await session.close();
     }
