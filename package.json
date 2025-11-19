@@ -9,9 +9,9 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "start": "./launch-4terminals.sh",
+    "start": "./startup.sh",
     "websocket-server": "tsx src/websocket-server.ts",
-    "dev": "./launch-4terminals.sh",
+    "dev": "./startup.sh",
     "build": "tsc --noEmit && tsc",
     "test": "vitest run",
     "test:watch": "vitest",
