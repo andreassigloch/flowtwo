@@ -11,7 +11,7 @@
   "scripts": {
     "start": "./launch-3terminals.sh",
     "websocket-server": "tsx src/websocket-server.ts",
-    "dev": "tsx watch src/main.ts",
+    "dev": "./launch-3terminals.sh",
     "build": "tsc --noEmit && tsc",
     "test": "vitest run",
     "test:watch": "vitest",
