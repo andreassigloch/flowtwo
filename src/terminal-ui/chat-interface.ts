@@ -613,6 +613,9 @@ async function main(): Promise<void> {
             timestamp: new Date().toISOString(),
           });
           log('📡 Shutdown signal sent to all terminals');
+
+          // Wait longer to ensure message delivery before closing connections
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
           log(`⚠️  Could not send shutdown signal: ${error}`);
         }
@@ -639,9 +642,6 @@ async function main(): Promise<void> {
       }
 
       log('✅ Shutdown complete');
-
-      // Give time for broadcast, then exit
-      await new Promise(resolve => setTimeout(resolve, 200));
       process.exit(0);
     }
 

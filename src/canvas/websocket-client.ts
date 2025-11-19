@@ -29,6 +29,7 @@ export class CanvasWebSocketClient {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = WS_MAX_RECONNECT_ATTEMPTS;
   private reconnectDelay = WS_RECONNECT_DELAY;
+  private isShuttingDown = false;
 
   constructor(
     url: string,
@@ -98,6 +99,13 @@ export class CanvasWebSocketClient {
           console.log(`[WS Client] Subscribed to ${message.subscription.systemId}`);
           break;
 
+        case 'shutdown':
+          // Mark as shutting down to prevent reconnection
+          this.isShuttingDown = true;
+          // Forward shutdown to callback
+          this.onUpdate(message as BroadcastUpdate);
+          break;
+
         case 'graph_update':
         case 'chat_update':
           // Forward update to callback
@@ -154,6 +162,12 @@ export class CanvasWebSocketClient {
    * Handle reconnection
    */
   private handleReconnect(): void {
+    // Don't reconnect if shutting down
+    if (this.isShuttingDown) {
+      console.log('[WS Client] Shutdown in progress - skipping reconnection');
+      return;
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('[WS Client] Max reconnection attempts reached');
       return;
@@ -182,6 +196,7 @@ export class CanvasWebSocketClient {
    * Disconnect from server
    */
   disconnect(): void {
+    this.isShuttingDown = true;
     if (this.ws) {
       this.ws.close();
       this.ws = null;
