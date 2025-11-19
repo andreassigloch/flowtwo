@@ -149,7 +149,7 @@ All graph modifications MUST use Format E Diff format:
 
 \`\`\`
 <operations>
-<base_snapshot>{SystemID}@v{version}</base_snapshot>
+<base_snapshot>{SystemID}</base_snapshot>
 
 ## Nodes
 + {Name}|{Type}|{SemanticID}|{Description} [{x:100,y:200,zoom:L2}]
@@ -218,7 +218,7 @@ Example:
 I'll add a payment processing function to your system.
 
 <operations>
-<base_snapshot>System.SY.001@v1</base_snapshot>
+<base_snapshot>System.SY.001</base_snapshot>
 
 ## Nodes
 + ProcessPayment|FUNC|ProcessPayment.FN.001|Process customer payment
@@ -248,9 +248,9 @@ ${canvasState}
 \`\`\`
 
 **Important:**
-- Increment version number in base_snapshot when making changes
 - Reuse existing semantic IDs when referencing nodes
 - Maintain hierarchical structure (compose edges)
+- Only add/modify what the user requests
 `;
   }
 
