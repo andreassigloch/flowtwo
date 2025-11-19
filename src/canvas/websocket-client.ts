@@ -144,6 +144,13 @@ export class CanvasWebSocketClient {
   }
 
   /**
+   * Broadcast any message (including shutdown)
+   */
+  broadcast(message: BroadcastUpdate): void {
+    this.send(message);
+  }
+
+  /**
    * Handle reconnection
    */
   private handleReconnect(): void {

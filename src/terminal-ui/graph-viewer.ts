@@ -403,6 +403,17 @@ function render(): void {
  * Uses same format as file-based polling (JSON serialized state)
  */
 async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
+  // Handle shutdown signal
+  if (update.type === 'shutdown') {
+    log('🛑 Received shutdown signal');
+    console.log('');
+    console.log('\x1b[33m🛑 Shutting down...\x1b[0m');
+    if (wsClient) {
+      wsClient.disconnect();
+    }
+    process.exit(0);
+  }
+
   if (update.type !== 'graph_update') {
     return;
   }

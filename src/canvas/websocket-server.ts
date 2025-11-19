@@ -11,14 +11,14 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { WS_PORT } from '../shared/config.js';
 
 export interface BroadcastUpdate {
-  type: 'graph_update' | 'chat_update';
-  diff: string; // Format E Diff as string
-  source: {
+  type: 'graph_update' | 'chat_update' | 'shutdown';
+  diff?: string; // Format E Diff as string (optional for shutdown)
+  source?: {
     userId: string;
     sessionId: string;
     origin: 'user-edit' | 'llm-operation' | 'system';
   };
-  timestamp: Date;
+  timestamp: Date | string;
 }
 
 export interface ClientSubscription {
@@ -109,6 +109,10 @@ export class CanvasWebSocketServer {
         case 'graph_update':
         case 'chat_update':
           this.handleBroadcast(message as BroadcastUpdate);
+          break;
+
+        case 'shutdown':
+          this.handleShutdown(message as BroadcastUpdate);
           break;
 
         default:
@@ -203,6 +207,38 @@ export class CanvasWebSocketServer {
   }
 
   /**
+   * Handle shutdown signal - broadcast to all clients then shutdown server
+   */
+  private async handleShutdown(update: BroadcastUpdate): Promise<void> {
+    console.log('[WebSocket] Received shutdown signal');
+
+    // Broadcast shutdown to all clients
+    const message = JSON.stringify(update);
+    let broadcastCount = 0;
+
+    for (const [clientId, client] of this.clients.entries()) {
+      try {
+        if (client.ws.readyState === WebSocket.OPEN) {
+          client.ws.send(message);
+          broadcastCount++;
+        }
+      } catch (error) {
+        console.error(`[WebSocket] Shutdown broadcast error to client ${clientId}:`, error);
+      }
+    }
+
+    console.log(`[WebSocket] Shutdown signal sent to ${broadcastCount} clients`);
+
+    // Give clients time to receive shutdown signal
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Shutdown the server
+    console.log('[WebSocket] Shutting down server...');
+    await this.close();
+    process.exit(0);
+  }
+
+  /**
    * Broadcast update to all clients in same workspace+system
    */
   broadcast(update: BroadcastUpdate, workspaceId: string, systemId: string): void {
@@ -215,8 +251,8 @@ export class CanvasWebSocketServer {
         client.subscription.workspaceId === workspaceId &&
         client.subscription.systemId === systemId
       ) {
-        // Don't send update back to originating user
-        if (client.subscription.userId !== update.source.userId) {
+        // Don't send update back to originating user (if source is defined)
+        if (!update.source || client.subscription.userId !== update.source.userId) {
           try {
             if (client.ws.readyState === WebSocket.OPEN) {
               client.ws.send(message);

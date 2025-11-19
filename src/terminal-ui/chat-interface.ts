@@ -551,7 +551,8 @@ async function main(): Promise<void> {
     },
     (update: BroadcastUpdate) => {
       // Handle updates from other clients (not used in chat terminal)
-      log(`📡 Received ${update.type} from ${update.source.userId}`);
+      const userId = update.source?.userId || 'unknown';
+      log(`📡 Received ${update.type} from ${userId}`);
     }
   );
 
@@ -602,7 +603,20 @@ async function main(): Promise<void> {
     }
 
     if (trimmed === 'exit' || trimmed === 'quit' || trimmed === '/exit') {
-      log('🛑 Shutting down...');
+      log('🛑 Shutting down all terminals...');
+
+      // Send shutdown signal to other terminals via WebSocket
+      if (wsClient) {
+        try {
+          wsClient.broadcast({
+            type: 'shutdown',
+            timestamp: new Date().toISOString(),
+          });
+          log('📡 Shutdown signal sent to all terminals');
+        } catch (error) {
+          log(`⚠️  Could not send shutdown signal: ${error}`);
+        }
+      }
 
       if (sessionManager) {
         const state = graphCanvas.getState();
@@ -625,6 +639,9 @@ async function main(): Promise<void> {
       }
 
       log('✅ Shutdown complete');
+
+      // Give time for broadcast, then exit
+      await new Promise(resolve => setTimeout(resolve, 200));
       process.exit(0);
     }
 
