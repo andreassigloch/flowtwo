@@ -71,7 +71,7 @@ sleep 1
 echo "6. Launching Terminal 4: STDOUT (logs)..."
 osascript <<EOF
 tell application "Terminal"
-    do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 4: STDOUT / LOGS           ║' && echo '╚═══════════════════════════════════════╝' && echo '' && echo 'Waiting for GraphEngine to start...' && echo '' && tail -f /tmp/graphengine.log"
+    do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 4: STDOUT / LOGS           ║' && echo '╚═══════════════════════════════════════╝' && echo '' && echo '📋 Monitoring: /tmp/graphengine.log' && echo '' && tail -n 0 -f /tmp/graphengine.log"
     set custom title of window 1 to "GraphEngine: STDOUT"
 end tell
 EOF

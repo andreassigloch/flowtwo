@@ -64,6 +64,27 @@ export class GraphCanvas extends CanvasBase {
   }
 
   /**
+   * Update system ID (e.g., after auto-detection from first SYS node)
+   * Updates both canvas state and all existing nodes
+   */
+  updateSystemId(newSystemId: string): void {
+    this.state.systemId = newSystemId;
+    this.systemId = newSystemId; // Update base class property
+
+    // Update all existing nodes with the new systemId
+    for (const node of this.state.nodes.values()) {
+      node.systemId = newSystemId;
+      this.markDirty(node.semanticId); // Mark as dirty so it gets saved
+    }
+
+    // Update all existing edges with the new systemId
+    for (const edge of this.state.edges.values()) {
+      edge.systemId = newSystemId;
+      this.markDirty(edge.semanticId || `${edge.sourceId}-${edge.targetId}`);
+    }
+  }
+
+  /**
    * Load graph from Neo4j (or initial state)
    */
   async loadGraph(initialState?: Partial<GraphState>): Promise<void> {

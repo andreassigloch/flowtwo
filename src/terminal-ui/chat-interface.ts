@@ -145,8 +145,9 @@ function printHeader(): void {
 
 /**
  * Handle /load command - list and load systems from Neo4j
+ * Uses the main readline interface to avoid stdin conflicts
  */
-async function handleLoadCommand(): Promise<void> {
+async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
   if (!neo4jClient) return;
 
   try {
@@ -173,22 +174,18 @@ async function handleLoadCommand(): Promise<void> {
     });
 
     console.log('');
-    console.log('\x1b[90mEnter number (1-' + systems.length + ') or semantic ID to load:\x1b[0m');
+    console.log('\x1b[90mEnter number (1-' + systems.length + ') or semantic ID to load (or press Enter to cancel):\x1b[0m');
     console.log('');
 
-    // Wait for user input
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    rl.question('\x1b[34mLoad:\x1b[0m ', async (answer) => {
-      rl.close();
+    // Use main readline interface to avoid stdin conflicts
+    mainRl.question('\x1b[34mLoad:\x1b[0m ', async (answer) => {
+      // Don't close the main interface!
 
       const trimmed = answer.trim();
-      if (!trimmed) {
+      if (!trimmed || trimmed === 'q' || trimmed === 'exit' || trimmed === 'cancel') {
         console.log('\x1b[33m❌ Cancelled\x1b[0m');
         console.log('');
+        mainRl.prompt();
         return;
       }
 
@@ -266,6 +263,9 @@ async function handleLoadCommand(): Promise<void> {
         log(`❌ Error loading system: ${errorMsg}`);
         console.log('');
       }
+
+      // Restore the prompt after async operation completes
+      mainRl.prompt();
     });
 
   } catch (error) {
@@ -279,7 +279,7 @@ async function handleLoadCommand(): Promise<void> {
 /**
  * Handle command
  */
-async function handleCommand(cmd: string): Promise<void> {
+async function handleCommand(cmd: string, rl: readline.Interface): Promise<void> {
   const [command, ...args] = cmd.split(' ');
 
   switch (command) {
@@ -326,8 +326,8 @@ async function handleCommand(cmd: string): Promise<void> {
         console.log('\x1b[33m⚠️  Neo4j not configured\x1b[0m');
         break;
       }
-      await handleLoadCommand();
-      break;
+      await handleLoadCommand(rl);
+      return; // Don't call rl.prompt() - handleLoadCommand will do it after async operation
 
     case '/save':
       if (!neo4jClient) {
@@ -462,6 +462,9 @@ async function processMessage(message: string): Promise<void> {
               console.log(`\x1b[90m✓ Detected new system: ${newSystemId}\x1b[0m`);
               log(`📌 System ID detected: ${newSystemId}`);
               config.systemId = newSystemId;
+
+              // Update canvas state with new system ID
+              graphCanvas.updateSystemId(newSystemId);
             }
           }
 
@@ -626,7 +629,7 @@ async function main(): Promise<void> {
     }
 
     if (trimmed.startsWith('/')) {
-      await handleCommand(trimmed);
+      await handleCommand(trimmed, rl);
       rl.prompt();
       return;
     }
