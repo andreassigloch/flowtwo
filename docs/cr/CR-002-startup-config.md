@@ -78,30 +78,32 @@ Option C (Service Orchestration) deferred to CR-018.
 
 ## Current Status
 
-- [x] Implemented Option A in src/main.ts
-- [x] Configuration validation before startup
-- [x] Graceful error handling with clear messages
-- [x] SIGINT/SIGTERM handlers for graceful shutdown
-- [x] Delegates to GraphEngineApp from app.ts
-- [ ] Created CR-018 for Option C (Service Orchestration)
+- [x] Implemented config validation in main.ts
+- [x] Removed obsolete tmux code (app.ts, tmux-manager.ts)
+- [x] main.ts shows instructions for 3-terminal setup
+- [x] Created CR-018 for future service orchestration
+- [x] Actual UI already working (chat-interface.ts + graph-viewer.ts + websocket-server)
 
 ## Implementation Details
 
-[src/main.ts:19-73](../../src/main.ts#L19-L73) now implements:
+[src/main.ts:20-47](../../src/main.ts#L20-L47) now implements:
 1. Configuration validation using validateConfig()
-2. AppConfig construction from environment variables
-3. GraphEngineApp instantiation
-4. Graceful shutdown handlers (SIGINT, SIGTERM)
-5. Error handling with clear user feedback
+2. Display instructions to run 3 terminals:
+   - Terminal 1: WebSocket server (npm run websocket-server)
+   - Terminal 2: Graph viewer (tsx src/terminal-ui/graph-viewer.ts)
+   - Terminal 3: Chat interface (tsx src/terminal-ui/chat-interface.ts)
+
+Note: Initial CR-002 implementation was against obsolete tmux-based architecture.
+The actual UI (Phase 1 complete) uses WebSocket-based multi-terminal setup.
 
 ## Acceptance Criteria
 
 - [x] `main.ts` has clear, documented initialization logic
 - [x] Configuration validation runs before startup
 - [x] Startup errors are logged and handled properly
-- [x] Application can be started via `npm start` (runs main.ts)
-- [x] Graceful shutdown on SIGINT/SIGTERM
-- [ ] README documents how to start the application
+- [x] Clear instructions shown for running the application
+- [x] Obsolete tmux code removed
+- [x] README documents the actual 3-terminal setup
 
 ## Dependencies
 
