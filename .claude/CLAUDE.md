@@ -53,6 +53,8 @@ Create a CR (Change Request) document for **EVERYTHING**:
   - `CR-014-auto-save-crash-recovery.md`
 
 ### CR Document Structure
+**CRs are combined requirements/architecture/use case documents - NOT implementation guides.**
+
 ```markdown
 # CR-NNN: Task Title
 
@@ -63,18 +65,20 @@ Create a CR (Change Request) document for **EVERYTHING**:
 **Created:** YYYY-MM-DD
 **MVP Acceptance Criteria:** #N (if applicable)
 
-## Problem
-Clear description of what needs to be solved
+## Problem / Use Case
+What problem are we solving? What is the user/system need?
 
 ## Requirements
-- Specific requirements from requirements.md
-- Acceptance criteria
+- Functional requirements (what must it do?)
+- Non-functional requirements (performance, security, etc.)
+- Constraints and acceptance criteria
 
-## Proposed Solution
-### Architecture
-### Implementation Details
+## Architecture / Solution Approach
+Describe the architectural approach and key design decisions.
+How will this fit into the existing system?
 
 ## Implementation Plan
+High-level phases and estimated effort for each component.
 ### Phase 1: Component (X-Y hours)
 ### Phase 2: Component (X-Y hours)
 
@@ -83,24 +87,30 @@ Clear description of what needs to be solved
 - [ ] Pending task 2
 
 ## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
+- [ ] How do we know it's done?
+- [ ] What must be verified?
 
 ## Dependencies
-- What must exist before this can be implemented
+What must exist before this can be implemented?
 
 ## Estimated Effort
-- Total: X-Y hours (N-M days)
+Total: X-Y hours (N-M days)
 
 ## MVP Impact (if applicable)
 Why this is critical for MVP
 
 ## References
-- Links to requirements.md sections
+- Links to requirements.md sections (FR-*, NFR-*)
 - Links to related CRs
 ```
 
-**Note:** CRs include their own "Current Status" section - no separate CURRENT_STATUS.md file needed.
+**Important CR Guidelines:**
+- CRs are **requirements + architecture documents**, not code
+- Focus on **WHAT** and **WHY**, not HOW (code-level details)
+- **NO code examples** unless specifically requested
+- Describe solutions conceptually, not programmatically
+- Think: use case + requirements + architecture decision
+- CRs include their own "Current Status" section
 
 ## Documentation Maintenance
 

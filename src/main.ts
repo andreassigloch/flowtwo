@@ -7,33 +7,75 @@
  * @version 2.0.0
  */
 
-console.log('🚀 GraphEngine v2.0.0');
-console.log('📊 Enterprise-grade Systems Engineering Platform');
-console.log('');
-console.log('Status: Phase 0 - Foundation ✅');
-console.log('');
-console.log('Architecture:');
-console.log('  • Dual Canvas (Graph + Chat)');
-console.log('  • Format E Serialization (74% token reduction)');
-console.log('  • Neo4j + AgentDB + Anthropic LLM');
-console.log('  • 5 Specialized Views');
-console.log('  • Test-Driven (70% unit / 20% integration / 10% E2E)');
-console.log('');
-console.log('Next Steps:');
-console.log('  1. Implement Format E Parser');
-console.log('  2. Complete Graph Canvas implementation');
-console.log('  3. Implement Chat Canvas');
-console.log('  4. Set up Neo4j integration');
-console.log('  5. Implement LLM Engine with AgentDB');
-console.log('');
-console.log('Run tests: npm test');
-console.log('');
+import 'dotenv/config';
+import { GraphEngineApp } from './terminal-ui/app.js';
+import { validateConfig } from './shared/config.js';
+import type { AppConfig } from './terminal-ui/app.js';
 
-export default function main() {
-  // TODO: Initialize application
-  console.log('✅ Application initialized');
+/**
+ * Main application entry point
+ * Implements CR-002 Option A: Terminal UI launcher with config validation
+ */
+export async function main(): Promise<void> {
+  console.log('🚀 GraphEngine v2.0.0');
+  console.log('📊 Enterprise-grade Systems Engineering Platform');
+  console.log('');
+
+  // Validate configuration
+  const configValidation = validateConfig();
+  if (!configValidation.valid) {
+    console.error('❌ Configuration errors:');
+    configValidation.errors.forEach(error => {
+      console.error(`   • ${error}`);
+    });
+    console.error('');
+    console.error('Please check your .env file or environment variables.');
+    console.error('See .env.example for required configuration.');
+    process.exit(1);
+  }
+
+  // Build application configuration
+  const config: AppConfig = {
+    workspaceId: process.env.WORKSPACE_ID || 'default-workspace',
+    systemId: process.env.SYSTEM_ID || 'system-001',
+    chatId: process.env.CHAT_ID || 'chat-001',
+    userId: process.env.USER_ID || 'user@example.com',
+    neo4jUri: process.env.NEO4J_URI,
+    neo4jUser: process.env.NEO4J_USER,
+    neo4jPassword: process.env.NEO4J_PASSWORD,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  };
+
+  // Initialize application
+  const app = new GraphEngineApp(config);
+
+  // Handle graceful shutdown
+  process.on('SIGINT', async () => {
+    console.log('\n🛑 Shutting down gracefully...');
+    await app.stop();
+    process.exit(0);
+  });
+
+  process.on('SIGTERM', async () => {
+    console.log('\n🛑 Shutting down gracefully...');
+    await app.stop();
+    process.exit(0);
+  });
+
+  // Start terminal UI
+  try {
+    await app.start();
+  } catch (error) {
+    console.error('❌ Fatal error during startup:');
+    console.error(error);
+    process.exit(1);
+  }
 }
 
+// Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  main().catch((error) => {
+    console.error('❌ Unhandled error:', error);
+    process.exit(1);
+  });
 }
