@@ -11,10 +11,9 @@
  * @version 2.0.0
  */
 
-import { GraphState, Node, Edge } from '../shared/types/ontology.js';
+import { GraphState } from '../shared/types/ontology.js';
 import { ViewType, ViewConfig, DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
 import { LayoutResult } from '../shared/types/layout.js';
-import { ViewFilter } from './view-filter.js';
 import { PortExtractor } from './port-extractor.js';
 import { ReingoldTilfordLayout } from './reingold-tilford.js';
 
@@ -49,17 +48,13 @@ export class GraphEngine {
       throw new Error(`View configuration not found: ${viewType}`);
     }
 
-    // 2. Apply view filter (layout filter)
-    const viewFilter = new ViewFilter(viewConfig);
+    // 2. Apply view filter (layout filter) - TODO: Implement in Phase 3
+    // const viewFilter = new ViewFilter(viewConfig);
     // const filteredGraph = viewFilter.applyLayoutFilter(graph);
 
     // 3. Extract ports from FLOW nodes
     const portExtractor = new PortExtractor();
-    const ports = portExtractor.extractAllPorts({
-      ...graph,
-      nodes: new Map(nodes.map(n => [n.semanticId, n as Node])),
-      edges: new Map(edges.map(e => [e.uuid, e as Edge])),
-    });
+    const ports = portExtractor.extractAllPorts(graph);
 
     // 4. Compute layout based on algorithm
     const layoutAlgorithm = viewConfig.layoutConfig.algorithm;
@@ -68,11 +63,7 @@ export class GraphEngine {
     switch (layoutAlgorithm) {
       case 'reingold-tilford':
         const rtLayout = new ReingoldTilfordLayout(viewConfig.layoutConfig.parameters);
-        layoutResult = rtLayout.compute({
-          ...graph,
-          nodes: new Map(nodes.map(n => [n.semanticId, n as Node])),
-          edges: new Map(edges.map(e => [e.uuid, e as Edge])),
-        });
+        layoutResult = rtLayout.compute(graph);
         break;
 
       case 'sugiyama':
