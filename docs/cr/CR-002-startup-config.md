@@ -78,11 +78,12 @@ Option C (Service Orchestration) deferred to CR-018.
 
 ## Current Status
 
-- [x] Implemented config validation in main.ts
 - [x] Removed obsolete tmux code (app.ts, tmux-manager.ts)
-- [x] main.ts shows instructions for 3-terminal setup
+- [x] Restored launch-3terminals.sh script
+- [x] npm run dev launches 3 terminals automatically
+- [x] main.ts validates config and shows instructions (fallback)
 - [x] Created CR-018 for future service orchestration
-- [x] Actual UI already working (chat-interface.ts + graph-viewer.ts + websocket-server)
+- [x] Actual UI working (chat-interface.ts + graph-viewer.ts + websocket-server)
 
 ## Implementation Details
 
