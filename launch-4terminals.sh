@@ -1,6 +1,6 @@
 #!/bin/bash
-# GraphEngine - 3 Terminal Launcher
-# Spawns 3 separate Terminal.app windows for easy evaluation
+# GraphEngine - 4 Terminal Launcher
+# Spawns 4 separate Terminal.app windows for easy evaluation
 #
 # @author andreas@siglochconsulting
 # @version 2.0.0
@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║      GraphEngine v2.0 - 3 Terminal Launcher          ║${NC}"
+echo -e "${GREEN}║      GraphEngine v2.0 - 4 Terminal Launcher          ║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -66,12 +66,24 @@ EOF
 
 sleep 1
 
+# Launch Terminal 4: STDOUT / Logs
+echo "6. Launching Terminal 4: STDOUT (logs)..."
+osascript <<EOF
+tell application "Terminal"
+    do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 4: STDOUT / LOGS           ║' && echo '╚═══════════════════════════════════════╝' && echo '' && echo 'Waiting for GraphEngine to start...' && echo '' && tail -f /tmp/graphengine.log"
+    set custom title of window 1 to "GraphEngine: STDOUT"
+end tell
+EOF
+
+sleep 1
+
 echo ""
-echo -e "${GREEN}✅ All 3 terminals launched!${NC}"
+echo -e "${GREEN}✅ All 4 terminals launched!${NC}"
 echo ""
 echo "Terminal 1: WEBSOCKET SERVER (must be running first)"
 echo "Terminal 2: GRAPH VIEWER (ASCII visualization)"
 echo "Terminal 3: CHAT (main interaction)"
+echo "Terminal 4: STDOUT / LOGS (debug output)"
 echo ""
-echo "To stop: Close all 3 terminals or Ctrl+C in each"
+echo "To stop: Close all terminals or Ctrl+C in each"
 echo ""
