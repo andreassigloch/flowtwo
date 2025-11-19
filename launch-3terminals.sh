@@ -33,16 +33,16 @@ echo "2. Creating IPC pipes..."
 mkfifo /tmp/graphengine-input.fifo 2>/dev/null || true
 mkfifo /tmp/graphengine-output.fifo 2>/dev/null || true
 
-# Launch Terminal 1: STDOUT / Logs
-echo "3. Launching Terminal 1: STDOUT (logs)..."
+# Launch Terminal 1: WebSocket Server
+echo "3. Launching Terminal 1: WEBSOCKET SERVER..."
 osascript <<EOF
 tell application "Terminal"
-    do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 1: STDOUT / LOGS           ║' && echo '╚═══════════════════════════════════════╝' && echo '' && echo 'Waiting for GraphEngine to start...' && echo '' && tail -f /tmp/graphengine.log"
-    set custom title of window 1 to "GraphEngine: STDOUT"
+    do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 1: WEBSOCKET SERVER        ║' && echo '╚═══════════════════════════════════════╝' && echo '' && npm run websocket-server"
+    set custom title of window 1 to "GraphEngine: WebSocket Server"
 end tell
 EOF
 
-sleep 1
+sleep 2
 
 # Launch Terminal 2: Graph Viewer
 echo "4. Launching Terminal 2: GRAPH VIEWER..."
@@ -69,8 +69,8 @@ sleep 1
 echo ""
 echo -e "${GREEN}✅ All 3 terminals launched!${NC}"
 echo ""
-echo "Terminal 1: STDOUT / Logs (tail -f /tmp/graphengine.log)"
-echo "Terminal 2: GRAPH VIEWER (updates on changes)"
+echo "Terminal 1: WEBSOCKET SERVER (must be running first)"
+echo "Terminal 2: GRAPH VIEWER (ASCII visualization)"
 echo "Terminal 3: CHAT (main interaction)"
 echo ""
 echo "To stop: Close all 3 terminals or Ctrl+C in each"
