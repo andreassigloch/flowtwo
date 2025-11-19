@@ -38,7 +38,7 @@ touch /tmp/graphengine.log
 echo "3. Launching Terminal 1: WEBSOCKET SERVER..."
 osascript <<EOF
 tell application "Terminal"
-    set newTab to do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 1: WEBSOCKET SERVER        ║' && echo '╚═══════════════════════════════════════╝' && echo '' && npm run websocket-server; osascript -e 'tell application \"Terminal\" to close (every window whose custom title contains \"WebSocket Server\")' & exit"
+    set newTab to do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 1: WEBSOCKET SERVER        ║' && echo '╚═══════════════════════════════════════╝' && echo '' && npm run websocket-server; osascript -e 'tell application \"Terminal\" to close (every window whose custom title contains \"WebSocket Server\")'; exit"
     set custom title of front window to "GraphEngine: WebSocket Server"
 end tell
 EOF
@@ -49,7 +49,7 @@ sleep 2
 echo "4. Launching Terminal 2: GRAPH VIEWER..."
 osascript <<EOF
 tell application "Terminal"
-    set newTab to do script "cd '$PROJECT_DIR' && npx tsx src/terminal-ui/graph-viewer.ts; osascript -e 'tell application \"Terminal\" to close (every window whose custom title contains \"GRAPH\")' & exit"
+    set newTab to do script "cd '$PROJECT_DIR' && npx tsx src/terminal-ui/graph-viewer.ts; osascript -e 'tell application \"Terminal\" to close (every window whose custom title contains \"GRAPH\")'; exit"
     set custom title of front window to "GraphEngine: GRAPH"
 end tell
 EOF
@@ -60,7 +60,7 @@ sleep 1
 echo "5. Launching Terminal 3: CHAT..."
 osascript <<EOF
 tell application "Terminal"
-    set newTab to do script "cd '$PROJECT_DIR' && npx tsx src/terminal-ui/chat-interface.ts; osascript -e 'tell application \"Terminal\" to close (every window whose custom title contains \"CHAT\")' & exit"
+    set newTab to do script "cd '$PROJECT_DIR' && npx tsx src/terminal-ui/chat-interface.ts; osascript -e 'tell application \"Terminal\" to close (every window whose custom title contains \"CHAT\")'; exit"
     set custom title of front window to "GraphEngine: CHAT"
 end tell
 EOF
@@ -71,7 +71,7 @@ sleep 1
 echo "6. Launching Terminal 4: STDOUT (logs)..."
 osascript <<EOF
 tell application "Terminal"
-    set newTab to do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 4: STDOUT / LOGS           ║' && echo '╚═══════════════════════════════════════╝' && echo '' && echo '📋 Monitoring: /tmp/graphengine.log' && echo '' && tail -n 0 -f /tmp/graphengine.log; osascript -e 'tell application \"Terminal\" to close (every window whose custom title contains \"STDOUT\")' & exit"
+    set newTab to do script "cd '$PROJECT_DIR' && clear && echo '╔═══════════════════════════════════════╗' && echo '║  TERMINAL 4: STDOUT / LOGS           ║' && echo '╚═══════════════════════════════════════╝' && echo '' && echo '📋 Monitoring: /tmp/graphengine.log' && echo '' && tail -n 0 -f /tmp/graphengine.log; osascript -e 'tell application \"Terminal\" to close (every window whose custom title contains \"STDOUT\")'; exit"
     set custom title of front window to "GraphEngine: STDOUT"
 end tell
 EOF
