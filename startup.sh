@@ -28,10 +28,11 @@ echo "1. Cleaning up..."
 rm -f /tmp/graphengine*.fifo 2>/dev/null || true
 rm -f /tmp/graphengine.log 2>/dev/null || true
 
-# Create FIFOs
-echo "2. Creating IPC pipes..."
+# Create FIFOs and log file
+echo "2. Creating IPC pipes and log file..."
 mkfifo /tmp/graphengine-input.fifo 2>/dev/null || true
 mkfifo /tmp/graphengine-output.fifo 2>/dev/null || true
+touch /tmp/graphengine.log
 
 # Launch Terminal 1: WebSocket Server
 echo "3. Launching Terminal 1: WEBSOCKET SERVER..."
