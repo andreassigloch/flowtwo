@@ -51,7 +51,9 @@
       "Bash(xargs kill:*)",
       "Bash(npm run lint:*)",
       "Bash(git config:*)",
-      "Bash(.githooks/pre-push)"
+      "Bash(.githooks/pre-push)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

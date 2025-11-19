@@ -3,18 +3,19 @@
  *
  * LLM-driven Systems Engineering platform with Canvas-centric architecture
  *
+ * Actual UI: Run WebSocket server + chat-interface.ts + graph-viewer.ts in separate terminals
+ * See README.md for launch instructions
+ *
  * @author andreas@siglochconsulting
  * @version 2.0.0
  */
 
 import 'dotenv/config';
-import { GraphEngineApp } from './terminal-ui/app.js';
 import { validateConfig } from './shared/config.js';
-import type { AppConfig } from './terminal-ui/app.js';
 
 /**
  * Main application entry point
- * Implements CR-002 Option A: Terminal UI launcher with config validation
+ * Validates configuration and displays instructions
  */
 export async function main(): Promise<void> {
   console.log('🚀 GraphEngine v2.0.0');
@@ -34,42 +35,15 @@ export async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Build application configuration
-  const config: AppConfig = {
-    workspaceId: process.env.WORKSPACE_ID || 'default-workspace',
-    systemId: process.env.SYSTEM_ID || 'system-001',
-    chatId: process.env.CHAT_ID || 'chat-001',
-    userId: process.env.USER_ID || 'user@example.com',
-    neo4jUri: process.env.NEO4J_URI,
-    neo4jUser: process.env.NEO4J_USER,
-    neo4jPassword: process.env.NEO4J_PASSWORD,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-  };
-
-  // Initialize application
-  const app = new GraphEngineApp(config);
-
-  // Handle graceful shutdown
-  process.on('SIGINT', async () => {
-    console.log('\n🛑 Shutting down gracefully...');
-    await app.stop();
-    process.exit(0);
-  });
-
-  process.on('SIGTERM', async () => {
-    console.log('\n🛑 Shutting down gracefully...');
-    await app.stop();
-    process.exit(0);
-  });
-
-  // Start terminal UI
-  try {
-    await app.start();
-  } catch (error) {
-    console.error('❌ Fatal error during startup:');
-    console.error(error);
-    process.exit(1);
-  }
+  console.log('✅ Configuration valid');
+  console.log('');
+  console.log('To run GraphEngine, start 3 terminals:');
+  console.log('');
+  console.log('  Terminal 1: npm run websocket-server');
+  console.log('  Terminal 2: tsx src/terminal-ui/graph-viewer.ts');
+  console.log('  Terminal 3: tsx src/terminal-ui/chat-interface.ts');
+  console.log('');
+  console.log('See README.md for details.');
 }
 
 // Run if called directly
