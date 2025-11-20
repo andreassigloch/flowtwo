@@ -388,9 +388,289 @@ With graph in AgentDB, these become possible:
 
 ---
 
+## Critical Issue: Precision Requirements Contradiction
+
+### The Problem
+
+**Two fundamentally different use cases:**
+
+1. **Graph Modifications** (MUST be 100% precise)
+   - "Add edge from ProcessPayment.FN.001 to PaymentData.FL.001"
+   - **Requirement:** Exact node match (semantic ID)
+   - **Failure mode:** Wrong node modified = data corruption
+   - **Precision:** 1.0 (exact match only)
+
+2. **Information Queries** (Can be fuzzy)
+   - "Explain how payment processing works"
+   - **Requirement:** Relevant context (semantic similarity)
+   - **Failure mode:** Missing some context = incomplete answer
+   - **Precision:** 0.7-0.9 (semantic similarity OK)
+
+**Contradiction:**
+- Vector search is fuzzy by nature (cosine similarity ~0.85)
+- Exact match requires deterministic lookup (hash/index)
+- **Can't use same search strategy for both!**
+
+---
+
+### Solution: Dual-Mode Search Strategy
+
+**Mode 1: EXACT (for modifications)**
+```typescript
+// Modify operations ALWAYS use semantic ID (deterministic)
+const node = graphCanvas.getNode('ProcessPayment.FN.001'); // O(1) Map lookup
+if (!node) throw new Error('Node not found'); // Fail fast
+
+// NO vector search involved - direct key access
+```
+
+**Mode 2: SEMANTIC (for queries/context)**
+```typescript
+// Information queries use vector search (fuzzy)
+const results = await agentdb.vectorSearch(
+  'payment processing functions',
+  0.75, // Lower threshold = more results
+  k: 10
+);
+
+// Parse Format E to extract relevant subgraph
+const context = parseRelevantNodes(results);
+```
+
+**Key Insight:** These are DIFFERENT operations with DIFFERENT requirements!
+
+---
+
+### Architecture: Separate Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ LLM Agent Layer                                             │
+│ - Decides: Modify or Query?                                 │
+│ - Parses user intent                                        │
+└────────────────────┬────────────────────────────────────────┘
+                     ↓
+                     ├─────────────────┬─────────────────┐
+                     ↓                 ↓                 ↓
+         ┌───────────────────┐  ┌──────────────┐  ┌──────────────┐
+         │ MODIFY Mode       │  │ QUERY Mode   │  │ HYBRID Mode  │
+         │ (Exact match)     │  │ (Fuzzy)      │  │ (Both)       │
+         └───────────────────┘  └──────────────┘  └──────────────┘
+                     ↓                 ↓                 ↓
+         ┌───────────────────┐  ┌──────────────────────────────┐
+         │ GraphCanvas       │  │ AgentDB Vector Search        │
+         │ Map.get(semID)    │  │ Semantic similarity > 0.75   │
+         │ O(1) exact        │  │ Returns top-k matches        │
+         └───────────────────┘  └──────────────────────────────┘
+```
+
+---
+
+### Implementation Strategy
+
+#### 1. LLM Response Format Distinguishes Modes
+
+**Modification Operations (Format E):**
+```xml
+<operations>
+<base_snapshot>PaymentSystem.SY.001</base_snapshot>
+
+## Nodes
++ ProcessPayment|FUNC|ProcessPayment.FN.001|Process payment
+        ↑
+        Semantic ID = EXACT identifier (no ambiguity)
+
+## Edges
++ OrderProcessing.FC.001 -cp-> ProcessPayment.FN.001
+                                         ↑
+                                    Exact reference
+</operations>
+```
+
+**Query/Context Operations:**
+- No `<operations>` block
+- Pure text response
+- LLM uses context from vector search
+
+#### 2. Graph Modifications Never Use Vector Search
+
+**Current (correct) implementation:**
+```typescript
+// chat-interface.ts:449
+const diff = parser.parseDiff(response.operations);
+await graphCanvas.applyDiff(diff);
+
+// graph-canvas.ts: applyDiff()
+for (const op of diff.operations) {
+  if (op.type === 'add_node') {
+    this.state.nodes.set(op.semanticId, op.node); // Direct Map access
+  }
+}
+```
+
+**Semantic IDs are deterministic:**
+- Format: `{Name}.{TypeAbbr}.{Counter}`
+- Example: `ProcessPayment.FN.001`
+- Unique per system
+- **No ambiguity possible**
+
+#### 3. Information Queries Use Vector Search
+
+**New capability (Phase 2):**
+```typescript
+// For "explain payment processing" query
+async function getRelevantContext(query: string): Promise<string> {
+  // 1. Vector search for relevant nodes
+  const results = await agentdb.vectorSearch(
+    query,
+    0.75, // More lenient for context
+    k: 20 // Get more results
+  );
+
+  // 2. Extract semantic IDs from Format E
+  const relevantIds = results.flatMap(r =>
+    parseSemanticIds(r.content)
+  );
+
+  // 3. Exact lookup in GraphCanvas
+  const nodes = relevantIds.map(id =>
+    graphCanvas.getNode(id) // Still exact!
+  ).filter(Boolean);
+
+  // 4. Serialize subset to Format E
+  return serializeSubgraph(nodes);
+}
+```
+
+**Key:** Vector search finds WHICH nodes, exact lookup retrieves them
+
+---
+
+### Concrete Examples
+
+#### Example 1: Modification (Exact Match Required)
+
+**User:** "Add an edge from ProcessPayment to PaymentData"
+
+**LLM Response:**
+```xml
+<operations>
++ ProcessPayment.FN.001 -io-> PaymentData.FL.001
+</operations>
+```
+
+**Processing:**
+1. Parse semantic IDs: `ProcessPayment.FN.001`, `PaymentData.FL.001`
+2. Exact lookup: `graphCanvas.getNode('ProcessPayment.FN.001')` ✅
+3. If not found → ERROR (fail fast)
+4. Create edge with exact IDs
+
+**No vector search involved!**
+
+---
+
+#### Example 2: Query (Fuzzy Match OK)
+
+**User:** "Explain how payment processing works in my system"
+
+**LLM Response:** (no `<operations>` block)
+```
+Your system processes payments through the ProcessPayment function,
+which receives PaymentData as input...
+```
+
+**Processing:**
+1. Vector search: `vectorSearch('payment processing', 0.75, k=10)`
+2. Results:
+   - `ProcessPayment|FUNC|...` (similarity: 0.92)
+   - `ValidatePayment|FUNC|...` (similarity: 0.78)
+   - `PaymentData|FLOW|...` (similarity: 0.76)
+3. Extract semantic IDs from Format E snippets
+4. Exact lookup to get full nodes
+5. Build context for LLM
+
+**Vector search finds candidates, exact lookup retrieves data**
+
+---
+
+#### Example 3: Hybrid (Modification + Context)
+
+**User:** "Add a validation function for payment data"
+
+**LLM needs:**
+1. **Context** (fuzzy): What payment functions already exist?
+2. **Modification** (exact): Create new node with exact ID
+
+**Processing:**
+```typescript
+// 1. Get context via vector search (fuzzy)
+const context = await getRelevantContext('payment validation');
+
+// 2. Build prompt with context
+const prompt = buildPrompt(userMessage, context);
+
+// 3. LLM generates operations with EXACT IDs
+const response = await llm.generate(prompt);
+
+// 4. Apply operations with exact matching
+await graphCanvas.applyDiff(parseDiff(response.operations));
+```
+
+---
+
+## Resolution: No Contradiction!
+
+**They are different operations at different layers:**
+
+| Operation | Layer | Search Type | Precision | Purpose |
+|-----------|-------|-------------|-----------|---------|
+| **Modify graph** | GraphCanvas | Map lookup | 1.0 (exact) | Change data |
+| **Find context** | AgentDB | Vector search | 0.7-0.9 (fuzzy) | Inform LLM |
+| **Retrieve nodes** | GraphCanvas | Map lookup | 1.0 (exact) | Get data |
+
+**Architecture guarantees correctness:**
+- Modifications always use semantic IDs (deterministic)
+- Vector search only finds WHICH nodes are relevant
+- Actual retrieval/modification uses exact Map lookup
+- **No data corruption possible from fuzzy search**
+
+---
+
 ## Risks & Mitigations
 
-### Risk 1: Cache Staleness
+### Risk 1: LLM Hallucinates Semantic IDs
+**Problem:** LLM generates wrong semantic ID in `<operations>` block
+
+**Example:**
+```xml
+<operations>
++ ProcessPayment.FN.999 -io-> PaymentData.FL.001
+              ↑ Wrong counter!
+</operations>
+```
+
+**Mitigation:**
+1. **Validation layer** - Check all semantic IDs exist before applying
+2. **Fail fast** - Reject entire diff if any ID invalid
+3. **LLM context** - Include existing IDs in system prompt
+4. **Format E Diff validation** - Parser checks semanticId format
+
+**Implementation:** [canvas-base.ts:validateDiff](../../src/canvas/canvas-base.ts)
+
+---
+
+### Risk 2: Vector Search Returns Irrelevant Nodes
+**Problem:** Context includes unrelated nodes, confuses LLM
+
+**Mitigation:**
+1. **Tunable threshold** - Adjust similarity threshold per query type
+2. **Reranking** - Use multiple signals (similarity + graph distance)
+3. **Max results limit** - Cap at 20 nodes to avoid noise
+4. **Metadata filtering** - Filter by node type (e.g., only FUNCs)
+
+---
+
+### Risk 3: Cache Staleness
 **Problem:** Agent uses outdated graph after updates
 
 **Mitigation:**
@@ -398,7 +678,7 @@ With graph in AgentDB, these become possible:
 - Short TTL (1 hour)
 - Version tracking in metadata
 
-### Risk 2: Memory Overhead
+### Risk 4: Memory Overhead
 **Problem:** Large graphs consume significant memory
 
 **Mitigation:**
@@ -406,7 +686,7 @@ With graph in AgentDB, these become possible:
 - Compression (Format E is text → gzip)
 - Backend-specific limits (e.g., 10MB max)
 
-### Risk 3: Serialization Cost
+### Risk 5: Serialization Cost
 **Problem:** Format E serialization still expensive
 
 **Mitigation:**
