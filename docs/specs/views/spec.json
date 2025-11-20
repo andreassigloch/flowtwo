@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "spec",
+  "name": "Specification View",
+  "description": "Complete system specification with hierarchical element listing. Elements appear multiple times when used in different contexts, with references linking to primary definition.",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "reingold-tilford",
+    "orientation": "top-down",
+    "includeNodeTypes": ["SYS", "UC", "FCHAIN", "FUNC", "MOD", "ACTOR", "REQ", "TEST", "SCHEMA", "FLOW"],
+    "includeRelTypes": ["compose", "satisfy", "allocate"],
+    "nodeSpacing": {
+      "horizontal": 80,
+      "vertical": 100,
+      "siblingSpacing": 60
+    },
+    "treeProperties": {
+      "alignChildren": true,
+      "minimizeWidth": true,
+      "balanceSubtrees": true,
+      "allowMultipleOccurrences": true,
+      "maxDepth": null,
+      "nestingEdgeTypes": ["compose", "satisfy", "allocate"]
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["SYS", "UC", "FCHAIN", "FUNC", "MOD", "ACTOR", "REQ", "TEST", "SCHEMA", "FLOW"],
+    "hideNodes": [],
+    "showEdges": [],
+    "hideEdges": ["compose", "satisfy", "allocate"],
+    "edgeRouting": "straight",
+    "renderingNotes": "All nesting edges (compose, satisfy, allocate) implicit via containment. Elements appear multiple times with reference markers.",
+    "defaultZoomLevel": "L2",
+    "multipleOccurrenceHandling": {
+      "primaryMarker": "[primary]",
+      "referenceMarker": "→",
+      "referenceLinkFormat": "[see {path}]",
+      "showReferenceCount": true,
+      "showReferencedByList": true
+    },
+    "nodeStyles": {
+      "SYS": {
+        "symbol": "rectangle",
+        "stereotype": "«system»",
+        "color": "magenta",
+        "bold": true
+      },
+      "UC": {
+        "symbol": "ellipse",
+        "stereotype": "«use case»",
+        "color": "yellow"
+      },
+      "FCHAIN": {
+        "symbol": "rectangle",
+        "stereotype": "«function chain»",
+        "color": "cyan"
+      },
+      "FUNC": {
+        "symbol": "rectangle",
+        "stereotype": "«function»",
+        "color": "green"
+      },
+      "MOD": {
+        "symbol": "rectangle",
+        "stereotype": "«module»",
+        "color": "blue"
+      },
+      "ACTOR": {
+        "symbol": "stick-figure",
+        "stereotype": "«actor»",
+        "color": "white"
+      },
+      "REQ": {
+        "symbol": "rectangle",
+        "stereotype": "«requirement»",
+        "color": "red"
+      },
+      "TEST": {
+        "symbol": "rectangle",
+        "stereotype": "«test»",
+        "color": "green"
+      },
+      "SCHEMA": {
+        "symbol": "rectangle",
+        "stereotype": "«schema»",
+        "color": "gray"
+      },
+      "FLOW": {
+        "symbol": "diamond",
+        "stereotype": "«flow»",
+        "color": "cyan"
+      }
+    }
+  },
+  "useCase": "Complete system specification listing with full element hierarchy. Use for documentation generation, completeness checking, and understanding element usage patterns across different contexts.",
+  "primaryRelationships": ["compose", "satisfy", "allocate (all implicit via nesting)"],
+  "performanceTarget": {
+    "maxNodes": 2000,
+    "maxComputeTime": "3s"
+  },
+  "specialBehaviors": {
+    "multipleOccurrences": {
+      "enabled": true,
+      "description": "Elements can appear multiple times when connected via different nesting edge types or contexts",
+      "traversalStrategy": "breadth-first from root, mark first occurrence as primary",
+      "referenceRendering": "Subsequent occurrences show as '→ ElementName [see path/to/primary]'",
+      "primaryAttributes": {
+        "showFullDetails": true,
+        "showChildren": true,
+        "showReferencedBy": true
+      },
+      "referenceAttributes": {
+        "showFullDetails": false,
+        "showChildren": false,
+        "showLinkToPrimary": true
+      }
+    },
+    "depthControl": {
+      "parameterName": "maxDepth",
+      "defaultValue": null,
+      "description": "Maximum nesting depth to render. null = unlimited (full depth)"
+    }
+  }
+}

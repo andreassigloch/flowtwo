@@ -121,6 +121,9 @@ function generateAsciiGraph(): string {
     case 'use-case':
       lines.push(...renderUseCaseView(state, viewConfig));
       break;
+    case 'spec':
+      lines.push(...renderSpecView(state, viewConfig));
+      break;
     case 'functional-flow':
       lines.push('\x1b[33m⚠️  Functional-flow view not yet implemented in ASCII\x1b[0m');
       lines.push('\x1b[90m(This view requires graphical rendering - use Web-UI)\x1b[0m');
@@ -296,6 +299,199 @@ function renderRequirementsView(state: any, viewConfig: any): string[] {
   }
 
   return lines;
+}
+
+/**
+ * Render spec view (complete specification with multiple occurrences)
+ */
+function renderSpecView(state: any, viewConfig: any): string[] {
+  const lines: string[] = [];
+  const { includeEdgeTypes } = viewConfig.layoutConfig;
+  const nestingEdgeTypes = includeEdgeTypes.filter((t: string) =>
+    ['compose', 'satisfy', 'allocate'].includes(t)
+  );
+
+  // Build occurrence map
+  const occurrenceMap = buildOccurrenceMap(state, nestingEdgeTypes);
+
+  if (occurrenceMap.byNode.size === 0) {
+    lines.push('\x1b[90m(No nodes found)\x1b[0m');
+    return lines;
+  }
+
+  // Find root occurrences (depth 0)
+  const rootOccurrences: any[] = [];
+  for (const occurrences of occurrenceMap.byNode.values()) {
+    const root = occurrences.find((occ: any) => occ.depth === 0);
+    if (root) {
+      rootOccurrences.push(root);
+    }
+  }
+
+  // Render each root recursively
+  rootOccurrences.forEach((rootOcc) => {
+    lines.push(...renderOccurrence(rootOcc, state, occurrenceMap, ''));
+  });
+
+  return lines;
+}
+
+/**
+ * Build occurrence map for spec view (simplified version for terminal UI)
+ */
+function buildOccurrenceMap(state: any, nestingEdgeTypes: string[]): any {
+  const occurrenceMap = {
+    byNode: new Map(),
+    byPath: new Map(),
+  };
+
+  // Find root nodes (no incoming nesting edges)
+  const nodesWithIncoming = new Set<string>();
+  for (const edge of state.edges.values()) {
+    if (nestingEdgeTypes.includes(edge.type)) {
+      nodesWithIncoming.add(edge.targetId);
+    }
+  }
+
+  const roots: any[] = [];
+  for (const node of state.nodes.values()) {
+    if (!nodesWithIncoming.has(node.semanticId)) {
+      roots.push(node);
+    }
+  }
+
+  // BFS traversal
+  const queue: any[] = roots.map((node) => ({
+    nodeId: node.semanticId,
+    path: node.name,
+    depth: 0,
+    parentPath: null,
+    edgeType: null,
+  }));
+
+  const visitedPaths = new Set<string>();
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    // Prevent infinite loops
+    if (visitedPaths.has(current.path)) {
+      continue;
+    }
+    visitedPaths.add(current.path);
+
+    // Record occurrence
+    if (!occurrenceMap.byNode.has(current.nodeId)) {
+      occurrenceMap.byNode.set(current.nodeId, []);
+    }
+
+    const occurrences = occurrenceMap.byNode.get(current.nodeId)!;
+    const isPrimary = occurrences.length === 0;
+
+    const occurrence = {
+      nodeId: current.nodeId,
+      path: current.path,
+      isPrimary,
+      depth: current.depth,
+      parentPath: current.parentPath,
+      nestingEdgeType: current.edgeType,
+    };
+
+    occurrences.push(occurrence);
+    occurrenceMap.byPath.set(current.path, occurrence);
+
+    // Only expand children for primary occurrence
+    if (!isPrimary) {
+      continue;
+    }
+
+    // Find children via nesting edge types
+    for (const edgeType of nestingEdgeTypes) {
+      const children = Array.from(state.edges.values())
+        .filter((e: any) => e.sourceId === current.nodeId && e.type === edgeType)
+        .map((e: any) => state.nodes.get(e.targetId))
+        .filter((n: any) => n);
+
+      for (const child of children) {
+        const childPath = `${current.path}/${child.name}`;
+        queue.push({
+          nodeId: child.semanticId,
+          path: childPath,
+          depth: current.depth + 1,
+          parentPath: current.path,
+          edgeType,
+        });
+      }
+    }
+  }
+
+  return occurrenceMap;
+}
+
+/**
+ * Render single occurrence (primary or reference)
+ */
+function renderOccurrence(
+  occurrence: any,
+  state: any,
+  occurrenceMap: any,
+  indent: string
+): string[] {
+  const lines: string[] = [];
+  const node = state.nodes.get(occurrence.nodeId);
+  if (!node) return lines;
+
+  const color = getNodeColor(node.type);
+  const allOccurrences = occurrenceMap.byNode.get(occurrence.nodeId) || [];
+
+  if (occurrence.isPrimary) {
+    // Render primary occurrence
+    const usageCount = allOccurrences.length;
+    const marker =
+      usageCount > 1
+        ? ` \x1b[90m[primary, used in ${usageCount} contexts]\x1b[0m`
+        : ` \x1b[90m[primary]\x1b[0m`;
+
+    lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name}${marker}`);
+
+    // Find and render children
+    const children = findChildOccurrences(occurrence.path, occurrenceMap);
+    children.forEach((child, idx) => {
+      const isLast = idx === children.length - 1;
+      const childIndent = indent + (isLast ? '  ' : '│ ');
+      const prefix = isLast ? '└─' : '├─';
+
+      const childLines = renderOccurrence(child, state, occurrenceMap, childIndent);
+      if (childLines.length > 0) {
+        childLines[0] = `${indent}${prefix}${childLines[0].slice(childIndent.length)}`;
+        lines.push(...childLines);
+      }
+    });
+  } else {
+    // Render reference occurrence
+    const primary = allOccurrences.find((occ: any) => occ.isPrimary);
+    const refPath = primary ? primary.path : '?';
+    lines.push(
+      `${indent}\x1b[90m→\x1b[0m [${color}${node.type}\x1b[0m] ${node.name} \x1b[90m[see ${refPath}]\x1b[0m`
+    );
+  }
+
+  return lines;
+}
+
+/**
+ * Find child occurrences of a given path
+ */
+function findChildOccurrences(parentPath: string, occurrenceMap: any): any[] {
+  const children: any[] = [];
+
+  for (const occurrence of occurrenceMap.byPath.values()) {
+    if (occurrence.parentPath === parentPath) {
+      children.push(occurrence);
+    }
+  }
+
+  return children;
 }
 
 /**

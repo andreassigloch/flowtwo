@@ -124,6 +124,54 @@ This directory contains JSON configuration files for GraphEngine's 5 specialized
 
 ---
 
+### 6. [spec.json](spec.json) - Specification View
+
+**Purpose:** Complete system specification listing with full element hierarchy
+
+**Layout Algorithm:** Reingold-Tilford (tree layout with multiple occurrences)
+
+**Shows:**
+- Node types: ALL (SYS, UC, FCHAIN, FUNC, MOD, ACTOR, REQ, TEST, SCHEMA, FLOW)
+- Relationships: compose, satisfy, allocate (all implicit via nesting)
+
+**Key Features:**
+- **Multiple occurrences:** Elements appear multiple times when used in different contexts
+- **Primary vs Reference:** First occurrence = primary (fully expanded), subsequent = references
+- **Links:** Reference occurrences link back to primary definition
+- **Bidirectional:** Primaries show "Referenced by: [contexts]"
+- **Depth control:** Optional maxDepth parameter (default: unlimited)
+
+**Traversal Strategy:**
+1. Start from root SYS nodes (no incoming nesting edges)
+2. Breadth-first traversal following all nesting edge types
+3. First encounter = primary occurrence (fully expanded)
+4. Subsequent encounters = reference with link to primary
+
+**Rendering:**
+```
+GraphEngine [primary, used in 3 contexts]
+├─ Backend Module
+│  ├─ ChatAPI [primary]
+│  │  └─ Neo4jService [primary]
+│  └─ WebSocketServer
+│     └─ Neo4jService → [see Backend Module/Neo4jService]
+├─ Frontend Module
+│  └─ Chat Component
+│     └─ ChatAPI → [see Backend Module/ChatAPI]
+└─ Shared Types
+   └─ Neo4jService → [see Backend Module/Neo4jService]
+```
+
+**Use Case:**
+- Complete system documentation
+- Element usage analysis
+- Dependency visualization across contexts
+- Specification completeness checking
+
+**Performance:** <3s for <2000 nodes
+
+---
+
 ## Configuration Schema
 
 Each view configuration follows this structure:
@@ -239,8 +287,7 @@ terminalUI.renderGraph(renderGraph, positions);
 | Requirements | ✅ | ❌ Sugiyama | Config ready, layout needed |
 | Allocation | ✅ | ❌ Treemap | Config ready, layout needed |
 | Use Case Diagram | ✅ | ❌ Radial | Config ready, layout needed |
-
-See [docs/implan.md](../../implan.md) Phase 2 for implementation plan.
+| Spec | ✅ | ❌ Reingold-Tilford (enhanced) | Config ready, multi-occurrence logic needed |
 
 ---
 

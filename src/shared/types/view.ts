@@ -17,7 +17,8 @@ export type ViewType =
   | 'functional-flow'
   | 'requirements'
   | 'allocation'
-  | 'use-case';
+  | 'use-case'
+  | 'spec';
 
 /**
  * Layout Algorithm Type
@@ -243,6 +244,62 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
     renderConfig: {
       showNodes: ['ACTOR', 'UC', 'SYS', 'REQ'],
       showEdges: ['compose', 'satisfy'],
+    },
+  },
+
+  /**
+   * Spec View
+   *
+   * Complete system specification listing with all element types.
+   * Elements appear multiple times when used in different contexts:
+   * - First occurrence = primary (fully expanded)
+   * - Subsequent occurrences = references with links to primary
+   *
+   * Uses all nesting edge types (compose, satisfy, allocate)
+   * to show complete element usage across different hierarchies.
+   */
+  spec: {
+    viewId: 'spec',
+    name: 'Specification View',
+    description: 'Complete system specification with hierarchical listing',
+    layoutConfig: {
+      includeNodeTypes: [
+        'SYS',
+        'UC',
+        'FCHAIN',
+        'FUNC',
+        'MOD',
+        'ACTOR',
+        'REQ',
+        'TEST',
+        'SCHEMA',
+        'FLOW',
+      ],
+      includeEdgeTypes: ['compose', 'satisfy', 'allocate'],
+      algorithm: 'reingold-tilford',
+      parameters: {
+        orientation: 'top-down',
+        nodeSpacing: 50,
+        levelSpacing: 100,
+        nestingEdgeTypes: ['compose', 'satisfy', 'allocate'],
+        allowMultipleOccurrences: true,
+        maxDepth: null, // Unlimited by default
+      },
+    },
+    renderConfig: {
+      showNodes: [
+        'SYS',
+        'UC',
+        'FCHAIN',
+        'FUNC',
+        'MOD',
+        'ACTOR',
+        'REQ',
+        'TEST',
+        'SCHEMA',
+        'FLOW',
+      ],
+      showEdges: [], // All nesting edges implicit via containment
     },
   },
 };

@@ -249,25 +249,10 @@ export class LLMEngine {
    * Log cache performance metrics
    */
   private logCachePerformance(response: LLMResponse): void {
-    const { usage, cacheHit } = response;
+    const { usage } = response;
 
     log('📊 LLM Usage:');
-    log(`   Input tokens: ${usage.inputTokens}`);
-    log(`   Output tokens: ${usage.outputTokens}`);
-
-    if (usage.cacheReadTokens) {
-      log(`   Cache read tokens: ${usage.cacheReadTokens} ✅`);
-      const savings = Math.round(
-        (usage.cacheReadTokens / (usage.inputTokens + usage.cacheReadTokens)) * 100
-      );
-      log(`   Cache savings: ${savings}%`);
-    }
-
-    if (usage.cacheWriteTokens) {
-      log(`   Cache write tokens: ${usage.cacheWriteTokens} (building cache)`);
-    }
-
-    log(`   Cache hit: ${cacheHit ? 'Yes ✅' : 'No (first request)'}`);
+    log(`   Input: ${usage.inputTokens}, Output: ${usage.outputTokens}, Cache read: ${usage.cacheReadTokens || 0}, Cache write: ${usage.cacheWriteTokens || 0}`);
   }
 
   /**
