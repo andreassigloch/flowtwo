@@ -21,7 +21,8 @@ import { FormatEParser } from '../shared/parsers/format-e-parser.js';
 import { CanvasWebSocketClient } from '../canvas/websocket-client.js';
 import type { BroadcastUpdate } from '../canvas/websocket-server.js';
 import { SessionManager } from '../session.js';
-import { WS_URL, LOG_PATH, LLM_TEMPERATURE } from '../shared/config.js';
+import { WS_URL, LOG_PATH, LLM_TEMPERATURE, AGENTDB_ENABLED } from '../shared/config.js';
+import { getAgentDBService } from '../llm-engine/agentdb/agentdb-service.js';
 
 // Configuration
 const config = {
@@ -495,6 +496,18 @@ async function main(): Promise<void> {
 
   log('🚀 Chat interface started');
 
+  // Initialize AgentDB if enabled
+  if (AGENTDB_ENABLED && llmEngine) {
+    try {
+      log('🔧 Initializing AgentDB...');
+      await getAgentDBService();
+      log('✅ AgentDB initialized');
+    } catch (error) {
+      log(`⚠️ AgentDB initialization failed: ${error}`);
+      console.log('\x1b[33m⚠️  AgentDB initialization failed (LLM will work without caching)\x1b[0m');
+    }
+  }
+
   // Load session from Neo4j if available
   if (sessionManager) {
     try {
@@ -691,8 +704,53 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// Crash handlers - log errors to STDOUT file
+process.on('uncaughtException', async (error: Error) => {
+  const errorMsg = `💥 CRASH (uncaughtException): ${error.message}`;
+  console.error(errorMsg);
+  log(errorMsg);
+  if (error.stack) {
+    log(error.stack);
+  }
+  // Emergency save attempt
+  try {
+    log('💾 Emergency save attempt...');
+    await graphCanvas.persistToNeo4j();
+    await chatCanvas.persistToNeo4j();
+    log('✅ Emergency save successful');
+  } catch (saveError) {
+    log(`❌ Emergency save failed: ${saveError}`);
+  }
+  if (neo4jClient) await neo4jClient.close();
+  process.exit(1);
+});
+
+process.on('unhandledRejection', async (reason: unknown) => {
+  const errorMsg = `💥 CRASH (unhandledRejection): ${reason}`;
+  console.error(errorMsg);
+  log(errorMsg);
+  if (reason instanceof Error && reason.stack) {
+    log(reason.stack);
+  }
+  // Emergency save attempt
+  try {
+    log('💾 Emergency save attempt...');
+    await graphCanvas.persistToNeo4j();
+    await chatCanvas.persistToNeo4j();
+    log('✅ Emergency save successful');
+  } catch (saveError) {
+    log(`❌ Emergency save failed: ${saveError}`);
+  }
+  if (neo4jClient) await neo4jClient.close();
+  process.exit(1);
+});
+
 // Run
 main().catch((error) => {
   console.error('Fatal error:', error);
+  log(`💥 FATAL: ${error.message}`);
+  if (error.stack) {
+    log(error.stack);
+  }
   process.exit(1);
 });

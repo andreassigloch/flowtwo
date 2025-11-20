@@ -16,6 +16,7 @@ import { LLMRequest, LLMResponse, LLMEngineConfig, StreamChunk } from '../shared
 import { PromptBuilder } from './prompt-builder.js';
 import { ResponseParser } from './response-parser.js';
 import { LOG_PATH, LLM_TEMPERATURE } from '../shared/config.js';
+import { getAgentDBService } from './agentdb/agentdb-service.js';
 
 /**
  * Log to STDOUT file
@@ -64,6 +65,35 @@ export class LLMEngine {
    * @returns LLM response with text and operations
    */
   async processRequest(request: LLMRequest): Promise<LLMResponse> {
+    // Check AgentDB cache first (semantic similarity)
+    let cached = null;
+    try {
+      const agentdb = await getAgentDBService();
+      cached = await agentdb.checkCache(request.message);
+    } catch (error) {
+      log(`⚠️ AgentDB cache check failed: ${error}`);
+    }
+
+    if (cached) {
+      log('🎯 AgentDB Cache HIT - returning cached response');
+
+      return {
+        textResponse: cached.response,
+        operations: cached.operations,
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        },
+        cacheHit: true,
+        model: this.config.model,
+        responseId: 'agentdb-cached',
+      };
+    }
+
+    log('🔍 AgentDB Cache MISS - calling LLM');
+
     // Build system prompt with cache control
     const systemPrompt = this.promptBuilder.buildSystemPrompt(
       request.canvasState,
@@ -118,6 +148,24 @@ export class LLMEngine {
     // Log cache performance
     this.logCachePerformance(llmResponse);
 
+    // Store in AgentDB for future cache hits
+    try {
+      const agentdb = await getAgentDBService();
+      await agentdb.cacheResponse(request.message, parsed.textResponse, parsed.operations);
+      log('💾 Stored response in AgentDB cache');
+
+      // Store episodic memory (Reflexion)
+      await agentdb.storeEpisode(
+        'llm-engine',
+        request.message,
+        parsed.operations !== null, // Success if operations parsed
+        { operations: parsed.operations, textResponse: parsed.textResponse },
+        'LLM request processed successfully'
+      );
+    } catch (error) {
+      log(`⚠️ AgentDB cache store failed: ${error}`);
+    }
+
     return llmResponse;
   }
 
@@ -133,6 +181,46 @@ export class LLMEngine {
     request: LLMRequest,
     onChunk: (chunk: StreamChunk) => void
   ): Promise<void> {
+    // Check AgentDB cache first (semantic similarity)
+    let cached = null;
+    try {
+      const agentdb = await getAgentDBService();
+      cached = await agentdb.checkCache(request.message);
+    } catch (error) {
+      log(`⚠️ AgentDB cache check failed: ${error}`);
+    }
+
+    if (cached) {
+      log('🎯 AgentDB Cache HIT - returning cached response (streaming)');
+
+      // Emit cached text as a single chunk first (for display)
+      onChunk({
+        type: 'text',
+        text: cached.response,
+      });
+
+      // Then emit complete with operations
+      onChunk({
+        type: 'complete',
+        response: {
+          textResponse: cached.response,
+          operations: cached.operations,
+          usage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+          },
+          cacheHit: true,
+          model: this.config.model,
+          responseId: 'agentdb-cached',
+        },
+      });
+      return;
+    }
+
+    log('🔍 AgentDB Cache MISS - calling LLM (streaming)');
+
     // Build system prompt with cache control
     const systemPrompt = this.promptBuilder.buildSystemPrompt(
       request.canvasState,
@@ -227,6 +315,24 @@ export class LLMEngine {
     // Log cache performance
     this.logCachePerformance(llmResponse);
 
+    // Store in AgentDB for future cache hits
+    try {
+      const agentdb = await getAgentDBService();
+      await agentdb.cacheResponse(request.message, parsed.textResponse, parsed.operations);
+      log('💾 Stored response in AgentDB cache');
+
+      // Store episodic memory (Reflexion)
+      await agentdb.storeEpisode(
+        'llm-engine',
+        request.message,
+        parsed.operations !== null, // Success if operations parsed
+        { operations: parsed.operations, textResponse: parsed.textResponse },
+        'LLM request processed successfully'
+      );
+    } catch (error) {
+      log(`⚠️ AgentDB cache store failed: ${error}`);
+    }
+
     // Emit final response with operations
     onChunk({
       type: 'complete',
@@ -280,5 +386,22 @@ export class LLMEngine {
    */
   getConfig(): LLMEngineConfig {
     return this.config;
+  }
+
+  /**
+   * Get AgentDB cache metrics
+   */
+  async getAgentDBMetrics() {
+    const agentdb = await getAgentDBService();
+    return agentdb.getMetrics();
+  }
+
+  /**
+   * Cleanup expired AgentDB cache entries
+   */
+  async cleanupAgentDBCache() {
+    const agentdb = await getAgentDBService();
+    await agentdb.cleanup();
+    log('🧹 AgentDB cache cleanup completed');
   }
 }

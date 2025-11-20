@@ -543,8 +543,37 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// Crash handlers - log errors to STDOUT file
+process.on('uncaughtException', async (error: Error) => {
+  const errorMsg = `💥 CRASH (uncaughtException): ${error.message}`;
+  console.error(errorMsg);
+  log(errorMsg);
+  if (error.stack) {
+    log(error.stack);
+  }
+  if (wsClient) wsClient.disconnect();
+  if (neo4jClient) await neo4jClient.close();
+  process.exit(1);
+});
+
+process.on('unhandledRejection', async (reason: unknown) => {
+  const errorMsg = `💥 CRASH (unhandledRejection): ${reason}`;
+  console.error(errorMsg);
+  log(errorMsg);
+  if (reason instanceof Error && reason.stack) {
+    log(reason.stack);
+  }
+  if (wsClient) wsClient.disconnect();
+  if (neo4jClient) await neo4jClient.close();
+  process.exit(1);
+});
+
 // Run
 main().catch((error) => {
   console.error('Fatal error:', error);
+  log(`💥 FATAL: ${error.message}`);
+  if (error.stack) {
+    log(error.stack);
+  }
   process.exit(1);
 });

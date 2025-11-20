@@ -7,8 +7,11 @@
  * @author andreas@siglochconsulting
  */
 
-import * as os from 'os';
 import * as path from 'path';
+import { config as loadDotenv } from 'dotenv';
+
+// Load .env file
+loadDotenv();
 
 /**
  * WebSocket Configuration
@@ -47,6 +50,28 @@ export const NODE_ENV = process.env.NODE_ENV || 'development';
 export const DEBUG = process.env.DEBUG === 'true';
 
 /**
+ * AgentDB Configuration (LLM Agent Shared Memory)
+ */
+export const AGENTDB_ENABLED = process.env.AGENTDB_ENABLED !== 'false'; // Default: true
+export const AGENTDB_BACKEND = (process.env.AGENTDB_BACKEND || 'memory') as 'agentdb' | 'memory' | 'disabled';
+export const AGENTDB_URL = process.env.AGENTDB_URL || '';
+export const AGENTDB_CACHE_TTL = parseInt(process.env.AGENTDB_CACHE_TTL || '1800', 10); // 30 min default
+export const AGENTDB_SIMILARITY_THRESHOLD = parseFloat(process.env.AGENTDB_SIMILARITY_THRESHOLD || '0.85');
+
+/**
+ * OpenAI Embeddings Configuration (for AgentDB vector search)
+ */
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+export const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'text-embedding-3-small';
+export const EMBEDDING_DIMENSION = parseInt(process.env.EMBEDDING_DIMENSION || '1536', 10);
+
+/**
+ * Import/Export Configuration
+ */
+export const IMPORT_EXPORT_DIR = process.env.IMPORT_EXPORT_DIR || path.join(process.cwd(), 'exports');
+export const DEFAULT_EXPORT_FILENAME = process.env.DEFAULT_EXPORT_FILENAME || 'system-export.txt';
+
+/**
  * Validate required environment variables
  */
 export function validateConfig(): { valid: boolean; errors: string[] } {
@@ -62,6 +87,22 @@ export function validateConfig(): { valid: boolean; errors: string[] } {
 
   if (LLM_TEMPERATURE < 0 || LLM_TEMPERATURE > 2) {
     errors.push(`LLM_TEMPERATURE must be between 0 and 2, got ${LLM_TEMPERATURE}`);
+  }
+
+  if (!['agentdb', 'memory', 'disabled'].includes(AGENTDB_BACKEND)) {
+    errors.push(`AGENTDB_BACKEND must be 'agentdb', 'memory', or 'disabled', got '${AGENTDB_BACKEND}'`);
+  }
+
+  if (AGENTDB_BACKEND === 'agentdb' && AGENTDB_ENABLED && !AGENTDB_URL) {
+    errors.push('AGENTDB_URL is required when AGENTDB_BACKEND=agentdb and AGENTDB_ENABLED=true');
+  }
+
+  if (AGENTDB_SIMILARITY_THRESHOLD < 0 || AGENTDB_SIMILARITY_THRESHOLD > 1) {
+    errors.push(`AGENTDB_SIMILARITY_THRESHOLD must be between 0 and 1, got ${AGENTDB_SIMILARITY_THRESHOLD}`);
+  }
+
+  if (AGENTDB_CACHE_TTL < 0) {
+    errors.push(`AGENTDB_CACHE_TTL must be >= 0, got ${AGENTDB_CACHE_TTL}`);
   }
 
   return {

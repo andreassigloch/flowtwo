@@ -1,0 +1,168 @@
+/**
+ * AgentDB Backend (Production)
+ *
+ * Uses AgentDB library for persistent vector-based episodic memory.
+ * Supports Reflexion, semantic caching, and causal learning.
+ *
+ * @author andreas@siglochconsulting
+ */
+
+import * as AgentDBModule from 'agentdb';
+import type {
+  AgentDBBackend,
+  CachedResponse,
+  Episode,
+  SearchResult,
+  CacheMetrics,
+} from './types.js';
+
+const AgentDB = (AgentDBModule as any).default || AgentDBModule;
+
+export class AgentDBPersistentBackend implements AgentDBBackend {
+  private db: any;
+  private dbPath: string;
+  private metrics: CacheMetrics = {
+    cacheHits: 0,
+    cacheMisses: 0,
+    cacheHitRate: 0,
+    episodesStored: 0,
+    tokensSaved: 0,
+    costSavings: 0,
+  };
+
+  constructor(dbPath: string) {
+    this.dbPath = dbPath;
+  }
+
+  async initialize(): Promise<void> {
+    // Initialize AgentDB with vector dimension 1536 (OpenAI embeddings)
+    this.db = new AgentDB({
+      dbPath: this.dbPath,
+      dimension: 1536,
+      preset: 'small', // Options: small, medium, large
+    });
+
+    await this.db.initialize();
+  }
+
+  async vectorSearch(query: string, threshold: number, k: number = 5): Promise<SearchResult[]> {
+    // Use AgentDB's vector similarity search
+    const results = await this.db.vectorSearch({
+      query,
+      k,
+      threshold,
+    });
+
+    return results.map((result: any) => ({
+      content: result.content || result.text || '',
+      similarity: result.similarity || result.score || 0,
+      metadata: result.metadata || {},
+    }));
+  }
+
+  async cacheResponse(response: CachedResponse): Promise<void> {
+    // Store response in AgentDB vector index
+    await this.db.indexNode({
+      content: response.response,
+      metadata: {
+        query: response.query,
+        operations: JSON.stringify(response.operations),
+        timestamp: response.timestamp,
+        ttl: response.ttl,
+        type: 'cached_response',
+      },
+    });
+  }
+
+  async storeEpisode(episode: Episode): Promise<void> {
+    // Use AgentDB Reflexion module for episodic memory
+    await this.db.reflexion.store({
+      agentId: episode.agentId,
+      task: episode.task,
+      reward: episode.reward,
+      success: episode.success,
+      critique: episode.critique,
+      output: JSON.stringify(episode.output),
+      timestamp: episode.timestamp,
+    });
+
+    this.metrics.episodesStored++;
+  }
+
+  async retrieveEpisodes(agentId: string, task?: string, k: number = 10): Promise<Episode[]> {
+    // Retrieve episodes using Reflexion
+    const query = task || agentId;
+    const results = await this.db.reflexion.retrieve(query, { k });
+
+    return results.map((result: any) => ({
+      agentId: result.agentId || agentId,
+      task: result.task || '',
+      reward: result.reward || 0,
+      success: result.success || false,
+      critique: result.critique || '',
+      output: result.output ? JSON.parse(result.output) : {},
+      timestamp: result.timestamp || Date.now(),
+    }));
+  }
+
+  async getMetrics(): Promise<CacheMetrics> {
+    // Get stats from AgentDB
+    const stats = await this.db.getStats?.();
+
+    this.metrics.cacheHitRate =
+      this.metrics.cacheHits + this.metrics.cacheMisses > 0
+        ? this.metrics.cacheHits / (this.metrics.cacheHits + this.metrics.cacheMisses)
+        : 0;
+
+    return {
+      ...this.metrics,
+      episodesStored: stats?.totalNodes || this.metrics.episodesStored,
+    };
+  }
+
+  async cleanup(): Promise<void> {
+    // AgentDB handles TTL cleanup internally
+    // Manual cleanup for expired cached responses
+    const now = Date.now();
+
+    // Query all cached responses and delete expired ones
+    const allResponses = await this.db.vectorSearch({
+      query: '', // Empty query returns all
+      k: 1000,
+      threshold: 0,
+    });
+
+    for (const response of allResponses) {
+      if (response.metadata?.type === 'cached_response') {
+        const timestamp = response.metadata.timestamp || 0;
+        const ttl = response.metadata.ttl || 0;
+
+        if (now - timestamp > ttl) {
+          // Delete expired entry (if AgentDB supports deletion)
+          await this.db.deleteNode?.(response.id);
+        }
+      }
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    // Close AgentDB connection
+    await this.db.close?.();
+  }
+
+  /**
+   * Record a cache hit (used by service layer)
+   */
+  recordCacheHit(tokensSaved: number = 1000): void {
+    this.metrics.cacheHits++;
+    this.metrics.tokensSaved += tokensSaved;
+    this.metrics.costSavings += (tokensSaved / 1000) * 0.003; // $3 per 1M tokens estimate
+  }
+
+  /**
+   * Record a cache miss (used by service layer)
+   */
+  recordCacheMiss(): void {
+    this.metrics.cacheMisses++;
+  }
+}
