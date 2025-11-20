@@ -10,7 +10,9 @@ import {
   AGENTDB_ENABLED,
   AGENTDB_BACKEND,
   AGENTDB_URL,
+  TMP_DIR,
 } from '../../shared/config.js';
+import * as path from 'path';
 import type { AgentDBBackend } from './types.js';
 import { MemoryBackend } from './memory-backend.js';
 import { AgentDBPersistentBackend } from './agentdb-backend.js';
@@ -33,7 +35,7 @@ export async function createBackend(): Promise<AgentDBBackend> {
   }
 
   if (AGENTDB_BACKEND === 'agentdb') {
-    const dbPath = AGENTDB_URL || '/tmp/graphengine-agentdb.db';
+    const dbPath = AGENTDB_URL || path.join(TMP_DIR, 'graphengine-agentdb.db');
     const backend = new AgentDBPersistentBackend(dbPath);
     await backend.initialize();
     return backend;

@@ -25,7 +25,7 @@ export const WS_RECONNECT_DELAY = parseInt(process.env.WS_RECONNECT_DELAY || '10
  * File Paths
  * Use /tmp explicitly (not os.tmpdir()) to match startup.sh expectations
  */
-const TMP_DIR = process.env.TMP_DIR || '/tmp';
+export const TMP_DIR = process.env.TMP_DIR || '/tmp';
 export const LOG_PATH = process.env.LOG_PATH || path.join(TMP_DIR, 'graphengine.log');
 export const FIFO_PATH = process.env.FIFO_PATH || path.join(TMP_DIR, 'graphengine-input.fifo');
 
