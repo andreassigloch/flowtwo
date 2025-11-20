@@ -8,7 +8,7 @@
  */
 
 import * as fs from 'fs';
-import { LOG_PATH } from '../../shared/config.js';
+import { LOG_PATH, SUPPRESS_TEST_LOGS, LOG_LEVEL } from '../../shared/config.js';
 
 /**
  * Log levels for AgentDB operations
@@ -114,6 +114,7 @@ export class AgentDBLogger {
    * Log backend initialization
    */
   static backendInitialized(backend: string, withEmbeddings: boolean): void {
+    if (SUPPRESS_TEST_LOGS) return; // Skip in test mode
     const embInfo = withEmbeddings ? 'WITH OpenAI embeddings' : 'word-based matching';
     this.log(AgentDBLogLevel.INFO, `✅ Backend initialized: ${backend} (${embInfo})`);
   }
@@ -129,6 +130,7 @@ export class AgentDBLogger {
    * Log cleanup operation
    */
   static cleanup(expiredCount: number, backend: string): void {
+    if (SUPPRESS_TEST_LOGS) return; // Skip in test mode
     this.log(
       AgentDBLogLevel.INFO,
       `🧹 Cleanup: removed ${expiredCount} expired entries [${backend}]`
@@ -149,6 +151,7 @@ export class AgentDBLogger {
    * Log embedding generation
    */
   static embeddingGenerated(text: string, dimension: number): void {
+    if (LOG_LEVEL !== 'DEBUG') return; // Only in debug mode
     this.log(
       AgentDBLogLevel.DEBUG,
       `🔢 Embedding generated: dim=${dimension} text="${text.substring(0, 40)}..."`

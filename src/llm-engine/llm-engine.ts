@@ -80,7 +80,7 @@ export class LLMEngine {
     }
 
     if (cached) {
-      log('🎯 AgentDB Cache HIT - returning cached response (streaming)');
+      // AgentDB logger already logged cache hit - no duplicate needed
 
       // Emit cached text as a single chunk first (for display)
       onChunk({
@@ -108,7 +108,7 @@ export class LLMEngine {
       return;
     }
 
-    log('🔍 AgentDB Cache MISS - calling LLM (streaming)');
+    // AgentDB logger already logged cache miss - no duplicate needed
 
     // Build system prompt with cache control
     const systemPrompt = this.promptBuilder.buildSystemPrompt(
@@ -208,7 +208,7 @@ export class LLMEngine {
     try {
       const agentdb = await getAgentDBService();
       await agentdb.cacheResponse(request.message, parsed.textResponse, parsed.operations);
-      log('💾 Stored response in AgentDB cache');
+      // AgentDB logger already logged cache store - no duplicate needed
 
       // Store episodic memory (Reflexion)
       await agentdb.storeEpisode(
@@ -219,7 +219,7 @@ export class LLMEngine {
         'LLM request processed successfully'
       );
     } catch (error) {
-      log(`⚠️ AgentDB cache store failed: ${error}`);
+      log(`⚠️ AgentDB storage failed: ${error}`);
     }
 
     // Emit final response with operations

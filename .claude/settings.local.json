@@ -22,7 +22,8 @@
       "Bash(npm run lint:*)",
       "Bash(git push:*)",
       "Bash(npx eslint:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(NODE_ENV=test npm run test:unit:*)"
     ],
     "deny": [],
     "ask": []

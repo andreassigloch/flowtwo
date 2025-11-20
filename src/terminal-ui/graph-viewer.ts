@@ -611,8 +611,6 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
   }
 
   try {
-    log('📡 Received graph update via WebSocket');
-
     // Parse JSON state (same format as file-based polling)
     const stateData = JSON.parse(update.diff);
 

@@ -50,6 +50,12 @@ export const NODE_ENV = process.env.NODE_ENV || 'development';
 export const DEBUG = process.env.DEBUG === 'true';
 
 /**
+ * Logging Configuration
+ */
+export const LOG_LEVEL = process.env.LOG_LEVEL || (NODE_ENV === 'test' ? 'ERROR' : 'INFO');
+export const SUPPRESS_TEST_LOGS = NODE_ENV === 'test';
+
+/**
  * AgentDB Configuration (LLM Agent Shared Memory)
  */
 export const AGENTDB_ENABLED = process.env.AGENTDB_ENABLED !== 'false'; // Default: true
