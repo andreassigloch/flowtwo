@@ -13,7 +13,6 @@ import { CanvasBase } from '../../../src/canvas/canvas-base.js';
 import { FormatEDiff, Operation } from '../../../src/shared/types/canvas.js';
 import { IFormatEParser } from '../../../src/shared/types/format-e.js';
 import { GraphState } from '../../../src/shared/types/ontology.js';
-import { createSampleDiff } from '../../setup.js';
 
 /**
  * Mock Canvas implementation for testing
@@ -45,11 +44,11 @@ class MockCanvas extends CanvasBase {
     return { valid: true, errors: [] };
   }
 
-  protected async saveBatch(items: unknown[]): Promise<void> {
+  protected async saveBatch(_items: unknown[]): Promise<void> {
     // Mock save
   }
 
-  protected async createAuditLog(log: {
+  protected async createAuditLog(_log: {
     chatId: string;
     diff: string;
     action: string;
@@ -62,11 +61,11 @@ class MockCanvas extends CanvasBase {
  * Mock Format E Parser
  */
 class MockFormatEParser implements IFormatEParser {
-  parseGraph(formatE: string): GraphState {
+  parseGraph(_formatE: string): GraphState {
     throw new Error('Not implemented');
   }
 
-  parseDiff(formatE: string): FormatEDiff {
+  parseDiff(_formatE: string): FormatEDiff {
     return {
       baseSnapshot: 'TestSystem.SY.001@v1',
       viewContext: 'Hierarchy',
@@ -90,19 +89,19 @@ class MockFormatEParser implements IFormatEParser {
     };
   }
 
-  serializeGraph(state: GraphState, viewContext?: string): string {
+  serializeGraph(_state: GraphState, _viewContext?: string): string {
     return 'mock format e';
   }
 
-  serializeDiff(diff: FormatEDiff): string {
+  serializeDiff(_diff: FormatEDiff): string {
     return '<operations>mock</operations>';
   }
 
-  parseChatCanvas(formatE: string): any {
+  parseChatCanvas(_formatE: string): any {
     throw new Error('Not implemented');
   }
 
-  serializeChatCanvas(state: any): string {
+  serializeChatCanvas(_state: any): string {
     throw new Error('Not implemented');
   }
 }

@@ -41,7 +41,7 @@ test.describe('WebSocket Multi-User Synchronization', () => {
     const user1 = 'user-alice';
     const user2 = 'user-bob';
     const chatId1 = 'chat-alice';
-    const chatId2 = 'chat-bob';
+    const _chatId2 = 'chat-bob';
 
     // Create two WebSocket clients
     const client1 = new WebSocket(`ws://localhost:${WS_PORT}`);

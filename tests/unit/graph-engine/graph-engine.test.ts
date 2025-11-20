@@ -107,7 +107,7 @@ function createHierarchyGraph(): GraphState {
   return createGraph(nodes, edges);
 }
 
-function createFunctionalFlowGraph(): GraphState {
+function _createFunctionalFlowGraph(): GraphState {
   const nodes: Node[] = [
     createNode('ProcessData.FN.001', 'FUNC', 'ProcessData'),
     createNode('InputData.FL.001', 'FLOW', 'InputData'),

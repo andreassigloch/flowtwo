@@ -10,7 +10,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { GraphCanvas } from '../../../src/canvas/graph-canvas.js';
 import { ChatCanvas } from '../../../src/canvas/chat-canvas.js';
 import { Neo4jClient } from '../../../src/neo4j-client/neo4j-client.js';
-import { Node, Edge } from '../../../src/shared/types/ontology.js';
 import neo4j, { Driver, Session } from 'neo4j-driver';
 
 describe('Canvas Persistence Integration', () => {
@@ -258,7 +257,7 @@ describe('Canvas Persistence Integration', () => {
       await canvas1.persistToNeo4j();
 
       // Simulate restart: new canvas instance
-      const canvas2 = new GraphCanvas(
+      const _canvas2 = new GraphCanvas(
         workspaceId,
         systemId,
         'new-chat-002',

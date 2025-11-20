@@ -186,8 +186,10 @@ interface CanvasDiff {
 
 ## Notes
 
-- This CR focuses on **strategy logic**, CR-007 focuses on **persistent storage**
-- Implement before CR-007 (provides foundation for cache decisions)
+- **NOT related to LLM agent memory** - CR-007 handles AgentDB for spawned agent shared memory
+- **Focus:** Graph display optimization (Neo4j vs cached canvas state)
+- This CR focuses on **when to load graph data** (cache vs diff vs Neo4j)
 - Cache strategy is critical for multi-user scenarios (WebSocket changes)
 - Consider eventual consistency trade-offs (cache lag vs performance)
 - Monitor cache hit rates in production and adjust thresholds
+- Metadata storage could use filesystem or simple key-value store (AgentDB not required)

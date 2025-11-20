@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ViewFilter } from '../../../src/graph-engine/view-filter.js';
-import { ViewConfig, DEFAULT_VIEW_CONFIGS } from '../../../src/shared/types/view.js';
+import { DEFAULT_VIEW_CONFIGS } from '../../../src/shared/types/view.js';
 import { Node, Edge, GraphState } from '../../../src/shared/types/ontology.js';
 
 describe('ViewFilter', () => {

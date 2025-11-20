@@ -12,7 +12,6 @@
 
 import 'dotenv/config';
 import * as fs from 'fs';
-import * as readline from 'readline';
 import { GraphCanvas } from '../canvas/graph-canvas.js';
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
 import { GraphEngine } from '../graph-engine/graph-engine.js';
@@ -31,9 +30,7 @@ const config = {
 };
 
 // Initialize components
-let graphCanvas: GraphCanvas;
 let neo4jClient: Neo4jClient | undefined;
-let graphEngine: GraphEngine;
 let currentView: ViewType = 'hierarchy';
 let wsClient: CanvasWebSocketClient;
 
@@ -47,7 +44,7 @@ if (process.env.NEO4J_URI && process.env.NEO4J_USER && process.env.NEO4J_PASSWOR
 }
 
 // Initialize canvas
-graphCanvas = new GraphCanvas(
+const graphCanvas = new GraphCanvas(
   config.workspaceId,
   config.systemId,
   config.chatId,
@@ -56,7 +53,7 @@ graphCanvas = new GraphCanvas(
   neo4jClient
 );
 
-graphEngine = new GraphEngine();
+const _graphEngine = new GraphEngine();
 
 /**
  * Log to STDOUT file
@@ -187,9 +184,8 @@ function renderHierarchyView(state: any, viewConfig: any): string[] {
 /**
  * Render allocation view (modules containing functions)
  */
-function renderAllocationView(state: any, viewConfig: any): string[] {
+function renderAllocationView(state: any, _viewConfig: any): string[] {
   const lines: string[] = [];
-  const { includeNodeTypes } = viewConfig.layoutConfig;
 
   // Find all MOD nodes
   const modules = Array.from(state.nodes.values()).filter(
@@ -305,7 +301,7 @@ function renderRequirementsView(state: any, viewConfig: any): string[] {
 /**
  * Render use-case view (UC with parent, actors, requirements)
  */
-function renderUseCaseView(state: any, viewConfig: any): string[] {
+function renderUseCaseView(state: any, _viewConfig: any): string[] {
   const lines: string[] = [];
 
   // Find all UC nodes
@@ -491,7 +487,7 @@ async function main(): Promise<void> {
           ports: new Map(),
         });
       }
-    } catch (error) {
+    } catch {
       // Ignore load errors, start fresh
     }
   }

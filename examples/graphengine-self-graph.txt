@@ -493,14 +493,22 @@ BatchPersist.FUNC-sat->DataPersistence.REQ
 ChatInterface.MOD-rel->LLMEngineImpl.MOD
 ChatInterface.MOD-rel->GraphCanvas.MOD
 ChatInterface.MOD-rel->ChatCanvas.MOD
+ChatInterface.MOD-rel->Neo4jClientImpl.MOD
+ChatInterface.MOD-rel->FormatEParser.MOD
+ChatInterface.MOD-rel->WebSocketClient.MOD
+ChatInterface.MOD-rel->SessionManager.MOD
+ChatInterface.MOD-rel->Config.MOD
 GraphViewer.MOD-rel->GraphEngineImpl.MOD
 GraphViewer.MOD-rel->GraphCanvas.MOD
+GraphViewer.MOD-rel->Neo4jClientImpl.MOD
 App.MOD-rel->ChatInterface.MOD
 App.MOD-rel->GraphViewer.MOD
 App.MOD-rel->TmuxManager.MOD
 GraphCanvas.MOD-rel->FormatEParser.MOD
 GraphCanvas.MOD-rel->Neo4jClientImpl.MOD
 GraphCanvas.MOD-rel->WebSocketServer.MOD
+ChatCanvas.MOD-rel->FormatEParser.MOD
+ChatCanvas.MOD-rel->Neo4jClientImpl.MOD
 LLMEngineImpl.MOD-rel->PromptBuilder.MOD
 LLMEngineImpl.MOD-rel->ResponseParser.MOD
 GraphEngineImpl.MOD-rel->ViewFilter.MOD
@@ -563,11 +571,11 @@ StreamLLMResponse.FCHAIN-cp->AnthropicClaude.ACTOR
 #   - SCHEMA: 7
 #   - ACTOR: 3
 #
-# Edges: 356 total
+# Edges: 364 total (updated 2025-11-19 with 8 missing MOD→MOD import edges)
 #   - compose: 231 (SYS→MOD:1 + MOD→MOD:38 + FUNC→FUNC:79 + UC→FCHAIN:8 + FCHAIN→FUNC:45 + UC→ACTOR:11 + FCHAIN→ACTOR:4)
 #   - allocate: 79 (MOD→FUNC bridge)
 #   - satisfy: 30 (UC→REQ:15 + MOD→REQ:8 + FUNC→REQ:6)
-#   - relation: 37 (MOD→MOD imports:18 + SCHEMA→FUNC:19)
+#   - relation: 45 (MOD→MOD imports:26 + SCHEMA→FUNC:19) - corrected from 37
 #   - io: 0 (not detailed in this representation)
 #   - verify: 0 (no test nodes included)
 # =============================================================================

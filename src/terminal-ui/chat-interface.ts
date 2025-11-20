@@ -33,8 +33,6 @@ const config = {
 };
 
 // Initialize components
-let graphCanvas: GraphCanvas;
-let chatCanvas: ChatCanvas;
 let llmEngine: LLMEngine | undefined;
 let neo4jClient: Neo4jClient | undefined;
 let sessionManager: SessionManager | undefined;
@@ -52,7 +50,7 @@ if (process.env.NEO4J_URI && process.env.NEO4J_USER && process.env.NEO4J_PASSWOR
 }
 
 // Initialize canvases
-graphCanvas = new GraphCanvas(
+const graphCanvas = new GraphCanvas(
   config.workspaceId,
   config.systemId,
   config.chatId,
@@ -61,7 +59,7 @@ graphCanvas = new GraphCanvas(
   neo4jClient
 );
 
-chatCanvas = new ChatCanvas(
+const chatCanvas = new ChatCanvas(
   config.workspaceId,
   config.systemId,
   config.chatId,
@@ -423,7 +421,6 @@ async function processMessage(message: string): Promise<void> {
     };
 
     // Track streaming state
-    let streamedText = '';
     let isFirstChunk = true;
 
     // Send to LLM with streaming
@@ -519,7 +516,7 @@ async function main(): Promise<void> {
         console.log(`\x1b[90m✓ Session restored: ${session.activeSystemId}\x1b[0m`);
         log(`📋 Session restored: ${session.activeSystemId}`);
       }
-    } catch (error) {
+    } catch {
       log('⚠️  Could not load session (starting fresh)');
     }
   }
@@ -547,7 +544,7 @@ async function main(): Promise<void> {
 
         notifyGraphUpdate();
       }
-    } catch (error) {
+    } catch {
       console.log('\x1b[33m⚠️  Could not load from Neo4j (starting fresh)\x1b[0m');
     }
   }

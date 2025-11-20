@@ -17,7 +17,6 @@
 import neo4j, { Driver, Session } from 'neo4j-driver';
 import type {
   Neo4jConfig,
-  Neo4jQueryResult,
   BatchPersistResult,
   GraphQueryOptions,
   ChatQueryOptions,

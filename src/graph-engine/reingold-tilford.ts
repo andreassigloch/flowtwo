@@ -174,7 +174,7 @@ export class ReingoldTilfordLayout {
    *
    * Second pass: Apply parent modifiers to get absolute x positions
    */
-  private finalizePositions(node: TreeNode, modSum: number, parentX: number): void {
+  private finalizePositions(node: TreeNode, modSum: number, _parentX: number): void {
     node.x = (node.x || 0) + modSum;
     node.y = (node.y || 0);
 

@@ -75,7 +75,6 @@ describe('CanvasWebSocketServer', () => {
     const client2 = new WebSocket(`ws://localhost:${testPort}`);
     let client1Subscribed = false;
     let client2Subscribed = false;
-    let broadcastReceived = false;
 
     const subscribe = (client: WebSocket, userId: string) => {
       client.send(JSON.stringify({

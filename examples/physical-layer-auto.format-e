@@ -1,0 +1,167 @@
+# Physical Layer (Auto-Generated)
+
+[Nodes]
+
+GraphEngine.MOD|MOD|GraphEngine Root|Root module containing all source code
+
+Canvas.MOD|MOD|Canvas Module|canvas/ directory containing related modules
+GraphEngine.MOD|MOD|Graph-engine Module|graph-engine/ directory containing related modules
+Layout.MOD|MOD|Layout Module|layout/ directory containing related modules
+LlmEngine.MOD|MOD|Llm-engine Module|llm-engine/ directory containing related modules
+Neo4jClient.MOD|MOD|Neo4j-client Module|neo4j-client/ directory containing related modules
+Parsers.MOD|MOD|Parsers Module|parsers/ directory containing related modules
+Shared.MOD|MOD|Shared Module|shared/ directory containing related modules
+TerminalUi.MOD|MOD|Terminal-ui Module|terminal-ui/ directory containing related modules
+Types.MOD|MOD|Types Module|types/ directory containing related modules
+Validators.MOD|MOD|Validators Module|validators/ directory containing related modules
+Canvas.MOD|MOD|Canvas|Canvas State Manager Types - Dual Canvas Architecture
+CanvasBase.MOD|MOD|Canvas Base|Canvas Base Class - Abstract state manager for Graph and Chat canvases
+ChatCanvas.MOD|MOD|Chat Canvas|Chat Canvas - State Manager for Conversation
+ChatInterface.MOD|MOD|Chat Interface|GraphEngine - Chat Interface (Terminal 3)
+Config.MOD|MOD|Config|Centralized Configuration
+FormatE.MOD|MOD|Format E|Format E - Token-Efficient Serialization Format
+FormatEParser.MOD|MOD|Format E Parser|Format E Parser - Token-Efficient Serialization
+GraphCanvas.MOD|MOD|Graph Canvas|Graph Canvas - State Manager for Ontology Graph
+GraphEngine.MOD|MOD|Graph Engine|Graph Engine Service
+GraphViewer.MOD|MOD|Graph Viewer|GraphEngine - Graph Viewer (Terminal 2)
+Index.MOD|MOD|Index|Canvas Module Exports
+Index.MOD|MOD|Index|Layout Module Exports
+Layout.MOD|MOD|Layout|Layout Types
+Llm.MOD|MOD|Llm|LLM Engine Types
+LlmEngine.MOD|MOD|Llm Engine|LLM Engine
+Main.MOD|MOD|Main|GraphEngine - Main Entry Point
+Neo4j.MOD|MOD|Neo4j|neo4j module
+Neo4jClient.MOD|MOD|Neo4j Client|Neo4j Client
+Ontology.MOD|MOD|Ontology|GraphEngine Ontology V3 - Type Definitions
+Orthogonal.MOD|MOD|Orthogonal|Orthogonal Layout Algorithm
+PortExtractor.MOD|MOD|Port Extractor|Port Extractor
+PromptBuilder.MOD|MOD|Prompt Builder|System Prompt Builder
+Radial.MOD|MOD|Radial|Radial Layout Algorithm
+ReingoldTilford.MOD|MOD|Reingold Tilford|Reingold-Tilford Tree Layout Algorithm
+ResponseParser.MOD|MOD|Response Parser|Response Parser
+Session.MOD|MOD|Session|Session Manager - Application State Persistence & Cleanup
+SessionManager.MOD|MOD|Session Manager|Session Manager - Persistent User Session State
+Sugiyama.MOD|MOD|Sugiyama|Sugiyama Layered Layout Algorithm
+Treemap.MOD|MOD|Treemap|Treemap Layout Algorithm
+Types.MOD|MOD|Types|Layout Algorithm Type Definitions
+View.MOD|MOD|View|View Configuration Types
+ViewFilter.MOD|MOD|View Filter|View Filter
+WebsocketClient.MOD|MOD|Websocket Client|WebSocket Client for Terminal-UI
+WebsocketServer.MOD|MOD|Websocket Server|WebSocket Server for Canvas Broadcasting
+WebsocketServer.MOD|MOD|Websocket Server|WebSocket Server - Standalone Process
+
+[Edges]
+
+# Composition edges (hierarchy)
+Canvas.MOD-cp->CanvasBase.MOD
+Canvas.MOD-cp->ChatCanvas.MOD
+Canvas.MOD-cp->GraphCanvas.MOD
+Canvas.MOD-cp->Index.MOD
+Canvas.MOD-cp->WebsocketClient.MOD
+Canvas.MOD-cp->WebsocketServer.MOD
+GraphEngine.MOD-cp->GraphEngine.MOD
+GraphEngine.MOD-cp->PortExtractor.MOD
+GraphEngine.MOD-cp->ReingoldTilford.MOD
+GraphEngine.MOD-cp->ViewFilter.MOD
+Layout.MOD-cp->Index.MOD
+Layout.MOD-cp->Orthogonal.MOD
+Layout.MOD-cp->Radial.MOD
+Layout.MOD-cp->Sugiyama.MOD
+Layout.MOD-cp->Treemap.MOD
+Layout.MOD-cp->Types.MOD
+LlmEngine.MOD-cp->LlmEngine.MOD
+LlmEngine.MOD-cp->PromptBuilder.MOD
+LlmEngine.MOD-cp->ResponseParser.MOD
+Neo4jClient.MOD-cp->Neo4jClient.MOD
+Neo4jClient.MOD-cp->SessionManager.MOD
+Shared.MOD-cp->Config.MOD
+Shared.MOD-cp->Parsers.MOD
+Parsers.MOD-cp->FormatEParser.MOD
+Shared.MOD-cp->Types.MOD
+Types.MOD-cp->Canvas.MOD
+Types.MOD-cp->FormatE.MOD
+Types.MOD-cp->Layout.MOD
+Types.MOD-cp->Llm.MOD
+Types.MOD-cp->Neo4j.MOD
+Types.MOD-cp->Ontology.MOD
+Types.MOD-cp->View.MOD
+Shared.MOD-cp->Validators.MOD
+TerminalUi.MOD-cp->ChatInterface.MOD
+TerminalUi.MOD-cp->GraphViewer.MOD
+
+# Relation edges (imports)
+CanvasBase.MOD-rel->Ontology.MOD
+CanvasBase.MOD-rel->Canvas.MOD
+CanvasBase.MOD-rel->FormatE.MOD
+CanvasBase.MOD-rel->WebsocketServer.MOD
+ChatCanvas.MOD-rel->CanvasBase.MOD
+ChatCanvas.MOD-rel->GraphCanvas.MOD
+ChatCanvas.MOD-rel->Canvas.MOD
+ChatCanvas.MOD-rel->FormatEParser.MOD
+ChatCanvas.MOD-rel->Neo4jClient.MOD
+GraphCanvas.MOD-rel->CanvasBase.MOD
+GraphCanvas.MOD-rel->Ontology.MOD
+GraphCanvas.MOD-rel->Canvas.MOD
+GraphCanvas.MOD-rel->FormatEParser.MOD
+GraphCanvas.MOD-rel->Neo4jClient.MOD
+WebsocketClient.MOD-rel->WebsocketServer.MOD
+WebsocketClient.MOD-rel->Config.MOD
+WebsocketServer.MOD-rel->Config.MOD
+GraphEngine.MOD-rel->Ontology.MOD
+GraphEngine.MOD-rel->View.MOD
+GraphEngine.MOD-rel->Layout.MOD
+GraphEngine.MOD-rel->PortExtractor.MOD
+GraphEngine.MOD-rel->ReingoldTilford.MOD
+PortExtractor.MOD-rel->Ontology.MOD
+PortExtractor.MOD-rel->Layout.MOD
+ReingoldTilford.MOD-rel->Ontology.MOD
+ReingoldTilford.MOD-rel->Layout.MOD
+ViewFilter.MOD-rel->View.MOD
+ViewFilter.MOD-rel->Ontology.MOD
+Orthogonal.MOD-rel->Ontology.MOD
+Orthogonal.MOD-rel->Types.MOD
+Radial.MOD-rel->Ontology.MOD
+Radial.MOD-rel->Types.MOD
+Sugiyama.MOD-rel->Ontology.MOD
+Sugiyama.MOD-rel->Types.MOD
+Treemap.MOD-rel->Ontology.MOD
+Treemap.MOD-rel->Types.MOD
+Types.MOD-rel->Ontology.MOD
+LlmEngine.MOD-rel->Llm.MOD
+LlmEngine.MOD-rel->PromptBuilder.MOD
+LlmEngine.MOD-rel->ResponseParser.MOD
+LlmEngine.MOD-rel->Config.MOD
+PromptBuilder.MOD-rel->Llm.MOD
+Main.MOD-rel->Config.MOD
+Neo4jClient.MOD-rel->Neo4j.MOD
+Neo4jClient.MOD-rel->Ontology.MOD
+SessionManager.MOD-rel->Neo4jClient.MOD
+Session.MOD-rel->Neo4jClient.MOD
+Session.MOD-rel->WebsocketClient.MOD
+Session.MOD-rel->GraphCanvas.MOD
+Session.MOD-rel->ChatCanvas.MOD
+FormatEParser.MOD-rel->Ontology.MOD
+FormatEParser.MOD-rel->Canvas.MOD
+FormatEParser.MOD-rel->FormatE.MOD
+Canvas.MOD-rel->Ontology.MOD
+FormatE.MOD-rel->Ontology.MOD
+FormatE.MOD-rel->Canvas.MOD
+View.MOD-rel->Ontology.MOD
+ChatInterface.MOD-rel->GraphCanvas.MOD
+ChatInterface.MOD-rel->ChatCanvas.MOD
+ChatInterface.MOD-rel->LlmEngine.MOD
+ChatInterface.MOD-rel->Neo4jClient.MOD
+ChatInterface.MOD-rel->FormatEParser.MOD
+ChatInterface.MOD-rel->WebsocketClient.MOD
+ChatInterface.MOD-rel->WebsocketServer.MOD
+ChatInterface.MOD-rel->Session.MOD
+ChatInterface.MOD-rel->Config.MOD
+GraphViewer.MOD-rel->GraphCanvas.MOD
+GraphViewer.MOD-rel->Neo4jClient.MOD
+GraphViewer.MOD-rel->GraphEngine.MOD
+GraphViewer.MOD-rel->WebsocketClient.MOD
+GraphViewer.MOD-rel->WebsocketServer.MOD
+GraphViewer.MOD-rel->View.MOD
+GraphViewer.MOD-rel->View.MOD
+GraphViewer.MOD-rel->Config.MOD
+WebsocketServer.MOD-rel->Config.MOD
