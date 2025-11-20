@@ -359,6 +359,33 @@ LLM MUST automatically derive:
 - Chat history MUST include: timestamp, role (user/assistant), content, operations
 - Chat history MUST support conversation export
 
+#### FR-9.4: Import/Export ✅ IMPLEMENTED
+- System MUST export graph state to plain text files (Format E) ✅
+- System MUST import graphs from Format E files ✅
+- Export files MUST be human-readable .txt files for version control ✅
+- Export MUST include metadata header (system ID, timestamp, node count) ✅
+- Import MUST validate Format E syntax and strip metadata ✅
+- System MUST support configurable export directory (`IMPORT_EXPORT_DIR`) ✅
+- System MUST provide `exportSystem()`, `importSystem()`, `listExports()` APIs ✅
+
+**Implementation:** [src/shared/parsers/import-export.ts](../src/shared/parsers/import-export.ts) - CR-016
+- Exports to `./exports/` directory (configurable via env var)
+- Auto-generates timestamped filenames if not provided
+- Round-trip (export → import) preserves graph structure perfectly
+- Unit tests: 7 passing (100% coverage)
+
+**Usage:**
+```typescript
+// Export current graph
+const filePath = await exportSystem(graphCanvas.getState(), 'backup.txt');
+
+// Import a graph
+const graphState = await importSystem('backup.txt');
+await graphCanvas.loadGraph(graphState);
+```
+
+**Note:** API implemented, chat commands (`/export`, `/import`) not yet integrated
+
 ---
 
 ### FR-10: Prompt Caching
