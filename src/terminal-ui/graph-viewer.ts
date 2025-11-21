@@ -461,12 +461,12 @@ function renderOccurrence(
   const allOccurrences = occurrenceMap.byNode.get(occurrence.nodeId) || [];
 
   if (occurrence.isPrimary) {
-    // Render primary occurrence
+    // Render primary occurrence - only show usage count if > 1
     const usageCount = allOccurrences.length;
     const marker =
       usageCount > 1
-        ? ` \x1b[90m[primary, used in ${usageCount} contexts]\x1b[0m`
-        : ` \x1b[90m[primary]\x1b[0m`;
+        ? ` \x1b[90m(${usageCount}x)\x1b[0m`
+        : '';
 
     lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name}${marker}`);
 
