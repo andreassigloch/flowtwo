@@ -422,10 +422,16 @@ function buildOccurrenceMap(state: any, nestingEdgeTypes: string[]): any {
 
     // Find children via nesting edge types
     for (const edgeType of nestingEdgeTypes) {
-      const children = Array.from(state.edges.values())
+      let children = Array.from(state.edges.values())
         .filter((e: any) => e.sourceId === current.nodeId && e.type === edgeType)
         .map((e: any) => state.nodes.get(e.targetId))
         .filter((n: any) => n);
+
+      // Sort children by flow order if parent is FCHAIN
+      const parentNode = state.nodes.get(current.nodeId);
+      if (parentNode?.type === 'FCHAIN' && children.length > 1) {
+        children = sortByFlowOrder(children, state);
+      }
 
       for (const child of children) {
         const childPath = `${current.path}/${child.name}`;
@@ -509,6 +515,150 @@ function findChildOccurrences(parentPath: string, occurrenceMap: any): any[] {
   }
 
   return children;
+}
+
+/**
+ * Sort nodes by flow order within an FCHAIN
+ *
+ * Order: Input ACTORs → FUNCs/FLOWs (topologically) → Output ACTORs
+ *
+ * Uses io edges to determine the flow sequence:
+ * - Input actors: ACTORs with outgoing io to FLOW but no incoming io from FLOW
+ * - Output actors: ACTORs with incoming io from FLOW but no outgoing io to FLOW
+ * - FUNCs/FLOWs: sorted topologically based on io edges
+ */
+function sortByFlowOrder(nodes: any[], state: any): any[] {
+  const nodeSet = new Set(nodes.map((n: any) => n.semanticId));
+
+  // Separate actors from funcs/flows
+  const actors: any[] = [];
+  const funcsFlows: any[] = [];
+
+  for (const node of nodes) {
+    if (node.type === 'ACTOR') {
+      actors.push(node);
+    } else {
+      funcsFlows.push(node);
+    }
+  }
+
+  // Classify actors as input or output based on io edges
+  const inputActors: any[] = [];
+  const outputActors: any[] = [];
+
+  for (const actor of actors) {
+    // Check io edges involving this actor
+    const hasOutgoingIo = Array.from(state.edges.values()).some(
+      (e: any) =>
+        e.type === 'io' &&
+        e.sourceId === actor.semanticId &&
+        nodeSet.has(e.targetId)
+    );
+    const hasIncomingIo = Array.from(state.edges.values()).some(
+      (e: any) =>
+        e.type === 'io' &&
+        e.targetId === actor.semanticId &&
+        nodeSet.has(e.sourceId)
+    );
+
+    if (hasOutgoingIo && !hasIncomingIo) {
+      inputActors.push(actor);
+    } else if (hasIncomingIo && !hasOutgoingIo) {
+      outputActors.push(actor);
+    } else if (hasOutgoingIo) {
+      // Has both or only outgoing - treat as input
+      inputActors.push(actor);
+    } else {
+      // No io edges or only incoming - treat as output
+      outputActors.push(actor);
+    }
+  }
+
+  // Topological sort for funcs/flows based on io edges
+  const sorted = topologicalSortByIo(funcsFlows, state, nodeSet);
+
+  // Combine: input actors → sorted funcs/flows → output actors
+  return [...inputActors, ...sorted, ...outputActors];
+}
+
+/**
+ * Topological sort of nodes based on io edges
+ */
+function topologicalSortByIo(nodes: any[], state: any, nodeSet: Set<string>): any[] {
+  if (nodes.length <= 1) return nodes;
+
+  // Build adjacency list and in-degree count
+  const inDegree = new Map<string, number>();
+  const outEdges = new Map<string, string[]>();
+
+  for (const node of nodes) {
+    inDegree.set(node.semanticId, 0);
+    outEdges.set(node.semanticId, []);
+  }
+
+  // Count io edges within the node set
+  for (const edge of state.edges.values()) {
+    if (edge.type !== 'io') continue;
+
+    // Check if both source and target are in our node set (or connected via FLOW)
+    const sourceInSet = nodeSet.has(edge.sourceId);
+    const targetInSet = nodeSet.has(edge.targetId);
+
+    if (sourceInSet && targetInSet) {
+      const sourceNode = state.nodes.get(edge.sourceId);
+      const targetNode = state.nodes.get(edge.targetId);
+
+      // Only count edges between FUNC/FLOW nodes
+      if (
+        sourceNode &&
+        targetNode &&
+        ['FUNC', 'FLOW'].includes(sourceNode.type) &&
+        ['FUNC', 'FLOW'].includes(targetNode.type)
+      ) {
+        inDegree.set(edge.targetId, (inDegree.get(edge.targetId) || 0) + 1);
+        outEdges.get(edge.sourceId)?.push(edge.targetId);
+      }
+    }
+  }
+
+  // Kahn's algorithm for topological sort
+  const queue: any[] = [];
+  const result: any[] = [];
+  const nodeMap = new Map(nodes.map((n: any) => [n.semanticId, n]));
+
+  // Start with nodes that have no incoming edges
+  for (const node of nodes) {
+    if ((inDegree.get(node.semanticId) || 0) === 0) {
+      queue.push(node);
+    }
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    result.push(current);
+
+    for (const targetId of outEdges.get(current.semanticId) || []) {
+      const newDegree = (inDegree.get(targetId) || 1) - 1;
+      inDegree.set(targetId, newDegree);
+      if (newDegree === 0) {
+        const targetNode = nodeMap.get(targetId);
+        if (targetNode) {
+          queue.push(targetNode);
+        }
+      }
+    }
+  }
+
+  // If not all nodes were sorted (cycle), append remaining
+  if (result.length < nodes.length) {
+    for (const node of nodes) {
+      if (!result.includes(node)) {
+        result.push(node);
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
