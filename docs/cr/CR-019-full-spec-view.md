@@ -45,9 +45,10 @@ Users need a single view that shows **all nesting relationships simultaneously**
 - Terminal UI format: `→ ElementName [see path/to/primary]`
 - Path format: hierarchical path from root (e.g., "GraphEngine/Backend/Neo4jService")
 
-**FR-4: Usage Count**
-- Primary occurrences display usage count if > 1
-- Format: `ElementName [primary, used in N contexts]`
+**FR-4: Reference Indicator**
+- Reference occurrences (not primary) display `→` indicator
+- Format: `[TYPE] ElementName →`
+- No usage counter on primary occurrences (simplified design)
 
 **FR-5: Depth Control**
 - Optional `maxDepth` parameter (default: null = unlimited)
@@ -192,10 +193,10 @@ function buildMultiOccurrenceTree(
 **Location:** `src/terminal-ui/graph-viewer.ts`
 
 **Simplified Approach (No Interactive Links):**
-- Primary: `ElementName [primary, used in N contexts]`
-- Reference: `→ ElementName [see path/to/primary]`
-- Path is plain text, user can manually navigate if needed
-- Visual distinction via `→` marker and `[see ...]` annotation
+- Primary: `[TYPE] ElementName` (no marker)
+- Reference: `[TYPE] ElementName →` (arrow indicates reference)
+- Visual distinction via `→` marker only
+- No usage counters (simplified design decision)
 
 **Rendering Logic:**
 ```typescript
@@ -285,9 +286,9 @@ function renderSpecViewNode(
 
 - [x] Spec view renders all node types in hierarchical structure
 - [x] Elements appearing in multiple contexts shown multiple times
-- [x] First occurrence clearly marked as `[primary]`
-- [x] Subsequent occurrences show `→ ElementName [see path]` format
-- [x] Usage count displayed on primaries when > 1
+- [x] Primary occurrences render without marker
+- [x] Reference occurrences show `[TYPE] ElementName →` format
+- [x] No usage counter (simplified design)
 - [x] All three nesting edge types (compose, satisfy, allocate) included
 - [x] maxDepth parameter works correctly
 - [x] No infinite loops with circular dependencies
