@@ -4,7 +4,7 @@
  * 10 Node Types + 6 Edge Types following SysML 2.0 inspiration
  *
  * @author andreas@siglochconsulting
- * @version 2.0.0
+ * @version 3.0.3
  */
 
 /** Node Types (10 total) */
@@ -39,7 +39,7 @@ export type EdgeType =
  * Edge Type Metadata
  *
  * Defines visual and semantic properties of each edge type
- * Per ontology_schema.json v3.0.0
+ * Per ontology_schema.json v3.0.3
  */
 export const EDGE_TYPE_METADATA = {
   compose: {
@@ -51,9 +51,8 @@ export const EDGE_TYPE_METADATA = {
       'SYS -> UC', // System contains use cases
       'SYS -> MOD', // System contains top-level modules
       'UC -> UC', // Use case contains sub-use-cases
-      'UC -> ACTOR', // Use case composes actor
       'UC -> FCHAIN', // Use case contains function chains
-      'FCHAIN -> ACTOR', // Function chain composes actor
+      'FCHAIN -> ACTOR', // Function chain composes actor (actors only in FCHAIN, not UC)
       'FCHAIN -> FUNC', // Function chain contains functions
       'FCHAIN -> FLOW', // Function chain contains flows
       'MOD -> MOD', // Module contains modules (directory hierarchy)

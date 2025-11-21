@@ -487,11 +487,9 @@ function renderOccurrence(
       }
     });
   } else {
-    // Render reference occurrence
-    const primary = allOccurrences.find((occ: any) => occ.isPrimary);
-    const refPath = primary ? primary.path : '?';
+    // Render reference occurrence - just arrow after name
     lines.push(
-      `${indent}\x1b[90m→\x1b[0m [${color}${node.type}\x1b[0m] ${node.name} \x1b[90m[see ${refPath}]\x1b[0m`
+      `${indent}[${color}${node.type}\x1b[0m] ${node.name} \x1b[90m→\x1b[0m`
     );
   }
 

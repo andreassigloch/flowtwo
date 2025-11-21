@@ -1,6 +1,6 @@
 {
-  "version": "3.0.1",
-  "change_comment": "Added MOD->MOD and FUNC->FUNC to compose relationships for directory hierarchy and logical function grouping",
+  "version": "3.0.3",
+  "change_comment": "Removed UC->ACTOR compose relationship - ACTOR only valid under FCHAIN (where they are used in flows)",
   "schema": {
     "nodes": {
       "SYS": {
@@ -99,7 +99,6 @@
           ["SYS", "UC"],
           ["SYS", "MOD"],
           ["UC", "UC"],
-          ["UC", "ACTOR"],
           ["UC", "FCHAIN"],
           ["FCHAIN", "ACTOR"],
           ["FCHAIN", "FUNC"],
