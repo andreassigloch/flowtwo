@@ -20,6 +20,10 @@ import type { BroadcastUpdate } from '../canvas/websocket-server.js';
 import type { ViewType } from '../shared/types/view.js';
 import { DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
 import { WS_URL, LOG_PATH } from '../shared/config.js';
+import {
+  computeArchitectureLayout,
+  renderLayoutToAscii,
+} from './ascii-grid.js';
 
 // Configuration
 const config = {
@@ -33,6 +37,7 @@ const config = {
 let neo4jClient: Neo4jClient | undefined;
 let currentView: ViewType = 'hierarchy';
 let wsClient: CanvasWebSocketClient;
+let lastProcessedTimestamp: string | null = null; // Deduplication: track last processed update
 
 // Initialize Neo4j (optional)
 if (process.env.NEO4J_URI && process.env.NEO4J_USER && process.env.NEO4J_PASSWORD) {
@@ -729,125 +734,78 @@ function renderUseCaseView(state: any, _viewConfig: any): string[] {
 }
 
 /**
- * Render architecture view (first-level logical blocks as boxes)
+ * Render architecture view (first-level logical blocks as 2D boxes with connections)
  *
- * Shows major system components as ASCII boxes with their direct children.
- * Similar to the logical architecture diagram with function blocks.
+ * Uses grid-based ASCII renderer for flowchart-style diagrams.
+ * Layout computation is separate from rendering for reuse with graphics UI.
  */
 function renderArchitectureView(state: any, viewConfig: any): string[] {
-  const lines: string[] = [];
-  const { includeNodeTypes, includeEdgeTypes } = viewConfig.layoutConfig;
-  const maxDepth = viewConfig.layoutConfig.parameters?.maxDepth ?? 2;
+  const { includeNodeTypes } = viewConfig.layoutConfig;
 
   // Find root nodes (SYS or MOD with no incoming compose edges)
   const nodesWithIncoming = new Set<string>();
   for (const edge of state.edges.values()) {
-    if (includeEdgeTypes.includes(edge.type)) {
+    if (edge.type === 'compose') {
       nodesWithIncoming.add(edge.targetId);
     }
   }
 
+  // Get first-level logical blocks only (children of root)
   const rootNodes = Array.from(state.nodes.values()).filter((node: any) => {
     if (!includeNodeTypes.includes(node.type)) return false;
     return !nodesWithIncoming.has(node.semanticId);
   });
 
   if (rootNodes.length === 0) {
-    lines.push('\x1b[90m(No root nodes found for architecture view)\x1b[0m');
-    return lines;
+    return ['\x1b[90m(No root nodes found for architecture view)\x1b[0m'];
   }
 
-  // Render each root as a major block
-  rootNodes.forEach((root: any, rootIdx: number) => {
-    lines.push(...renderArchitectureBlock(root, state, includeNodeTypes, includeEdgeTypes, 0, maxDepth));
-    if (rootIdx < rootNodes.length - 1) {
-      lines.push('');
+  // Collect first-level children (the logical blocks we want to show)
+  const layoutNodes: Array<{ id: string; name: string; type: string; parentId?: string }> = [];
+
+  for (const root of rootNodes as any[]) {
+    // Add root
+    layoutNodes.push({
+      id: root.semanticId,
+      name: root.name,
+      type: root.type,
+    });
+
+    // Add direct children (first-level blocks)
+    const childEdges = Array.from(state.edges.values()).filter(
+      (e: any) => e.sourceId === root.semanticId && e.type === 'compose'
+    );
+
+    for (const edge of childEdges) {
+      const child = state.nodes.get((edge as any).targetId);
+      if (child && includeNodeTypes.includes(child.type)) {
+        layoutNodes.push({
+          id: child.semanticId,
+          name: child.name,
+          type: child.type,
+          parentId: root.semanticId,
+        });
+      }
     }
+  }
+
+  // Get io edges between the blocks we're showing
+  const nodeIds = new Set(layoutNodes.map(n => n.id));
+  const ioEdges = Array.from(state.edges.values())
+    .filter((e: any) => e.type === 'io' && nodeIds.has(e.sourceId) && nodeIds.has(e.targetId))
+    .map((e: any) => ({ sourceId: e.sourceId, targetId: e.targetId }));
+
+  // Compute layout
+  const layout = computeArchitectureLayout(layoutNodes, ioEdges, {
+    boxWidth: 22,
+    boxHeight: 3,
+    hSpacing: 6,
+    vSpacing: 3,
+    maxPerRow: 4,
   });
 
-  // Show io edges between blocks at the end
-  const ioEdges = Array.from(state.edges.values()).filter(
-    (e: any) => e.type === 'io' && viewConfig.renderConfig.showEdges.includes('io')
-  );
-
-  if (ioEdges.length > 0) {
-    lines.push('');
-    lines.push('\x1b[1;36mData Flows:\x1b[0m');
-    ioEdges.forEach((edge: any) => {
-      const source = state.nodes.get(edge.sourceId);
-      const target = state.nodes.get(edge.targetId);
-      if (source && target) {
-        const sourceColor = getNodeColor(source.type);
-        const targetColor = getNodeColor(target.type);
-        lines.push(
-          `  [${sourceColor}${source.type}\x1b[0m] ${source.name} ──▶ [${targetColor}${target.type}\x1b[0m] ${target.name}`
-        );
-      }
-    });
-  }
-
-  return lines;
-}
-
-/**
- * Render a single architecture block (box with children)
- */
-function renderArchitectureBlock(
-  node: any,
-  state: any,
-  includeNodeTypes: string[],
-  includeEdgeTypes: string[],
-  depth: number,
-  maxDepth: number
-): string[] {
-  const lines: string[] = [];
-  const color = getNodeColor(node.type);
-  const indent = '  '.repeat(depth);
-
-  // Get direct children via compose edges
-  const childEdges = Array.from(state.edges.values()).filter(
-    (e: any) => e.sourceId === node.semanticId && includeEdgeTypes.includes(e.type)
-  );
-
-  const children = childEdges
-    .map((e: any) => state.nodes.get(e.targetId))
-    .filter((n: any) => n && includeNodeTypes.includes(n.type));
-
-  // Calculate box width based on content
-  const headerText = `[${node.type}] ${node.name}`;
-  const childTexts = children.map((c: any) => `  [${c.type}] ${c.name}`);
-  const maxContentWidth = Math.max(
-    headerText.length,
-    ...childTexts.map((t: string) => t.length),
-    30
-  );
-  const boxWidth = maxContentWidth + 4;
-
-  // Draw box header
-  lines.push(`${indent}┌${'─'.repeat(boxWidth)}┐`);
-  lines.push(`${indent}│ [${color}${node.type}\x1b[0m] ${node.name}${' '.repeat(Math.max(0, boxWidth - headerText.length - 2))}│`);
-
-  if (children.length > 0 && depth < maxDepth - 1) {
-    lines.push(`${indent}│${'─'.repeat(boxWidth)}│`);
-
-    children.forEach((child: any, idx: number) => {
-      const childColor = getNodeColor(child.type);
-      const childText = `[${child.type}] ${child.name}`;
-      const isLast = idx === children.length - 1;
-      const prefix = isLast ? '└─' : '├─';
-
-      lines.push(
-        `${indent}│ ${prefix}[${childColor}${child.type}\x1b[0m] ${child.name}${' '.repeat(Math.max(0, boxWidth - childText.length - 5))}│`
-      );
-    });
-  } else if (children.length > 0) {
-    // At max depth, just show count
-    lines.push(`${indent}│ \x1b[90m(${children.length} children)\x1b[0m${' '.repeat(Math.max(0, boxWidth - 15))}│`);
-  }
-
-  lines.push(`${indent}└${'─'.repeat(boxWidth)}┘`);
-
-  return lines;
+  // Render to ASCII
+  return renderLayoutToAscii(layout);
 }
 
 /**
@@ -892,6 +850,13 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
   if (update.type !== 'graph_update') {
     return;
   }
+
+  // Deduplication: skip if we already processed this exact update
+  const updateTimestamp = String(update.timestamp);
+  if (lastProcessedTimestamp === updateTimestamp) {
+    return; // Duplicate message, skip
+  }
+  lastProcessedTimestamp = updateTimestamp;
 
   try {
     // Parse JSON state (same format as file-based polling)
