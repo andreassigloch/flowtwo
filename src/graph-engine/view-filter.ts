@@ -168,8 +168,8 @@ export class ViewFilter {
     }
 
     const queue: QueueItem[] = roots.map((node) => ({
-      nodeId: node.id,
-      path: node.properties.Name,
+      nodeId: node.semanticId,
+      path: node.name,
       depth: 0,
       parentPath: null,
       edgeType: null,
@@ -222,10 +222,10 @@ export class ViewFilter {
         const children = this.getChildrenViaEdgeType(graph, current.nodeId, edgeType);
 
         for (const child of children) {
-          const childPath = `${current.path}/${child.properties.Name}`;
+          const childPath = `${current.path}/${child.name}`;
 
           queue.push({
-            nodeId: child.id,
+            nodeId: child.semanticId,
             path: childPath,
             depth: current.depth + 1,
             parentPath: current.path,
@@ -254,7 +254,7 @@ export class ViewFilter {
     // Root nodes = nodes without incoming nesting edges
     const roots: Node[] = [];
     for (const node of graph.nodes.values()) {
-      if (!nodesWithIncomingNesting.has(node.id)) {
+      if (!nodesWithIncomingNesting.has(node.semanticId)) {
         roots.push(node);
       }
     }

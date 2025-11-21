@@ -39,46 +39,46 @@ describe('Spec View - Integration Tests', () => {
 
     // Add nodes
     [sys, backend, frontend, database, chatAPI, wsServer, neo4jService, userAuth, req1, req2].forEach(
-      (node) => graphState.nodes.set(node.id, node)
+      (node) => graphState.nodes.set(node.semanticId, node)
     );
 
     // Compose edges (structural hierarchy)
-    graphState.edges.set('e1', createEdge('e1', sys.id, backend.id, 'compose'));
-    graphState.edges.set('e2', createEdge('e2', sys.id, frontend.id, 'compose'));
-    graphState.edges.set('e3', createEdge('e3', sys.id, database.id, 'compose'));
+    graphState.edges.set('e1', createEdge('e1', sys.semanticId, backend.semanticId, 'compose'));
+    graphState.edges.set('e2', createEdge('e2', sys.semanticId, frontend.semanticId, 'compose'));
+    graphState.edges.set('e3', createEdge('e3', sys.semanticId, database.semanticId, 'compose'));
 
     // Allocate edges (functions to modules)
-    graphState.edges.set('e4', createEdge('e4', backend.id, chatAPI.id, 'allocate'));
-    graphState.edges.set('e5', createEdge('e5', backend.id, wsServer.id, 'allocate'));
-    graphState.edges.set('e6', createEdge('e6', backend.id, neo4jService.id, 'allocate'));
-    graphState.edges.set('e7', createEdge('e7', backend.id, userAuth.id, 'allocate'));
-    graphState.edges.set('e8', createEdge('e8', database.id, neo4jService.id, 'allocate')); // Neo4j used in 2 modules
-    graphState.edges.set('e9', createEdge('e9', frontend.id, userAuth.id, 'allocate')); // UserAuth used in 2 modules
+    graphState.edges.set('e4', createEdge('e4', backend.semanticId, chatAPI.semanticId, 'allocate'));
+    graphState.edges.set('e5', createEdge('e5', backend.semanticId, wsServer.semanticId, 'allocate'));
+    graphState.edges.set('e6', createEdge('e6', backend.semanticId, neo4jService.semanticId, 'allocate'));
+    graphState.edges.set('e7', createEdge('e7', backend.semanticId, userAuth.semanticId, 'allocate'));
+    graphState.edges.set('e8', createEdge('e8', database.semanticId, neo4jService.semanticId, 'allocate')); // Neo4j used in 2 modules
+    graphState.edges.set('e9', createEdge('e9', frontend.semanticId, userAuth.semanticId, 'allocate')); // UserAuth used in 2 modules
 
     // Satisfy edges (requirements)
-    graphState.edges.set('e10', createEdge('e10', userAuth.id, req1.id, 'satisfy'));
-    graphState.edges.set('e11', createEdge('e11', neo4jService.id, req2.id, 'satisfy'));
+    graphState.edges.set('e10', createEdge('e10', userAuth.semanticId, req1.semanticId, 'satisfy'));
+    graphState.edges.set('e11', createEdge('e11', neo4jService.semanticId, req2.semanticId, 'satisfy'));
 
     const viewFilter = new ViewFilter(DEFAULT_VIEW_CONFIGS.spec);
     const occurrenceMap = viewFilter.buildMultiOccurrenceTree(graphState);
 
     // Verify multi-occurrence tracking
-    const neo4jOccurrences = occurrenceMap.byNode.get(neo4jService.id)!;
+    const neo4jOccurrences = occurrenceMap.byNode.get(neo4jService.semanticId)!;
     expect(neo4jOccurrences).toHaveLength(2); // Backend and Database
     expect(neo4jOccurrences[0].isPrimary).toBe(true);
     expect(neo4jOccurrences[1].isPrimary).toBe(false);
 
-    const userAuthOccurrences = occurrenceMap.byNode.get(userAuth.id)!;
+    const userAuthOccurrences = occurrenceMap.byNode.get(userAuth.semanticId)!;
     expect(userAuthOccurrences).toHaveLength(2); // Backend and Frontend
     expect(userAuthOccurrences[0].isPrimary).toBe(true);
     expect(userAuthOccurrences[1].isPrimary).toBe(false);
 
     // Verify requirements are nested under functions
-    const req1Occurrences = occurrenceMap.byNode.get(req1.id)!;
+    const req1Occurrences = occurrenceMap.byNode.get(req1.semanticId)!;
     expect(req1Occurrences).toHaveLength(1);
     expect(req1Occurrences[0].parentPath).toContain('UserAuth');
 
-    const req2Occurrences = occurrenceMap.byNode.get(req2.id)!;
+    const req2Occurrences = occurrenceMap.byNode.get(req2.semanticId)!;
     expect(req2Occurrences).toHaveLength(1);
     expect(req2Occurrences[0].parentPath).toContain('Neo4jService');
   });
@@ -93,13 +93,13 @@ describe('Spec View - Integration Tests', () => {
 
   it('handles single node graph', () => {
     const sys = createNode('sys-1', 'SYS', 'GraphEngine');
-    graphState.nodes.set(sys.id, sys);
+    graphState.nodes.set(sys.semanticId, sys);
 
     const viewFilter = new ViewFilter(DEFAULT_VIEW_CONFIGS.spec);
     const occurrenceMap = viewFilter.buildMultiOccurrenceTree(graphState);
 
     expect(occurrenceMap.byNode.size).toBe(1);
-    const sysOcc = occurrenceMap.byNode.get(sys.id)![0];
+    const sysOcc = occurrenceMap.byNode.get(sys.semanticId)![0];
     expect(sysOcc.isPrimary).toBe(true);
     expect(sysOcc.depth).toBe(0);
     expect(sysOcc.path).toBe('GraphEngine');
@@ -113,26 +113,26 @@ describe('Spec View - Integration Tests', () => {
     const func2 = createNode('func-2', 'FUNC', 'ValidateMessage');
 
     [sys, uc, fchain, func1, func2].forEach((node) =>
-      graphState.nodes.set(node.id, node)
+      graphState.nodes.set(node.semanticId, node)
     );
 
-    graphState.edges.set('e1', createEdge('e1', sys.id, uc.id, 'compose'));
-    graphState.edges.set('e2', createEdge('e2', uc.id, fchain.id, 'compose'));
-    graphState.edges.set('e3', createEdge('e3', fchain.id, func1.id, 'compose'));
-    graphState.edges.set('e4', createEdge('e4', fchain.id, func2.id, 'compose'));
+    graphState.edges.set('e1', createEdge('e1', sys.semanticId, uc.semanticId, 'compose'));
+    graphState.edges.set('e2', createEdge('e2', uc.semanticId, fchain.semanticId, 'compose'));
+    graphState.edges.set('e3', createEdge('e3', fchain.semanticId, func1.semanticId, 'compose'));
+    graphState.edges.set('e4', createEdge('e4', fchain.semanticId, func2.semanticId, 'compose'));
 
     const viewFilter = new ViewFilter(DEFAULT_VIEW_CONFIGS.spec);
     const occurrenceMap = viewFilter.buildMultiOccurrenceTree(graphState);
 
     // Verify depth progression
-    expect(occurrenceMap.byNode.get(sys.id)![0].depth).toBe(0);
-    expect(occurrenceMap.byNode.get(uc.id)![0].depth).toBe(1);
-    expect(occurrenceMap.byNode.get(fchain.id)![0].depth).toBe(2);
-    expect(occurrenceMap.byNode.get(func1.id)![0].depth).toBe(3);
-    expect(occurrenceMap.byNode.get(func2.id)![0].depth).toBe(3);
+    expect(occurrenceMap.byNode.get(sys.semanticId)![0].depth).toBe(0);
+    expect(occurrenceMap.byNode.get(uc.semanticId)![0].depth).toBe(1);
+    expect(occurrenceMap.byNode.get(fchain.semanticId)![0].depth).toBe(2);
+    expect(occurrenceMap.byNode.get(func1.semanticId)![0].depth).toBe(3);
+    expect(occurrenceMap.byNode.get(func2.semanticId)![0].depth).toBe(3);
 
     // Verify path construction
-    expect(occurrenceMap.byNode.get(func1.id)![0].path).toBe(
+    expect(occurrenceMap.byNode.get(func1.semanticId)![0].path).toBe(
       'GraphEngine/ChatUseCase/MessageFlow/SendMessage'
     );
   });
@@ -150,19 +150,19 @@ describe('Spec View - Integration Tests', () => {
     const schema = createNode('schema-1', 'SCHEMA', 'Schema');
 
     [sys, uc, actor, fchain, func, flow, req, test, mod, schema].forEach((node) =>
-      graphState.nodes.set(node.id, node)
+      graphState.nodes.set(node.semanticId, node)
     );
 
     // Create minimal nesting structure
-    graphState.edges.set('e1', createEdge('e1', sys.id, uc.id, 'compose'));
-    graphState.edges.set('e2', createEdge('e2', uc.id, actor.id, 'compose'));
-    graphState.edges.set('e3', createEdge('e3', uc.id, fchain.id, 'compose'));
-    graphState.edges.set('e4', createEdge('e4', fchain.id, func.id, 'compose'));
-    graphState.edges.set('e5', createEdge('e5', fchain.id, flow.id, 'compose'));
-    graphState.edges.set('e6', createEdge('e6', func.id, req.id, 'satisfy'));
-    graphState.edges.set('e7', createEdge('e7', sys.id, mod.id, 'compose'));
-    graphState.edges.set('e8', createEdge('e8', mod.id, func.id, 'allocate'));
-    graphState.edges.set('e9', createEdge('e9', sys.id, schema.id, 'compose'));
+    graphState.edges.set('e1', createEdge('e1', sys.semanticId, uc.semanticId, 'compose'));
+    graphState.edges.set('e2', createEdge('e2', uc.semanticId, actor.semanticId, 'compose'));
+    graphState.edges.set('e3', createEdge('e3', uc.semanticId, fchain.semanticId, 'compose'));
+    graphState.edges.set('e4', createEdge('e4', fchain.semanticId, func.semanticId, 'compose'));
+    graphState.edges.set('e5', createEdge('e5', fchain.semanticId, flow.semanticId, 'compose'));
+    graphState.edges.set('e6', createEdge('e6', func.semanticId, req.semanticId, 'satisfy'));
+    graphState.edges.set('e7', createEdge('e7', sys.semanticId, mod.semanticId, 'compose'));
+    graphState.edges.set('e8', createEdge('e8', mod.semanticId, func.semanticId, 'allocate'));
+    graphState.edges.set('e9', createEdge('e9', sys.semanticId, schema.semanticId, 'compose'));
 
     // Note: TEST not included as it uses 'verify' edge (not a nesting edge)
 
@@ -170,18 +170,18 @@ describe('Spec View - Integration Tests', () => {
     const occurrenceMap = viewFilter.buildMultiOccurrenceTree(graphState);
 
     // All node types should be present (except TEST which needs verify edge)
-    expect(occurrenceMap.byNode.has(sys.id)).toBe(true);
-    expect(occurrenceMap.byNode.has(uc.id)).toBe(true);
-    expect(occurrenceMap.byNode.has(actor.id)).toBe(true);
-    expect(occurrenceMap.byNode.has(fchain.id)).toBe(true);
-    expect(occurrenceMap.byNode.has(func.id)).toBe(true);
-    expect(occurrenceMap.byNode.has(flow.id)).toBe(true);
-    expect(occurrenceMap.byNode.has(req.id)).toBe(true);
-    expect(occurrenceMap.byNode.has(mod.id)).toBe(true);
-    expect(occurrenceMap.byNode.has(schema.id)).toBe(true);
+    expect(occurrenceMap.byNode.has(sys.semanticId)).toBe(true);
+    expect(occurrenceMap.byNode.has(uc.semanticId)).toBe(true);
+    expect(occurrenceMap.byNode.has(actor.semanticId)).toBe(true);
+    expect(occurrenceMap.byNode.has(fchain.semanticId)).toBe(true);
+    expect(occurrenceMap.byNode.has(func.semanticId)).toBe(true);
+    expect(occurrenceMap.byNode.has(flow.semanticId)).toBe(true);
+    expect(occurrenceMap.byNode.has(req.semanticId)).toBe(true);
+    expect(occurrenceMap.byNode.has(mod.semanticId)).toBe(true);
+    expect(occurrenceMap.byNode.has(schema.semanticId)).toBe(true);
 
     // FUNC should appear twice (via compose and allocate)
-    expect(occurrenceMap.byNode.get(func.id)!).toHaveLength(2);
+    expect(occurrenceMap.byNode.get(func.semanticId)!).toHaveLength(2);
   });
 
   it('correctly identifies primary occurrence in complex graph', () => {
@@ -193,20 +193,20 @@ describe('Spec View - Integration Tests', () => {
     const sharedFunc = createNode('shared', 'FUNC', 'SharedFunction');
 
     [sys, modA, modB, modC, sharedFunc].forEach((node) =>
-      graphState.nodes.set(node.id, node)
+      graphState.nodes.set(node.semanticId, node)
     );
 
-    graphState.edges.set('e1', createEdge('e1', sys.id, modA.id, 'compose'));
-    graphState.edges.set('e2', createEdge('e2', sys.id, modB.id, 'compose'));
-    graphState.edges.set('e3', createEdge('e3', sys.id, modC.id, 'compose'));
-    graphState.edges.set('e4', createEdge('e4', modA.id, sharedFunc.id, 'allocate'));
-    graphState.edges.set('e5', createEdge('e5', modB.id, sharedFunc.id, 'allocate'));
-    graphState.edges.set('e6', createEdge('e6', modC.id, sharedFunc.id, 'allocate'));
+    graphState.edges.set('e1', createEdge('e1', sys.semanticId, modA.semanticId, 'compose'));
+    graphState.edges.set('e2', createEdge('e2', sys.semanticId, modB.semanticId, 'compose'));
+    graphState.edges.set('e3', createEdge('e3', sys.semanticId, modC.semanticId, 'compose'));
+    graphState.edges.set('e4', createEdge('e4', modA.semanticId, sharedFunc.semanticId, 'allocate'));
+    graphState.edges.set('e5', createEdge('e5', modB.semanticId, sharedFunc.semanticId, 'allocate'));
+    graphState.edges.set('e6', createEdge('e6', modC.semanticId, sharedFunc.semanticId, 'allocate'));
 
     const viewFilter = new ViewFilter(DEFAULT_VIEW_CONFIGS.spec);
     const occurrenceMap = viewFilter.buildMultiOccurrenceTree(graphState);
 
-    const sharedOccurrences = occurrenceMap.byNode.get(sharedFunc.id)!;
+    const sharedOccurrences = occurrenceMap.byNode.get(sharedFunc.semanticId)!;
     expect(sharedOccurrences).toHaveLength(3);
 
     // Only first should be primary
@@ -225,19 +225,15 @@ describe('Spec View - Integration Tests', () => {
 
 function createNode(id: string, type: string, name: string): Node {
   return {
-    id,
+    uuid: id,
     semanticId: id,
     type: type as any,
-    category: 'definition',
-    properties: {
-      Name: name,
-      Description: '',
-    },
-    metadata: {
-      createdAt: new Date().toISOString(),
-      createdBy: 'test',
-      version: '1.0.0',
-    },
+    name: name,
+    workspaceId: 'test-workspace',
+    systemId: 'test-system',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'test',
   };
 }
 
@@ -248,16 +244,15 @@ function createEdge(
   type: string
 ): Edge {
   return {
-    id,
+    uuid: id,
     semanticId: id,
     sourceId,
     targetId,
     type: type as any,
-    properties: {},
-    metadata: {
-      createdAt: new Date().toISOString(),
-      createdBy: 'test',
-      version: '1.0.0',
-    },
+    workspaceId: 'test-workspace',
+    systemId: 'test-system',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'test',
   };
 }
