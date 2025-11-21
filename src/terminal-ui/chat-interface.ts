@@ -22,6 +22,7 @@ import { CanvasWebSocketClient } from '../canvas/websocket-client.js';
 import type { BroadcastUpdate } from '../canvas/websocket-server.js';
 import { SessionManager } from '../session.js';
 import { WS_URL, LOG_PATH, LLM_TEMPERATURE, AGENTDB_ENABLED } from '../shared/config.js';
+import { DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
 import { getAgentDBService } from '../llm-engine/agentdb/agentdb-service.js';
 import { ArchitectureDerivationAgent, ArchitectureDerivationRequest } from '../llm-engine/auto-derivation.js';
 
@@ -520,7 +521,7 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('  /load           - List and load systems from Neo4j');
       console.log('  /save           - Save graph to Neo4j');
       console.log('  /stats          - Show graph statistics');
-      console.log('  /view <name>    - Switch view (hierarchy, spec, architecture, functional-flow, requirements, allocation, use-case)');
+      console.log(`  /view <name>    - Switch view (${Object.keys(DEFAULT_VIEW_CONFIGS).join(', ')})`);
       console.log('  /derive         - Derive logical architecture from ALL Use Cases (UC → FUNC)');
       console.log('  /clear          - Clear chat history');
       console.log('  /exit           - Save session and quit (also: exit, quit)');
@@ -599,16 +600,17 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       break;
 
     case '/view':
+      // Generate valid views dynamically from DEFAULT_VIEW_CONFIGS (single source of truth)
+      const validViews = Object.keys(DEFAULT_VIEW_CONFIGS);
       if (args.length === 0) {
         console.log('\x1b[33mUsage: /view <name>\x1b[0m');
-        console.log('Views: hierarchy, spec, architecture, functional-flow, requirements, allocation, use-case');
+        console.log(`Views: ${validViews.join(', ')}`);
         break;
       }
       const viewName = args[0];
-      const validViews = ['hierarchy', 'spec', 'architecture', 'functional-flow', 'requirements', 'allocation', 'use-case'];
       if (!validViews.includes(viewName)) {
         console.log(`\x1b[33m❌ Invalid view: ${viewName}\x1b[0m`);
-        console.log('Valid views: hierarchy, spec, architecture, functional-flow, requirements, allocation, use-case');
+        console.log(`Valid views: ${validViews.join(', ')}`);
         break;
       }
       // Update graph canvas view

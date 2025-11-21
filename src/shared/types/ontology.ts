@@ -190,38 +190,14 @@ export interface GraphState {
   lastModified: Date;
 }
 
-/** View Types (5 specialized views) */
-export type ViewType =
-  | 'hierarchy'
-  | 'functional-flow'
-  | 'requirements'
-  | 'allocation'
-  | 'use-case';
-
-/** View Configuration */
-export interface ViewConfig {
-  type: ViewType;
-  name: string;
-  description: string;
-
-  // Filter rules
-  nodeTypes: NodeType[]; // Which node types to include
-  edgeTypes: EdgeType[]; // Which edge types to render explicitly
-
-  // Layout algorithm
-  layoutAlgorithm:
-    | 'reingold-tilford' // Tree
-    | 'sugiyama' // Layered DAG
-    | 'orthogonal' // Orthogonal routing
-    | 'treemap' // Nested containment
-    | 'radial'; // Radial (UML-style)
-
-  // Layout parameters (algorithm-specific)
-  layoutParams?: Record<string, unknown>;
-
-  // Default zoom levels per node type
-  defaultZoomLevels?: Partial<Record<NodeType, ZoomLevel>>;
-}
+/**
+ * View Types and Configuration
+ *
+ * IMPORTANT: ViewType and ViewConfig are defined in view.ts (single source of truth)
+ * Import from '../shared/types/view.js' instead.
+ *
+ * @see view.ts for ViewType union and DEFAULT_VIEW_CONFIGS
+ */
 
 /** Workspace */
 export interface Workspace {
