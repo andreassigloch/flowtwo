@@ -223,6 +223,7 @@ async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
         }
 
         // Update config
+        const oldSystemId = config.systemId;
         config.systemId = selectedSystem.systemId;
 
         // Load into graph canvas
@@ -234,6 +235,11 @@ async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
           edges: edgesMap,
           ports: new Map(),
         });
+
+        // Invalidate cache for both old and new systems
+        const agentdb = await getAgentDBService();
+        await agentdb.invalidateGraphSnapshot(oldSystemId);
+        await agentdb.invalidateGraphSnapshot(config.systemId);
 
         console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges\x1b[0m`);
         log(`✅ Loaded ${nodes.length} nodes, ${edges.length} edges`);
@@ -309,7 +315,12 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       });
 
       // Reset system ID to placeholder
+      const oldSystemId = config.systemId;
       config.systemId = 'new-system';
+
+      // Invalidate old system's cache
+      const agentdb = await getAgentDBService();
+      await agentdb.invalidateGraphSnapshot(oldSystemId);
 
       // Notify graph viewer
       notifyGraphUpdate();
@@ -410,6 +421,21 @@ async function processMessage(message: string): Promise<void> {
     // Add user message to chat canvas
     await chatCanvas.addUserMessage(message);
 
+    // Get graph snapshot from AgentDB cache (or serialize if not cached)
+    const agentdb = await getAgentDBService();
+    let canvasState = await agentdb.getGraphSnapshot(config.systemId);
+
+    if (!canvasState) {
+      // Cache miss - serialize and store
+      const state = graphCanvas.getState();
+      canvasState = parser.serializeGraph(state);
+
+      await agentdb.storeGraphSnapshot(config.systemId, canvasState, {
+        nodeCount: state.nodes.size,
+        edgeCount: state.edges.size,
+      });
+    }
+
     // Create LLM request
     const request = {
       message,
@@ -417,11 +443,12 @@ async function processMessage(message: string): Promise<void> {
       workspaceId: config.workspaceId,
       systemId: config.systemId,
       userId: config.userId,
-      canvasState: parser.serializeGraph(graphCanvas.getState()),
+      canvasState,
     };
 
     // Track streaming state
     let isFirstChunk = true;
+    let streamedText = '';
 
     // Send to LLM with streaming
     await llmEngine.processRequestStream(request, async (chunk) => {
@@ -451,6 +478,9 @@ async function processMessage(message: string): Promise<void> {
 
           const state = graphCanvas.getState();
           log(`📊 Graph updated (${state.nodes.size} nodes, ${state.edges.size} edges)`);
+
+          // Invalidate graph snapshot cache after updates
+          await agentdb.invalidateGraphSnapshot(config.systemId);
 
           // Auto-detect system ID from first SYS node (only if placeholder)
           if (config.systemId === 'new-system') {

@@ -148,6 +148,60 @@ export class AgentDBLogger {
   }
 
   /**
+   * Log graph snapshot stored
+   */
+  static graphSnapshotStored(
+    systemId: string,
+    sizeKB: number,
+    nodeCount: number | undefined,
+    edgeCount: number | undefined,
+    backend: string
+  ): void {
+    const nodeInfo = nodeCount && edgeCount ? ` (${nodeCount} nodes, ${edgeCount} edges)` : '';
+    this.log(
+      AgentDBLogLevel.CACHE,
+      `💾 GRAPH SNAPSHOT stored [${backend}] systemId="${systemId}" size=${sizeKB.toFixed(2)}KB${nodeInfo}`
+    );
+  }
+
+  /**
+   * Log graph snapshot retrieved
+   */
+  static graphSnapshotRetrieved(
+    systemId: string,
+    sizeKB: number,
+    nodeCount: number | undefined,
+    edgeCount: number | undefined,
+    backend: string
+  ): void {
+    const nodeInfo = nodeCount && edgeCount ? ` (${nodeCount} nodes, ${edgeCount} edges)` : '';
+    this.log(
+      AgentDBLogLevel.CACHE,
+      `🎯 GRAPH SNAPSHOT cache hit [${backend}] systemId="${systemId}" size=${sizeKB.toFixed(2)}KB${nodeInfo}`
+    );
+  }
+
+  /**
+   * Log graph snapshot cache miss
+   */
+  static graphSnapshotMiss(systemId: string, backend: string): void {
+    this.log(
+      AgentDBLogLevel.CACHE,
+      `❌ GRAPH SNAPSHOT cache miss [${backend}] systemId="${systemId}"`
+    );
+  }
+
+  /**
+   * Log graph snapshot invalidated
+   */
+  static graphSnapshotInvalidated(systemId: string, backend: string): void {
+    this.log(
+      AgentDBLogLevel.CACHE,
+      `🔄 GRAPH SNAPSHOT invalidated [${backend}] systemId="${systemId}"`
+    );
+  }
+
+  /**
    * Log embedding generation
    */
   static embeddingGenerated(text: string, dimension: number): void {

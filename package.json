@@ -19,6 +19,7 @@
     "test:integration": "vitest run --testNamePattern=integration",
     "test:e2e": "vitest run --testNamePattern=e2e",
     "test:coverage": "vitest run --coverage",
+    "benchmark": "NODE_ENV=test tsx tests/benchmarks/graph-snapshot-benchmark.ts",
     "lint": "eslint src tests --ext .ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "validate": "npm run lint && npm run test && npm run build"

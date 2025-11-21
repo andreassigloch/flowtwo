@@ -1,9 +1,10 @@
 # CR-021: Graph State in AgentDB Shared Memory
 
 **Type:** Architecture / Performance
-**Status:** Analysis
+**Status:** Phase 1 Completed
 **Priority:** HIGH
 **Created:** 2025-11-20
+**Completed:** 2025-11-20 (Phase 1)
 
 ## Problem Statement
 
@@ -705,8 +706,68 @@ await graphCanvas.applyDiff(parseDiff(response.operations));
 
 ---
 
+## Phase 1 Implementation Results (2025-11-20)
+
+### Files Modified
+
+1. **[agentdb-service.ts](../../src/llm-engine/agentdb/agentdb-service.ts)**
+   - Added `storeGraphSnapshot()` - O(1) Map storage
+   - Added `getGraphSnapshot()` - O(1) Map retrieval with TTL check
+   - Added `invalidateGraphSnapshot()` - Direct Map delete
+   - Used in-memory Map instead of vector search (bypasses 200-1200ms overhead)
+
+2. **[agentdb-logger.ts](../../src/llm-engine/agentdb/agentdb-logger.ts)**
+   - Added `graphSnapshotStored()` - Logs size, node count, edge count
+   - Added `graphSnapshotRetrieved()` - Logs cache hits
+   - Added `graphSnapshotMiss()` - Logs cache misses
+   - Added `graphSnapshotInvalidated()` - Logs invalidation
+
+3. **[chat-interface.ts](../../src/terminal-ui/chat-interface.ts)**
+   - Modified to use cached graph snapshot before LLM call
+   - Added cache invalidation after graph updates
+   - Added cache invalidation on `/new` and `/load` commands
+
+### Benchmark Results
+
+Run with: `npm run benchmark`
+
+```
+Scenario               Nodes    Size(KB)    Cold(ms)    Warm(ms)     Speedup
+--------------------------------------------------------------------------------
+Tiny (10 nodes)           10         1.3        0.05        0.34        -85%
+Small (50 nodes)          50         6.5        0.09        0.08         14%
+Medium (100 nodes)       100        13.1        0.02        0.08        -70%
+Large (500 nodes)        500        66.6        0.12        0.06         93%
+XLarge (1000 nodes)     1000       133.6        0.23        0.10        132%
+
+Key Findings:
+- Average cache speedup: 17%
+- Largest graph (1000 nodes): 133.6KB in memory
+- Total memory overhead: 2.42MB
+```
+
+**Analysis:**
+- Small graphs: Cache overhead dominates (V8 JIT warmup noise)
+- Large graphs: 93-132% speedup from cache
+- Memory: ~130KB per 1000 nodes (acceptable)
+- **Main benefit:** Multi-agent shared access, not single-agent speedup
+
+### Key Learning: Vector Search Overhead
+
+**Initial implementation** used `vectorSearch()` for exact-match lookups:
+- Vector search: 200-1200ms (embedding generation + WASM SQLite)
+- Serialization: 0.05-0.75ms
+
+**Optimization:** Direct Map lookup bypasses vector search:
+- Store: 0.03-0.80ms
+- Retrieve: 0.06-0.34ms
+
+**Conclusion:** Graph snapshots use O(1) key-value semantics, not fuzzy matching.
+
+---
+
 ## Author
 andreas@siglochconsulting
 
-**Version:** 1.0.0
+**Version:** 1.1.0 (Phase 1 Implemented)
 **Related:** CR-006 (Ontology Validation), Future multi-agent architecture

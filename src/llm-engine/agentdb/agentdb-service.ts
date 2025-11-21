@@ -12,9 +12,20 @@ import { createBackend } from './backend-factory.js';
 import type { AgentDBBackend, CachedResponse, Episode, CacheMetrics } from './types.js';
 import { AgentDBLogger } from './agentdb-logger.js';
 
+/**
+ * In-memory graph snapshot for fast key-value lookup
+ * (bypasses vector search overhead)
+ */
+interface GraphSnapshotCache {
+  formatE: string;
+  metadata: { nodeCount: number; edgeCount: number } | null;
+  timestamp: number;
+}
+
 export class AgentDBService {
   private backend: AgentDBBackend | null = null;
   private initialized = false;
+  private graphSnapshots: Map<string, GraphSnapshotCache> = new Map();
 
   /**
    * Initialize the service (must be called before use)
@@ -80,6 +91,69 @@ export class AgentDBService {
     };
 
     await this.backend.cacheResponse(cached);
+  }
+
+  /**
+   * Store graph snapshot in shared memory (Format E serialized graph)
+   * Uses in-memory Map for O(1) lookup - bypasses vector search overhead
+   */
+  async storeGraphSnapshot(
+    systemId: string,
+    formatEString: string,
+    metadata?: { nodeCount: number; edgeCount: number }
+  ): Promise<void> {
+    const sizeKB = Buffer.byteLength(formatEString, 'utf8') / 1024;
+
+    // Store in fast in-memory cache
+    this.graphSnapshots.set(systemId, {
+      formatE: formatEString,
+      metadata: metadata || null,
+      timestamp: Date.now(),
+    });
+
+    AgentDBLogger.graphSnapshotStored(systemId, sizeKB, metadata?.nodeCount, metadata?.edgeCount, AGENTDB_BACKEND);
+  }
+
+  /**
+   * Retrieve cached graph snapshot
+   * Uses O(1) Map lookup - returns null if not found or expired
+   */
+  async getGraphSnapshot(systemId: string): Promise<string | null> {
+    const cached = this.graphSnapshots.get(systemId);
+
+    if (cached) {
+      // Check TTL expiration
+      const age = Date.now() - cached.timestamp;
+      if (age > AGENTDB_CACHE_TTL * 1000) {
+        this.graphSnapshots.delete(systemId);
+        AgentDBLogger.graphSnapshotMiss(systemId, AGENTDB_BACKEND);
+        return null;
+      }
+
+      const sizeKB = Buffer.byteLength(cached.formatE, 'utf8') / 1024;
+      AgentDBLogger.graphSnapshotRetrieved(
+        systemId,
+        sizeKB,
+        cached.metadata?.nodeCount,
+        cached.metadata?.edgeCount,
+        AGENTDB_BACKEND
+      );
+
+      return cached.formatE;
+    }
+
+    AgentDBLogger.graphSnapshotMiss(systemId, AGENTDB_BACKEND);
+    return null;
+  }
+
+  /**
+   * Invalidate cached graph snapshot (call after graph updates)
+   */
+  async invalidateGraphSnapshot(systemId: string): Promise<void> {
+    const existed = this.graphSnapshots.delete(systemId);
+    if (existed) {
+      AgentDBLogger.graphSnapshotInvalidated(systemId, AGENTDB_BACKEND);
+    }
   }
 
   /**
