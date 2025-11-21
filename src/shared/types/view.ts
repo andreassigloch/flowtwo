@@ -18,7 +18,8 @@ export type ViewType =
   | 'requirements'
   | 'allocation'
   | 'use-case'
-  | 'spec';
+  | 'spec'
+  | 'architecture';
 
 /**
  * Layout Algorithm Type
@@ -300,6 +301,38 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
         'FLOW',
       ],
       showEdges: [], // All nesting edges implicit via containment
+    },
+  },
+
+  /**
+   * Architecture View
+   *
+   * First-level logical architecture showing major function blocks.
+   * Displays SYS and MOD nodes as boxes with their responsibilities.
+   * Shows only top-level components (depth 1) to provide high-level overview.
+   *
+   * Uses compose edges to determine containment hierarchy but renders
+   * only the first level of children within each major block.
+   */
+  architecture: {
+    viewId: 'architecture',
+    name: 'Logical Architecture View',
+    description: 'First-level logical function blocks and their relationships',
+    layoutConfig: {
+      includeNodeTypes: ['SYS', 'MOD', 'UC', 'FCHAIN', 'FUNC'],
+      includeEdgeTypes: ['compose', 'io'],
+      algorithm: 'treemap',
+      parameters: {
+        orientation: 'top-down',
+        nodeSpacing: 20,
+        levelSpacing: 40,
+        nestingEdgeTypes: ['compose'],
+        maxDepth: 2, // Show only 2 levels: system + major blocks
+      },
+    },
+    renderConfig: {
+      showNodes: ['SYS', 'MOD', 'UC', 'FCHAIN', 'FUNC'],
+      showEdges: ['io'], // Show data flow connections between blocks
     },
   },
 };

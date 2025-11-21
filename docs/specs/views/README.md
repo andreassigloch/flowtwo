@@ -8,7 +8,7 @@
 
 ## Overview
 
-This directory contains JSON configuration files for GraphEngine's 5 specialized views. Each view filters the ontology graph to show specific perspectives and applies appropriate layout algorithms.
+This directory contains JSON configuration files for GraphEngine's 7 specialized views. Each view filters the ontology graph to show specific perspectives and applies appropriate layout algorithms.
 
 ---
 
@@ -124,7 +124,46 @@ This directory contains JSON configuration files for GraphEngine's 5 specialized
 
 ---
 
-### 6. [spec.json](spec.json) - Specification View
+### 6. [architecture.json](architecture.json) - Logical Architecture View
+
+**Purpose:** First-level logical function blocks overview
+
+**Layout Algorithm:** Treemap (box containment)
+
+**Shows:**
+- Node types: SYS, MOD, UC, FCHAIN, FUNC (top-level only)
+- Relationships: compose (implicit via boxes), io (explicit arrows)
+
+**Key Features:**
+- Major function blocks rendered as ASCII boxes
+- Direct children listed within each block
+- Limited depth (default: 2 levels)
+- Data flows shown as arrows between blocks
+- High-level architecture overview
+
+**Rendering:**
+```
+┌──────────────────────────────────────┐
+│ [SYS] GraphEngine                    │
+│──────────────────────────────────────│
+│ ├─[MOD] Terminal UI                  │
+│ ├─[MOD] Canvas                       │
+│ ├─[MOD] LLM Engine                   │
+│ └─[MOD] Neo4j Database               │
+└──────────────────────────────────────┘
+
+Data Flows:
+  [MOD] Terminal UI ──▶ [MOD] Canvas
+  [MOD] Canvas ──▶ [MOD] LLM Engine
+```
+
+**Use Case:** Architecture documentation, stakeholder communication, system overview
+
+**Performance:** <1s for <500 nodes
+
+---
+
+### 7. [spec.json](spec.json) - Specification View
 
 **Purpose:** Complete system specification listing with full element hierarchy
 
@@ -287,6 +326,7 @@ terminalUI.renderGraph(renderGraph, positions);
 | Requirements | ✅ | ❌ Sugiyama | Config ready, layout needed |
 | Allocation | ✅ | ❌ Treemap | Config ready, layout needed |
 | Use Case Diagram | ✅ | ❌ Radial | Config ready, layout needed |
+| Architecture | ✅ | ✅ Treemap (box) | **Working** |
 | Spec | ✅ | ❌ Reingold-Tilford (enhanced) | Config ready, multi-occurrence logic needed |
 
 ---

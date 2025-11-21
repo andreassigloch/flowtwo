@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "architecture",
+  "name": "Logical Architecture View",
+  "description": "First-level logical function blocks showing major system components and their relationships",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "treemap",
+    "orientation": "top-down",
+    "includeNodeTypes": ["SYS", "MOD", "UC", "FCHAIN", "FUNC"],
+    "includeRelTypes": ["compose", "io"],
+    "nodeSpacing": {
+      "horizontal": 20,
+      "vertical": 40,
+      "blockPadding": 10
+    },
+    "treemapProperties": {
+      "maxDepth": 2,
+      "nestingEdgeTypes": ["compose"],
+      "aspectRatio": 1.618,
+      "padding": 10
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["SYS", "MOD", "UC", "FCHAIN", "FUNC"],
+    "hideNodes": ["FLOW", "REQ", "TEST", "ACTOR", "SCHEMA"],
+    "showEdges": ["io"],
+    "hideEdges": ["compose"],
+    "edgeRouting": "orthogonal",
+    "renderingNotes": "Major blocks rendered as boxes with direct children listed inside. compose edges implicit via containment. io edges shown as arrows between blocks.",
+    "defaultZoomLevel": "L1",
+    "nodeStyles": {
+      "SYS": {
+        "symbol": "box",
+        "stereotype": "<<system>>",
+        "color": "magenta",
+        "bold": true,
+        "fillPattern": "solid"
+      },
+      "MOD": {
+        "symbol": "box",
+        "stereotype": "<<module>>",
+        "color": "blue",
+        "fillPattern": "solid"
+      },
+      "UC": {
+        "symbol": "box",
+        "stereotype": "<<use case>>",
+        "color": "yellow",
+        "fillPattern": "light"
+      },
+      "FCHAIN": {
+        "symbol": "box",
+        "stereotype": "<<function chain>>",
+        "color": "cyan",
+        "fillPattern": "light"
+      },
+      "FUNC": {
+        "symbol": "box",
+        "stereotype": "<<function>>",
+        "color": "green",
+        "fillPattern": "none"
+      }
+    },
+    "edgeStyles": {
+      "io": {
+        "lineStyle": "solid",
+        "arrowHead": "filled",
+        "color": "gray",
+        "label": "data flow"
+      }
+    }
+  },
+  "useCase": "High-level system overview showing major logical function blocks and data flows between them. Ideal for architecture documentation and stakeholder communication.",
+  "primaryRelationships": ["compose (containment)", "io (data flow arrows)"],
+  "performanceTarget": {
+    "maxNodes": 500,
+    "maxComputeTime": "1s"
+  },
+  "exampleRendering": {
+    "ascii": [
+      "┌──────────────────────────────────────┐",
+      "│ [SYS] GraphEngine                    │",
+      "│──────────────────────────────────────│",
+      "│ ├─[MOD] Terminal UI                  │",
+      "│ ├─[MOD] Canvas                       │",
+      "│ ├─[MOD] LLM Engine                   │",
+      "│ └─[MOD] Neo4j Database               │",
+      "└──────────────────────────────────────┘",
+      "",
+      "Data Flows:",
+      "  [MOD] Terminal UI ──▶ [MOD] Canvas",
+      "  [MOD] Canvas ──▶ [MOD] LLM Engine"
+    ],
+    "description": "Boxes represent major function blocks. Direct children listed within each block. Data flows shown as arrows at the bottom."
+  }
+}
