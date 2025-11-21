@@ -53,7 +53,8 @@ const graphCanvas = new GraphCanvas(
   neo4jClient
 );
 
-const _graphEngine = new GraphEngine();
+// GraphEngine instance (used for layout computation)
+void new GraphEngine(); // Suppress unused warning - kept for future use
 
 /**
  * Log to STDOUT file
@@ -464,17 +465,10 @@ function renderOccurrence(
   if (!node) return lines;
 
   const color = getNodeColor(node.type);
-  const allOccurrences = occurrenceMap.byNode.get(occurrence.nodeId) || [];
 
   if (occurrence.isPrimary) {
-    // Render primary occurrence - only show usage count if > 1
-    const usageCount = allOccurrences.length;
-    const marker =
-      usageCount > 1
-        ? ` \x1b[90m(${usageCount}x)\x1b[0m`
-        : '';
-
-    lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name}${marker}`);
+    // Render primary occurrence - no marker (references get the → indicator)
+    lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name}`);
 
     // Find and render children
     const children = findChildOccurrences(occurrence.path, occurrenceMap);
@@ -687,7 +681,7 @@ function renderUseCaseView(state: any, _viewConfig: any): string[] {
                   ['SYS', 'UC'].includes(state.nodes.get(e.sourceId)?.type)
     );
     if (parentEdge) {
-      const parent = state.nodes.get(parentEdge.sourceId);
+      const parent = state.nodes.get((parentEdge as any).sourceId);
       if (parent) {
         const parentColor = getNodeColor(parent.type);
         lines.push(`  ↑ Parent: [${parentColor}${parent.type}\x1b[0m] ${parent.name}`);
@@ -901,19 +895,19 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
 
   try {
     // Parse JSON state (same format as file-based polling)
-    const stateData = JSON.parse(update.diff);
+    const stateData = JSON.parse(update.diff || '{}');
 
-    // Load new state
-    const nodesMap = new Map(stateData.nodes);
-    const edgesMap = new Map(stateData.edges);
-    const portsMap = new Map(stateData.ports || []);
+    // Load new state with proper type assertions
+    const nodesMap = new Map<string, any>(stateData.nodes || []);
+    const edgesMap = new Map<string, any>(stateData.edges || []);
+    const portsMap = new Map<string, any[]>(stateData.ports || []);
 
     await graphCanvas.loadGraph({
       workspaceId: config.workspaceId,
       systemId: config.systemId,
-      nodes: nodesMap,
-      edges: edgesMap,
-      ports: portsMap,
+      nodes: nodesMap as any,
+      edges: edgesMap as any,
+      ports: portsMap as any,
       version: 1,
       lastSavedVersion: 1,
       lastModified: new Date(),
@@ -962,12 +956,12 @@ async function main(): Promise<void> {
         log(`📥 Loaded ${nodes.length} nodes from Neo4j`);
 
         const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
-        const edgesMap = new Map(edges.map((e) => [e.semanticId, e]));
+        const edgesMap = new Map(edges.map((e) => [e.semanticId || e.uuid, e]));
 
         await graphCanvas.loadGraph({
-          nodes: nodesMap,
-          edges: edgesMap,
-          ports: new Map(),
+          nodes: nodesMap as any,
+          edges: edgesMap as any,
+          ports: new Map() as any,
         });
       }
     } catch {
