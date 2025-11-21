@@ -698,7 +698,7 @@ async function processMessage(message: string): Promise<void> {
         console.log('\n');
 
         // Add assistant response to chat canvas
-        await chatCanvas.addAssistantMessage(response.textResponse, response.operations);
+        await chatCanvas.addAssistantMessage(response.textResponse, response.operations ?? undefined);
 
         // Apply operations to graph if present (silently)
         if (response.operations) {
@@ -793,7 +793,7 @@ async function main(): Promise<void> {
         log(`📥 Loaded ${nodes.length} nodes from Neo4j`);
 
         const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
-        const edgesMap = new Map(edges.map((e) => [e.semanticId, e]));
+        const edgesMap = new Map(edges.filter((e) => e.semanticId).map((e) => [e.semanticId!, e]));
 
         await graphCanvas.loadGraph({
           nodes: nodesMap,
