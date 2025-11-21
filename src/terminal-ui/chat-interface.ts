@@ -520,7 +520,7 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('  /load           - List and load systems from Neo4j');
       console.log('  /save           - Save graph to Neo4j');
       console.log('  /stats          - Show graph statistics');
-      console.log('  /view <name>    - Switch view (hierarchy, functional-flow, requirements, allocation, use-case)');
+      console.log('  /view <name>    - Switch view (hierarchy, spec, architecture, functional-flow, requirements, allocation, use-case)');
       console.log('  /derive         - Derive logical architecture from ALL Use Cases (UC → FUNC)');
       console.log('  /clear          - Clear chat history');
       console.log('  /exit           - Save session and quit (also: exit, quit)');
@@ -601,14 +601,14 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
     case '/view':
       if (args.length === 0) {
         console.log('\x1b[33mUsage: /view <name>\x1b[0m');
-        console.log('Views: hierarchy, functional-flow, requirements, allocation, use-case');
+        console.log('Views: hierarchy, spec, architecture, functional-flow, requirements, allocation, use-case');
         break;
       }
       const viewName = args[0];
-      const validViews = ['hierarchy', 'functional-flow', 'requirements', 'allocation', 'use-case'];
+      const validViews = ['hierarchy', 'spec', 'architecture', 'functional-flow', 'requirements', 'allocation', 'use-case'];
       if (!validViews.includes(viewName)) {
         console.log(`\x1b[33m❌ Invalid view: ${viewName}\x1b[0m`);
-        console.log('Valid views: hierarchy, functional-flow, requirements, allocation, use-case');
+        console.log('Valid views: hierarchy, spec, architecture, functional-flow, requirements, allocation, use-case');
         break;
       }
       // Update graph canvas view
@@ -665,7 +665,14 @@ async function processMessage(message: string): Promise<void> {
       });
     }
 
-    // Create LLM request
+    // Get conversation context for multi-turn chat (last 10 messages)
+    const conversationContext = chatCanvas.getConversationContext(10);
+    const chatHistory = conversationContext.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    // Create LLM request with chat history
     const request = {
       message,
       chatId: config.chatId,
@@ -673,6 +680,7 @@ async function processMessage(message: string): Promise<void> {
       systemId: config.systemId,
       userId: config.userId,
       canvasState,
+      chatHistory,
     };
 
     // Track streaming state

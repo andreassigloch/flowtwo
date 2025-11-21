@@ -146,26 +146,38 @@ function renderHierarchyView(state: any, viewConfig: any): string[] {
   const visited = new Set<string>();
   const { includeNodeTypes, includeEdgeTypes } = viewConfig.layoutConfig;
 
-  function renderNode(nodeId: string, indent: string = '', isLast: boolean = true): void {
+  function renderNode(
+    nodeId: string,
+    indent: string = '',
+    isLast: boolean = true,
+    isRoot: boolean = false
+  ): void {
     if (visited.has(nodeId)) return;
     visited.add(nodeId);
 
     const node = state.nodes.get(nodeId);
     if (!node || !includeNodeTypes.includes(node.type)) return;
 
-    const prefix = isLast ? '└─' : '├─';
     const color = getNodeColor(node.type);
-    lines.push(`${indent}${prefix}[${color}${node.type}\x1b[0m] ${node.name}`);
+
+    if (isRoot) {
+      // Root nodes: no prefix, just the node
+      lines.push(`[${color}${node.type}\x1b[0m] ${node.name}`);
+    } else {
+      // Child nodes: with tree prefix
+      const prefix = isLast ? '└─' : '├─';
+      lines.push(`${indent}${prefix}[${color}${node.type}\x1b[0m] ${node.name}`);
+    }
 
     // Get child edges (compose edges from this node)
     const childEdges = Array.from(state.edges.values()).filter(
       (e: any) => e.sourceId === nodeId && includeEdgeTypes.includes(e.type)
     );
-    const childIndent = indent + (isLast ? '  ' : '│ ');
+    const childIndent = isRoot ? '' : indent + (isLast ? '  ' : '│ ');
 
     childEdges.forEach((edge: any, idx: number) => {
       const childIsLast = idx === childEdges.length - 1;
-      renderNode(edge.targetId, childIndent, childIsLast);
+      renderNode(edge.targetId, childIndent, childIsLast, false);
     });
   }
 
@@ -179,7 +191,7 @@ function renderHierarchyView(state: any, viewConfig: any): string[] {
   });
 
   if (rootNodes.length > 0) {
-    rootNodes.forEach((root: any) => renderNode(root.semanticId));
+    rootNodes.forEach((root: any) => renderNode(root.semanticId, '', true, true));
   } else {
     lines.push('\x1b[90m(No root nodes found for hierarchy view)\x1b[0m');
   }
@@ -333,7 +345,7 @@ function renderSpecView(state: any, viewConfig: any): string[] {
 
   // Render each root recursively
   rootOccurrences.forEach((rootOcc) => {
-    lines.push(...renderOccurrence(rootOcc, state, occurrenceMap, ''));
+    lines.push(...renderOccurrence(rootOcc, state, occurrenceMap, '', true));
   });
 
   return lines;
@@ -438,7 +450,8 @@ function renderOccurrence(
   occurrence: any,
   state: any,
   occurrenceMap: any,
-  indent: string
+  indent: string,
+  isRoot: boolean = false
 ): string[] {
   const lines: string[] = [];
   const node = state.nodes.get(occurrence.nodeId);
@@ -459,14 +472,17 @@ function renderOccurrence(
 
     // Find and render children
     const children = findChildOccurrences(occurrence.path, occurrenceMap);
+    const baseIndent = isRoot ? '' : indent;
+
     children.forEach((child, idx) => {
       const isLast = idx === children.length - 1;
-      const childIndent = indent + (isLast ? '  ' : '│ ');
       const prefix = isLast ? '└─' : '├─';
+      const childIndent = baseIndent + (isLast ? '  ' : '│ ');
 
-      const childLines = renderOccurrence(child, state, occurrenceMap, childIndent);
+      const childLines = renderOccurrence(child, state, occurrenceMap, childIndent, false);
       if (childLines.length > 0) {
-        childLines[0] = `${indent}${prefix}${childLines[0].slice(childIndent.length)}`;
+        // Replace first line's indent with proper prefix
+        childLines[0] = `${baseIndent}${prefix}${childLines[0].slice(childIndent.length)}`;
         lines.push(...childLines);
       }
     });
