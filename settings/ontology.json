@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "graphengine-ontology",
+  "name": "GraphEngine Ontology V3",
+  "version": "3.0.3",
+  "description": "10 Node Types + 6 Edge Types following SysML 2.0 inspiration",
+
+  "nodeTypes": {
+    "SYS": {
+      "name": "System",
+      "description": "Top-level system or subsystem",
+      "abbreviation": "SY",
+      "color": "#FF00FF",
+      "ansiColor": "35"
+    },
+    "UC": {
+      "name": "Use Case",
+      "description": "User-facing functionality",
+      "abbreviation": "UC",
+      "color": "#FFFF00",
+      "ansiColor": "33"
+    },
+    "ACTOR": {
+      "name": "Actor",
+      "description": "External entity interacting with system",
+      "abbreviation": "AC",
+      "color": "#FFFF00",
+      "ansiColor": "33"
+    },
+    "FCHAIN": {
+      "name": "Function Chain",
+      "description": "Sequence of functions implementing a use case",
+      "abbreviation": "FC",
+      "color": "#00FFFF",
+      "ansiColor": "36"
+    },
+    "FUNC": {
+      "name": "Function",
+      "description": "Specific capability or processing step",
+      "abbreviation": "FN",
+      "color": "#00FF00",
+      "ansiColor": "32"
+    },
+    "FLOW": {
+      "name": "Data Flow",
+      "description": "Data flow contract / interface definition",
+      "abbreviation": "FL",
+      "color": "#808080",
+      "ansiColor": "90"
+    },
+    "REQ": {
+      "name": "Requirement",
+      "description": "Functional or non-functional requirement",
+      "abbreviation": "RQ",
+      "color": "#FF0000",
+      "ansiColor": "31"
+    },
+    "TEST": {
+      "name": "Test Case",
+      "description": "Verification test case",
+      "abbreviation": "TC",
+      "color": "#00FF00",
+      "ansiColor": "32"
+    },
+    "MOD": {
+      "name": "Module",
+      "description": "Physical or software component",
+      "abbreviation": "MD",
+      "color": "#0000FF",
+      "ansiColor": "34"
+    },
+    "SCHEMA": {
+      "name": "Schema",
+      "description": "Global data structure definition",
+      "abbreviation": "SC",
+      "color": "#FFFFFF",
+      "ansiColor": "37"
+    }
+  },
+
+  "edgeTypes": {
+    "compose": {
+      "name": "Composition",
+      "description": "Hierarchical composition (parent-child)",
+      "isNesting": true,
+      "visualStyle": "implicit",
+      "validConnections": [
+        { "source": "SYS", "target": "SYS" },
+        { "source": "SYS", "target": "UC" },
+        { "source": "SYS", "target": "MOD" },
+        { "source": "UC", "target": "UC" },
+        { "source": "UC", "target": "FCHAIN" },
+        { "source": "FCHAIN", "target": "ACTOR" },
+        { "source": "FCHAIN", "target": "FUNC" },
+        { "source": "FCHAIN", "target": "FLOW" },
+        { "source": "MOD", "target": "MOD" },
+        { "source": "FUNC", "target": "FUNC" }
+      ]
+    },
+    "io": {
+      "name": "Data Flow",
+      "description": "Input/Output data flow",
+      "isNesting": false,
+      "visualStyle": "solid-arrow",
+      "validConnections": [
+        { "source": "FUNC", "target": "FLOW" },
+        { "source": "FLOW", "target": "FUNC" },
+        { "source": "ACTOR", "target": "FLOW" },
+        { "source": "FLOW", "target": "ACTOR" }
+      ]
+    },
+    "satisfy": {
+      "name": "Satisfaction",
+      "description": "Requirement satisfaction",
+      "isNesting": true,
+      "visualStyle": "dashed-arrow",
+      "validConnections": [
+        { "source": "SYS", "target": "REQ" },
+        { "source": "REQ", "target": "REQ" },
+        { "source": "UC", "target": "REQ" },
+        { "source": "FUNC", "target": "REQ" }
+      ]
+    },
+    "verify": {
+      "name": "Verification",
+      "description": "Test verification",
+      "isNesting": false,
+      "visualStyle": "dashed-arrow",
+      "validConnections": [
+        { "source": "TEST", "target": "TEST" },
+        { "source": "REQ", "target": "TEST" }
+      ]
+    },
+    "allocate": {
+      "name": "Allocation",
+      "description": "Function allocation to module",
+      "isNesting": true,
+      "visualStyle": "solid-arrow-diamond",
+      "validConnections": [
+        { "source": "MOD", "target": "FUNC" }
+      ]
+    },
+    "relation": {
+      "name": "Relation",
+      "description": "Generic relationship",
+      "isNesting": false,
+      "visualStyle": "gray-line",
+      "validConnections": [
+        { "source": "*", "target": "*" },
+        { "source": "SCHEMA", "target": "FUNC" },
+        { "source": "FLOW", "target": "SCHEMA" }
+      ]
+    }
+  },
+
+  "semanticIdFormat": {
+    "pattern": "{NodeName}.{TypeAbbr}.{Counter}",
+    "example": "ValidateOrder.FN.001",
+    "constraints": {
+      "nodeName": "PascalCase, max 25 chars",
+      "counter": "3 digits, zero-padded"
+    }
+  },
+
+  "zoomLevels": ["L0", "L1", "L2", "L3", "L4"],
+
+  "nestingEdgeTypes": ["compose", "satisfy", "allocate"]
+}

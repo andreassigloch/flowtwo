@@ -7,6 +7,8 @@
  * @author andreas@siglochconsulting
  */
 
+import { ONTOLOGY } from '../shared/types/ontology.js';
+
 // Box drawing characters
 const BOX = {
   TL: '┌', TR: '┐', BL: '└', BR: '┘',
@@ -355,21 +357,14 @@ export function computeArchitectureLayout(
 
 /**
  * Get ANSI color code for node type
+ * Uses ontology.json as single source of truth
  */
 function getTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    SYS: '\x1b[35m',    // Magenta
-    MOD: '\x1b[34m',    // Blue
-    UC: '\x1b[33m',     // Yellow
-    FCHAIN: '\x1b[36m', // Cyan
-    FUNC: '\x1b[32m',   // Green
-    ACTOR: '\x1b[33m',  // Yellow
-    REQ: '\x1b[31m',    // Red
-    TEST: '\x1b[32m',   // Green
-    FLOW: '\x1b[90m',   // Gray
-    SCHEMA: '\x1b[37m', // White
-  };
-  return colors[type] || '\x1b[0m';
+  const nodeType = ONTOLOGY.nodeTypes[type];
+  if (nodeType?.ansiColor) {
+    return `\x1b[${nodeType.ansiColor}m`;
+  }
+  return '\x1b[0m'; // Reset/default
 }
 
 /**

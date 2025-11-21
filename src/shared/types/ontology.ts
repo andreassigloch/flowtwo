@@ -2,12 +2,50 @@
  * GraphEngine Ontology V3 - Type Definitions
  *
  * 10 Node Types + 6 Edge Types following SysML 2.0 inspiration
+ * Single Source of Truth: settings/ontology.json
  *
  * @author andreas@siglochconsulting
  * @version 3.0.3
  */
 
-/** Node Types (10 total) */
+import ontologyJson from '../../../settings/ontology.json' assert { type: 'json' };
+
+/** Ontology JSON structure types */
+export interface OntologyNodeType {
+  name: string;
+  description: string;
+  abbreviation: string;
+  color: string;
+  ansiColor: string;
+}
+
+export interface OntologyEdgeType {
+  name: string;
+  description: string;
+  isNesting: boolean;
+  visualStyle: string;
+  validConnections: Array<{ source: string; target: string }>;
+}
+
+export interface Ontology {
+  nodeTypes: Record<string, OntologyNodeType>;
+  edgeTypes: Record<string, OntologyEdgeType>;
+  nestingEdgeTypes: string[];
+  zoomLevels: string[];
+  semanticIdFormat: {
+    pattern: string;
+    example: string;
+    constraints: {
+      nodeName: string;
+      counter: string;
+    };
+  };
+}
+
+/** Export the loaded ontology for runtime access */
+export const ONTOLOGY = ontologyJson as Ontology;
+
+/** Node Types (10 total) - derived from ontology.json */
 export type NodeType =
   | 'SYS' // System (top-level or subsystem)
   | 'UC' // Use Case
@@ -23,7 +61,7 @@ export type NodeType =
 /**
  * Edge Types (6 total)
  *
- * IMPORTANT: Three edge types create hierarchical nesting (per ontology_schema.json):
+ * IMPORTANT: Three edge types create hierarchical nesting (per ontology.json):
  * - compose, satisfy, allocate = NESTING edges (shown as indentation)
  * - io, verify, relation = CONNECTION edges (shown as arrows/lines)
  */
@@ -36,77 +74,32 @@ export type EdgeType =
   | 'relation'; // Generic relationship - Shown as gray line
 
 /**
- * Edge Type Metadata
+ * Edge Type Metadata - loaded from settings/ontology.json
  *
- * Defines visual and semantic properties of each edge type
- * Per ontology_schema.json v3.0.3
+ * Provides backward-compatible access with string-based validConnections format.
+ * For structured access, use ONTOLOGY.edgeTypes directly.
  */
-export const EDGE_TYPE_METADATA = {
-  compose: {
-    description: 'Hierarchical composition (parent-child)',
-    isNesting: true, // Per ontology_schema.json
-    visualStyle: 'implicit', // Not shown as line, shown as indentation
-    validConnections: [
-      'SYS -> SYS', // System contains subsystem
-      'SYS -> UC', // System contains use cases
-      'SYS -> MOD', // System contains top-level modules
-      'UC -> UC', // Use case contains sub-use-cases
-      'UC -> FCHAIN', // Use case contains function chains
-      'FCHAIN -> ACTOR', // Function chain composes actor (actors only in FCHAIN, not UC)
-      'FCHAIN -> FUNC', // Function chain contains functions
-      'FCHAIN -> FLOW', // Function chain contains flows
-      'MOD -> MOD', // Module contains modules (directory hierarchy)
-      'FUNC -> FUNC', // Function contains functions (logical grouping)
-    ],
-  },
-  io: {
-    description: 'Input/Output data flow',
-    isNesting: false, // Per ontology_schema.json
-    visualStyle: 'solid-arrow',
-    validConnections: [
-      'FUNC -> FLOW', // Function output to flow
-      'FLOW -> FUNC', // Flow input to function
-      'ACTOR -> FLOW', // Actor sends data
-      'FLOW -> ACTOR', // Actor receives data
-    ],
-  },
-  satisfy: {
-    description: 'Requirement satisfaction',
-    isNesting: true, // Per ontology_schema.json
-    visualStyle: 'dashed-arrow',
-    validConnections: [
-      'SYS -> REQ', // System satisfies requirement
-      'REQ -> REQ', // Requirement satisfies parent requirement
-      'UC -> REQ', // Use case satisfies requirement
-      'FUNC -> REQ', // Function satisfies requirement
-    ],
-  },
-  verify: {
-    description: 'Test verification',
-    isNesting: false, // Per ontology_schema.json
-    visualStyle: 'dashed-arrow',
-    validConnections: [
-      'TEST -> TEST', // Test verifies sub-test
-      'REQ -> TEST', // Requirement verified by test
-    ],
-  },
-  allocate: {
-    description: 'Function allocation to module',
-    isNesting: true, // Per ontology_schema.json
-    visualStyle: 'solid-arrow-diamond',
-    validConnections: ['MOD -> FUNC'], // Module allocates function
-  },
-  relation: {
-    description: 'Generic relationship',
-    isNesting: false, // Per ontology_schema.json
-    visualStyle: 'gray-line',
-    validConnections: [
-      'ANY -> ANY',
-      'SCHEMA -> FUNC',
-      'FLOW -> SCHEMA',
-    ],
-  },
-} as const;
+export const EDGE_TYPE_METADATA = Object.fromEntries(
+  Object.entries(ONTOLOGY.edgeTypes).map(([key, value]) => [
+    key,
+    {
+      description: value.description,
+      isNesting: value.isNesting,
+      visualStyle: value.visualStyle,
+      validConnections: value.validConnections.map(
+        (c) => `${c.source} -> ${c.target}`
+      ),
+    },
+  ])
+) as Record<
+  EdgeType,
+  {
+    description: string;
+    isNesting: boolean;
+    visualStyle: string;
+    validConnections: string[];
+  }
+>;
 
 /** Semantic ID format: {NodeName}.{TypeAbbr}.{Counter} */
 export type SemanticId = string; // e.g., "ValidateOrder.FN.001"
