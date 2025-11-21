@@ -23,6 +23,7 @@ import type { BroadcastUpdate } from '../canvas/websocket-server.js';
 import { SessionManager } from '../session.js';
 import { WS_URL, LOG_PATH, LLM_TEMPERATURE, AGENTDB_ENABLED } from '../shared/config.js';
 import { getAgentDBService } from '../llm-engine/agentdb/agentdb-service.js';
+import { ArchitectureDerivationAgent, ArchitectureDerivationRequest } from '../llm-engine/auto-derivation.js';
 
 // Configuration
 const config = {
@@ -282,6 +283,229 @@ async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
 }
 
 /**
+ * Handle /derive command - derive logical architecture from ALL Use Cases
+ * Uses Architecture Derivation Agent for UC → FUNC derivation
+ */
+async function handleDeriveCommand(_args: string[], mainRl: readline.Interface): Promise<void> {
+  if (!llmEngine) {
+    console.log('\x1b[33m⚠️  LLM Engine not configured (set ANTHROPIC_API_KEY in .env)\x1b[0m');
+    mainRl.prompt();
+    return;
+  }
+
+  const state = graphCanvas.getState();
+
+  // Get all UC nodes from the graph
+  const ucNodes = Array.from(state.nodes.values()).filter(n => n.type === 'UC');
+
+  if (ucNodes.length === 0) {
+    console.log('\x1b[33m⚠️  No Use Cases (UC) found in the graph.\x1b[0m');
+    console.log('\x1b[90m   Create Use Cases first: "Create a Use Case for user authentication"\x1b[0m');
+    console.log('');
+    mainRl.prompt();
+    return;
+  }
+
+  // Show what will be analyzed
+  console.log('');
+  console.log('\x1b[1;36m🏗️  Deriving Logical Architecture from ALL Use Cases\x1b[0m');
+  console.log('\x1b[90m   Applying SE principle: Observable + Verifiable at interface boundary\x1b[0m');
+  console.log('');
+
+  console.log('\x1b[90mUse Cases to analyze:\x1b[0m');
+  ucNodes.forEach(uc => {
+    console.log(`  • ${uc.name} (${uc.semanticId})`);
+  });
+  console.log('');
+
+  await executeDeriveArchitecture(mainRl);
+}
+
+/**
+ * Execute the UC → FUNC derivation using the Architecture Agent
+ * Analyzes ALL Use Cases to derive system-wide architecture
+ */
+async function executeDeriveArchitecture(mainRl: readline.Interface): Promise<void> {
+  const state = graphCanvas.getState();
+
+  // Collect ALL Use Cases
+  const useCases = Array.from(state.nodes.values())
+    .filter(n => n.type === 'UC')
+    .map(uc => ({
+      semanticId: uc.semanticId,
+      name: uc.name,
+      description: uc.description || '',
+    }));
+
+  // Collect ALL Actors
+  const actors = Array.from(state.nodes.values())
+    .filter(n => n.type === 'ACTOR')
+    .map(a => ({
+      semanticId: a.semanticId,
+      name: a.name,
+      description: a.description || '',
+    }));
+
+  // Collect existing Functions with their parents
+  const existingFunctions: Array<{
+    semanticId: string;
+    name: string;
+    description: string;
+    parentId?: string;
+  }> = [];
+
+  for (const [, node] of state.nodes) {
+    if (node.type === 'FUNC') {
+      // Find parent (FCHAIN or FUNC)
+      let parentId: string | undefined;
+      for (const [, edge] of state.edges) {
+        if (edge.type === 'compose' && edge.targetId === node.semanticId) {
+          const sourceNode = state.nodes.get(edge.sourceId);
+          if (sourceNode && (sourceNode.type === 'FCHAIN' || sourceNode.type === 'FUNC')) {
+            parentId = edge.sourceId;
+            break;
+          }
+        }
+      }
+      existingFunctions.push({
+        semanticId: node.semanticId,
+        name: node.name,
+        description: node.description || '',
+        parentId,
+      });
+    }
+  }
+
+  // Collect existing Function Chains with their parent UCs
+  const existingFChains: Array<{
+    semanticId: string;
+    name: string;
+    parentUC?: string;
+  }> = [];
+
+  for (const [, node] of state.nodes) {
+    if (node.type === 'FCHAIN') {
+      let parentUC: string | undefined;
+      for (const [, edge] of state.edges) {
+        if (edge.type === 'compose' && edge.targetId === node.semanticId) {
+          const sourceNode = state.nodes.get(edge.sourceId);
+          if (sourceNode && sourceNode.type === 'UC') {
+            parentUC = edge.sourceId;
+            break;
+          }
+        }
+      }
+      existingFChains.push({
+        semanticId: node.semanticId,
+        name: node.name,
+        parentUC,
+      });
+    }
+  }
+
+  // Serialize canvas state
+  const canvasState = parser.serializeGraph(state);
+
+  // Build derivation request with ALL context
+  const derivationAgent = new ArchitectureDerivationAgent();
+  const request: ArchitectureDerivationRequest = {
+    useCases,
+    actors,
+    existingFunctions,
+    existingFChains,
+    canvasState,
+    systemId: config.systemId,
+  };
+
+  // Build the specialized prompt
+  const derivationPrompt = derivationAgent.buildArchitecturePrompt(request);
+
+  log(`🏗️  Architecture derivation started: ${useCases.length} UCs, ${existingFunctions.length} existing FUNCs`);
+
+  try {
+    console.log('\x1b[33m🤖 Analyzing Use Cases and deriving architecture...\x1b[0m');
+
+    let isFirstChunk = true;
+    let fullResponse = '';
+
+    const llmRequest = {
+      message: derivationPrompt,
+      chatId: config.chatId,
+      workspaceId: config.workspaceId,
+      systemId: config.systemId,
+      userId: config.userId,
+      canvasState,
+    };
+
+    await llmEngine!.processRequestStream(llmRequest, async (chunk) => {
+      if (chunk.type === 'text' && chunk.text) {
+        if (isFirstChunk) {
+          console.log('');
+          process.stdout.write('\x1b[32mArchitect:\x1b[0m ');
+          isFirstChunk = false;
+        }
+        // Filter out operations blocks from display (show analysis only)
+        const displayText = chunk.text
+          .replace(/<operations>[\s\S]*?<\/operations>/g, '');
+        process.stdout.write(displayText);
+        fullResponse += chunk.text;
+      } else if (chunk.type === 'complete' && chunk.response) {
+        console.log('\n');
+
+        // Extract operations from response
+        const operations = derivationAgent.extractOperations(fullResponse);
+
+        if (operations) {
+          // Apply operations
+          const diff = parser.parseDiff(operations, config.workspaceId, config.systemId);
+          await graphCanvas.applyDiff(diff);
+
+          const newState = graphCanvas.getState();
+          const newFuncs = Array.from(newState.nodes.values()).filter(n => n.type === 'FUNC').length;
+          const newFlows = Array.from(newState.nodes.values()).filter(n => n.type === 'FLOW').length;
+
+          console.log(`\x1b[32m✅ Architecture applied:\x1b[0m`);
+          console.log(`   Nodes: ${newState.nodes.size}, Edges: ${newState.edges.size}`);
+          console.log(`   Functions: ${newFuncs}, Flows: ${newFlows}`);
+          log(`✅ Architecture derivation complete: ${newFuncs} functions, ${newFlows} flows`);
+
+          // Invalidate cache
+          const agentdb = await getAgentDBService();
+          await agentdb.invalidateGraphSnapshot(config.systemId);
+
+          // Notify graph viewer
+          notifyGraphUpdate();
+        } else if (chunk.response.operations) {
+          // Fallback to response.operations if extraction failed
+          const diff = parser.parseDiff(chunk.response.operations, config.workspaceId, config.systemId);
+          await graphCanvas.applyDiff(diff);
+
+          const newState = graphCanvas.getState();
+          console.log(`\x1b[32m✅ Architecture applied: ${newState.nodes.size} nodes, ${newState.edges.size} edges\x1b[0m`);
+
+          const agentdb = await getAgentDBService();
+          await agentdb.invalidateGraphSnapshot(config.systemId);
+          notifyGraphUpdate();
+        } else {
+          console.log('\x1b[33m⚠️  No operations generated\x1b[0m');
+          console.log('\x1b[90m   The architect may have determined no changes are needed\x1b[0m');
+        }
+
+        console.log('');
+      }
+    });
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Derivation error: ${errorMsg}\x1b[0m`);
+    log(`❌ Architecture derivation failed: ${errorMsg}`);
+    console.log('');
+  }
+
+  mainRl.prompt();
+}
+
+/**
  * Handle command
  */
 async function handleCommand(cmd: string, rl: readline.Interface): Promise<void> {
@@ -297,6 +521,7 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('  /save           - Save graph to Neo4j');
       console.log('  /stats          - Show graph statistics');
       console.log('  /view <name>    - Switch view (hierarchy, functional-flow, requirements, allocation, use-case)');
+      console.log('  /derive         - Derive logical architecture from ALL Use Cases (UC → FUNC)');
       console.log('  /clear          - Clear chat history');
       console.log('  /exit           - Save session and quit (also: exit, quit)');
       console.log('');
@@ -397,6 +622,10 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
     case '/clear':
       printHeader();
       break;
+
+    case '/derive':
+      await handleDeriveCommand(args, rl);
+      return; // Don't call rl.prompt() - handleDeriveCommand will do it after async operation
 
     default:
       console.log('\x1b[33mUnknown command. Type /help for available commands.\x1b[0m');

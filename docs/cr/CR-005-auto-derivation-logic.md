@@ -1,6 +1,6 @@
 # CR-005: Implement Auto-Derivation Logic
 
-**Status:** Planned
+**Status:** In Progress
 **Priority:** CRITICAL - MVP Blocker
 **Target Phase:** Phase 3
 **Created:** 2025-11-19
@@ -142,15 +142,40 @@ interface FuncToModDerivation {
 
 ## Acceptance Criteria
 
-- [ ] UC → FUNC derivation produces valid function definitions
+- [x] UC → FUNC derivation produces valid function definitions
 - [ ] REQ → TEST derivation generates comprehensive test cases
 - [ ] FUNC → FLOW derivation creates valid flow diagrams
 - [ ] FUNC → MOD derivation suggests cohesive modules
-- [ ] All derived entities comply with ontology_schema.json
+- [x] All derived entities comply with ontology_schema.json
 - [ ] User can accept/reject/modify suggestions
-- [ ] Derivation rationale is provided in natural language
-- [ ] Unit tests cover derivation logic (70% coverage)
+- [x] Derivation rationale is provided in natural language
+- [x] Unit tests cover derivation logic (70% coverage)
 - [ ] Integration tests validate LLM interaction
+
+## Current Status
+
+### Phase 2: UC → FUNC (Completed 2025-11-21, Revised)
+
+**Implemented:**
+- `src/llm-engine/auto-derivation.ts` - Architecture Derivation Agent v2.0
+  - Analyzes **ALL Use Cases** (not single UC selection)
+  - Checks **existing FUNCs** for SE compliance (KEEP/OPTIMIZE/DECOMPOSE)
+  - Pure **Format E Diff** output (no custom `<derivation>` format)
+  - SE principle: Observable + Verifiable at interface boundary
+
+- `/derive` command in chat interface
+  - Analyzes ALL UCs to derive system-wide architecture
+  - Shows UC list being analyzed
+  - Extracts and applies Format E operations
+  - Reports function/flow counts after application
+
+- Unit tests: 13 tests passing (tests/unit/llm-engine/auto-derivation.test.ts)
+
+**SE Guidelines Applied:**
+- Functions must be observable at interface boundary (has I/O via FLOW)
+- Functions must be verifiable at interface boundary (testable at boundary)
+- Existing FUNCs checked: KEEP if compliant, OPTIMIZE if missing I/O, DECOMPOSE if impl-level
+- FUNC compose FUNC for sub-function hierarchy (L2/L3 decomposition)
 
 ## Dependencies
 
