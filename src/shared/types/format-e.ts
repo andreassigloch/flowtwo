@@ -79,6 +79,7 @@ export interface FormatESyntax {
 
   // Edge notation
   EDGE_ARROW: Record<EdgeType, string>; // e.g., "-cp->" for compose
+  EDGE_ARROW_ALIASES: Record<string, string>; // Long-form aliases, e.g., "-compose->" -> "compose"
 }
 
 /** Parsed Node Line */

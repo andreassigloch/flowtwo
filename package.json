@@ -12,6 +12,7 @@
     "start": "./startup.sh",
     "websocket-server": "tsx src/websocket-server.ts",
     "dev": "./startup.sh",
+    "dev:iterm": "./startup-iterm.sh",
     "build": "tsc --noEmit && tsc",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@langchain/core": "^1.0.6",
     "@langchain/openai": "^1.1.2",
+    "@mermaid-js/mermaid-cli": "^11.12.0",
     "@types/node": "^20.17.0",
     "@types/react": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",

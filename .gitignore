@@ -37,6 +37,7 @@ logs/
 # Temporary files
 tmp/
 temp/
+.tmp/
 .cache/
 
 # Exports directory (user-generated export files)

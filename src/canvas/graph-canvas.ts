@@ -74,13 +74,13 @@ export class GraphCanvas extends CanvasBase {
     // Update all existing nodes with the new systemId
     for (const node of this.state.nodes.values()) {
       node.systemId = newSystemId;
-      this.markDirty(node.semanticId); // Mark as dirty so it gets saved
+      this.markDirty([node.semanticId]); // Mark as dirty so it gets saved
     }
 
     // Update all existing edges with the new systemId
     for (const edge of this.state.edges.values()) {
       edge.systemId = newSystemId;
-      this.markDirty(edge.semanticId || `${edge.sourceId}-${edge.targetId}`);
+      this.markDirty([edge.semanticId || `${edge.sourceId}-${edge.targetId}`]);
     }
   }
 

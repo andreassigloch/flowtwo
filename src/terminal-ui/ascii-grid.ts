@@ -266,93 +266,96 @@ export class AsciiGrid {
 }
 
 /**
- * Compute layout for architecture boxes
+ * Compute layout for architecture boxes using TRUE GRID LAYOUT
  *
- * Places boxes in a grid pattern based on hierarchy.
- * Returns layout result that can be used by both ASCII and graphics renderers.
+ * Grid cells are either:
+ * - BOX cells: contain a box (odd columns, odd rows)
+ * - ROUTING cells: for edge lines (even columns/rows between boxes)
+ *
+ * FLOW nodes are smaller (data flow indicators between functions).
+ * This ensures boxes and lines NEVER overlap.
  */
 export function computeArchitectureLayout(
   nodes: Array<{ id: string; name: string; type: string; parentId?: string }>,
-  edges: Array<{ sourceId: string; targetId: string }>,
+  edges: Array<{ sourceId: string; targetId: string; label?: string }>,
   options: {
     boxWidth?: number;
     boxHeight?: number;
-    hSpacing?: number;
-    vSpacing?: number;
+    flowWidth?: number;   // Smaller width for FLOW nodes
+    hSpacing?: number;    // Width of horizontal routing channel
+    vSpacing?: number;    // Height of vertical routing channel
     maxPerRow?: number;
   } = {}
 ): LayoutResult {
   const {
     boxWidth = 20,
     boxHeight = 3,
-    hSpacing = 4,
-    vSpacing = 2,
+    flowWidth = 14,       // FLOW nodes are smaller
+    hSpacing = 8,         // Routing channel width (enough for arrows + labels)
+    vSpacing = 2,         // Routing channel height
     maxPerRow = 4,
   } = options;
 
-  // Find root nodes (no parent)
-  const childMap = new Map<string, typeof nodes>();
-  const roots: typeof nodes = [];
+  // Cell dimensions in the grid
+  const cellWidth = boxWidth + hSpacing;   // Box + routing channel
+  const cellHeight = boxHeight + vSpacing; // Box + routing channel
 
-  for (const node of nodes) {
-    if (!node.parentId) {
-      roots.push(node);
-    } else {
-      const siblings = childMap.get(node.parentId) || [];
-      siblings.push(node);
-      childMap.set(node.parentId, siblings);
-    }
-  }
+  // Filter to only root-level nodes (no parentId) for flat grid
+  const flatNodes = nodes.filter(n => !n.parentId);
 
   const boxes: Box[] = [];
-  let currentY = 0;
 
-  // Layout roots first
-  roots.forEach((root, idx) => {
-    const x = (idx % maxPerRow) * (boxWidth + hSpacing);
-    const y = Math.floor(idx / maxPerRow) * (boxHeight + vSpacing);
+  // Place all nodes in a flat grid
+  flatNodes.forEach((node, idx) => {
+    const col = idx % maxPerRow;
+    const row = Math.floor(idx / maxPerRow);
+
+    // FLOW nodes are smaller and centered in cell
+    const isFlow = node.type === 'FLOW';
+    const nodeWidth = isFlow ? flowWidth : boxWidth;
+
+    // Position: boxes start at routing channel offset
+    // FLOW nodes are centered within the cell
+    const xOffset = isFlow ? Math.floor((boxWidth - flowWidth) / 2) : 0;
+    const x = col * cellWidth + xOffset;
+    const y = row * cellHeight;
+
     boxes.push({
-      id: root.id,
+      id: node.id,
       x,
       y,
-      width: boxWidth,
+      width: nodeWidth,
       height: boxHeight,
-      label: root.name,
-      color: getTypeColor(root.type),
+      label: truncateLabel(node.name, nodeWidth - 4),
+      color: getTypeColor(node.type),
     });
-    currentY = Math.max(currentY, y + boxHeight + vSpacing);
   });
 
-  // Layout children below their parents
-  for (const root of roots) {
-    const children = childMap.get(root.id) || [];
-    const parentBox = boxes.find(b => b.id === root.id)!;
-
-    children.forEach((child, idx) => {
-      const x = parentBox.x + (idx % maxPerRow) * (boxWidth + hSpacing);
-      const y = currentY + Math.floor(idx / maxPerRow) * (boxHeight + vSpacing);
-      boxes.push({
-        id: child.id,
-        x,
-        y,
-        width: boxWidth,
-        height: boxHeight,
-        label: child.name,
-        color: getTypeColor(child.type),
-      });
-    });
-  }
-
   // Calculate total dimensions
-  const maxX = Math.max(...boxes.map(b => b.x + b.width));
-  const maxY = Math.max(...boxes.map(b => b.y + b.height));
+  const numCols = Math.min(flatNodes.length, maxPerRow);
+  const numRows = Math.ceil(flatNodes.length / maxPerRow);
+
+  const totalWidth = numCols * cellWidth;
+  const totalHeight = numRows * cellHeight;
 
   return {
     boxes,
-    edges: edges.map(e => ({ sourceId: e.sourceId, targetId: e.targetId })),
-    width: maxX + 2,
-    height: maxY + 2,
+    edges: edges.map(e => ({
+      sourceId: e.sourceId,
+      targetId: e.targetId,
+      label: e.label,
+    })),
+    width: totalWidth + 2,
+    height: totalHeight + 2,
   };
+}
+
+/**
+ * Truncate label to fit in box
+ */
+function truncateLabel(label: string, maxLen: number): string {
+  if (label.length <= maxLen) return label;
+  return label.slice(0, maxLen - 1) + '…';
 }
 
 /**
@@ -368,32 +371,115 @@ function getTypeColor(type: string): string {
 }
 
 /**
- * Render layout to ASCII grid
+ * Render layout to ASCII grid with TRUE GRID routing
+ *
+ * Grid-based routing ensures edges NEVER cross boxes:
+ * - Same row: horizontal line in routing channel
+ * - Different rows: L-shaped routing through inter-row channel
  */
 export function renderLayoutToAscii(layout: LayoutResult): string[] {
   const grid = new AsciiGrid(layout.width, layout.height);
 
-  // Draw all boxes
+  // Create lookup for box positions
+  const boxById = new Map(layout.boxes.map(b => [b.id, b]));
+
+  // Determine cell dimensions from first box (assume uniform)
+  const firstBox = layout.boxes[0];
+  if (!firstBox) return grid.render();
+
+  const boxWidth = firstBox.width;
+  const boxHeight = firstBox.height;
+
+  // Find routing channel width/height by looking at spacing between boxes
+  let hSpacing = 8; // Default
+  let vSpacing = 2; // Default
+  if (layout.boxes.length > 1) {
+    // Find boxes in same row to determine hSpacing
+    const sortedByX = [...layout.boxes].sort((a, b) => a.x - b.x);
+    for (let i = 1; i < sortedByX.length; i++) {
+      if (Math.abs(sortedByX[i].y - sortedByX[i - 1].y) < 2) {
+        hSpacing = sortedByX[i].x - sortedByX[i - 1].x - boxWidth;
+        break;
+      }
+    }
+    // Find boxes in same column to determine vSpacing
+    const sortedByY = [...layout.boxes].sort((a, b) => a.y - b.y);
+    for (let i = 1; i < sortedByY.length; i++) {
+      if (Math.abs(sortedByY[i].x - sortedByY[i - 1].x) < 2) {
+        vSpacing = sortedByY[i].y - sortedByY[i - 1].y - boxHeight;
+        break;
+      }
+    }
+  }
+
+  // Draw all boxes FIRST
   for (const box of layout.boxes) {
     grid.drawBox(box);
   }
 
-  // Draw edges between boxes
+  // Draw edges in routing channels
   for (const edge of layout.edges) {
-    const sourceBox = layout.boxes.find(b => b.id === edge.sourceId);
-    const targetBox = layout.boxes.find(b => b.id === edge.targetId);
+    const sourceBox = boxById.get(edge.sourceId);
+    const targetBox = boxById.get(edge.targetId);
 
-    if (sourceBox && targetBox) {
-      // Connect from right side of source to left side of target
-      const from: Position = {
-        x: sourceBox.x + sourceBox.width,
-        y: sourceBox.y + Math.floor(sourceBox.height / 2),
-      };
-      const to: Position = {
-        x: targetBox.x,
-        y: targetBox.y + Math.floor(targetBox.height / 2),
-      };
-      grid.drawEdge(from, to, 'right');
+    if (!sourceBox || !targetBox) continue;
+
+    // Determine source and target rows/cols
+    const cellWidth = boxWidth + hSpacing;
+    const cellHeight = boxHeight + vSpacing;
+    const sourceCol = Math.round(sourceBox.x / cellWidth);
+    const sourceRow = Math.round(sourceBox.y / cellHeight);
+    const targetCol = Math.round(targetBox.x / cellWidth);
+    const targetRow = Math.round(targetBox.y / cellHeight);
+
+    // Source exit point (right side of box, middle height)
+    const fromX = sourceBox.x + boxWidth;
+    const fromY = sourceBox.y + Math.floor(boxHeight / 2);
+
+    // Target entry point (left side of box, middle height)
+    const toX = targetBox.x - 1;
+    const toY = targetBox.y + Math.floor(boxHeight / 2);
+
+    if (sourceRow === targetRow && targetCol > sourceCol) {
+      // SAME ROW: simple horizontal line
+      for (let x = fromX; x < toX; x++) {
+        grid.setChar(x, fromY, BOX.H);
+      }
+      grid.setChar(toX, toY, BOX.ARROW_R);
+
+      // Label above the line
+      if (edge.label && hSpacing > 4) {
+        const midX = Math.floor((fromX + toX) / 2);
+        const label = edge.label.length > hSpacing - 2 ? edge.label.slice(0, hSpacing - 3) + '…' : edge.label;
+        grid.writeText(midX - Math.floor(label.length / 2), fromY - 1, label, '\x1b[33m');
+      }
+    } else if (targetRow > sourceRow) {
+      // DIFFERENT ROWS: L-shaped routing through vertical channel
+      // Route: right from source → down in routing channel → right to target
+
+      // Horizontal segment from source to routing channel
+      const channelX = sourceBox.x + boxWidth + Math.floor(hSpacing / 2);
+      for (let x = fromX; x < channelX; x++) {
+        grid.setChar(x, fromY, BOX.H);
+      }
+
+      // Vertical segment down through routing channel (between rows)
+      grid.setChar(channelX, fromY, BOX.TR); // Corner
+      for (let y = fromY + 1; y < toY; y++) {
+        // Only draw in the routing channel (not through boxes)
+        const inBoxRow = Math.floor(y / cellHeight);
+        const yInCell = y % cellHeight;
+        if (yInCell >= boxHeight || inBoxRow !== sourceRow) {
+          grid.setChar(channelX, y, BOX.V);
+        }
+      }
+      grid.setChar(channelX, toY, BOX.BL); // Corner
+
+      // Horizontal segment to target
+      for (let x = channelX + 1; x < toX; x++) {
+        grid.setChar(x, toY, BOX.H);
+      }
+      grid.setChar(toX, toY, BOX.ARROW_R);
     }
   }
 

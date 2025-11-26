@@ -62,6 +62,9 @@ export interface DiffResult {
 export interface Message {
   messageId: string;
   chatId: string;
+  workspaceId?: string; // Required for Neo4j persistence
+  systemId?: string; // Required for Neo4j persistence
+  userId?: string; // Required for Neo4j persistence
   role: 'user' | 'assistant' | 'system';
   content: string;
   operations?: string; // Embedded Format E Diff (if assistant response contains graph ops)

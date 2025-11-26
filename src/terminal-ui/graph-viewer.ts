@@ -21,9 +21,10 @@ import type { ViewType } from '../shared/types/view.js';
 import { DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
 import { WS_URL, LOG_PATH } from '../shared/config.js';
 import {
-  computeArchitectureLayout,
-  renderLayoutToAscii,
-} from './ascii-grid.js';
+  detectTerminalCapabilities,
+  renderMermaidAsImage,
+} from './terminal-graphics.js';
+// ASCII grid imports removed - architecture view now uses Mermaid
 
 // Configuration
 const config = {
@@ -93,7 +94,7 @@ function getNodeColor(nodeType: string): string {
  * Generate ASCII graph visualization
  * Uses view configuration from DEFAULT_VIEW_CONFIGS
  */
-function generateAsciiGraph(): string {
+async function generateAsciiGraph(): Promise<string> {
   const state = graphCanvas.getState();
   const lines: string[] = [];
 
@@ -131,7 +132,7 @@ function generateAsciiGraph(): string {
       lines.push(...renderSpecView(state, viewConfig));
       break;
     case 'architecture':
-      lines.push(...renderArchitectureView(state, viewConfig));
+      lines.push(...await renderArchitectureView(state, viewConfig));
       break;
     case 'functional-flow':
       lines.push('\x1b[33m⚠️  Functional-flow view not yet implemented in ASCII\x1b[0m');
@@ -736,82 +737,191 @@ function renderUseCaseView(state: any, _viewConfig: any): string[] {
 /**
  * Render architecture view (first-level logical blocks as 2D boxes with connections)
  *
- * Uses grid-based ASCII renderer for flowchart-style diagrams.
- * Layout computation is separate from rendering for reuse with graphics UI.
+ * Uses Mermaid diagrams with inline image rendering for supported terminals.
+ * Falls back to text-based view for unsupported terminals.
  */
-function renderArchitectureView(state: any, viewConfig: any): string[] {
-  const { includeNodeTypes } = viewConfig.layoutConfig;
+async function renderArchitectureView(state: any, _viewConfig: any): Promise<string[]> {
+  // ARCHITECTURE VIEW: Show only:
+  // 1. FUNC nodes that are DIRECT children of SYS (top-level logical functions)
+  // 2. FLOW nodes that connect these top-level FUNCs
 
-  // Find root nodes (SYS or MOD with no incoming compose edges)
-  const nodesWithIncoming = new Set<string>();
-  for (const edge of state.edges.values()) {
-    if (edge.type === 'compose') {
-      nodesWithIncoming.add(edge.targetId);
-    }
+  // Step 1: Find the SYS node(s) - the system root
+  const sysNodes = Array.from(state.nodes.values()).filter((n: any) => n.type === 'SYS');
+
+  if (sysNodes.length === 0) {
+    return ['\x1b[90m(No SYS node found - create a System node first)\x1b[0m'];
   }
 
-  // Get first-level logical blocks only (children of root)
-  const rootNodes = Array.from(state.nodes.values()).filter((node: any) => {
-    if (!includeNodeTypes.includes(node.type)) return false;
-    return !nodesWithIncoming.has(node.semanticId);
-  });
+  // Step 2: Get ONLY direct FUNC children of SYS (SYS -compose-> FUNC)
+  const topLevelFuncs: Array<{ id: string; name: string; type: string }> = [];
 
-  if (rootNodes.length === 0) {
-    return ['\x1b[90m(No root nodes found for architecture view)\x1b[0m'];
-  }
-
-  // Collect first-level children (the logical blocks we want to show)
-  const layoutNodes: Array<{ id: string; name: string; type: string; parentId?: string }> = [];
-
-  for (const root of rootNodes as any[]) {
-    // Add root
-    layoutNodes.push({
-      id: root.semanticId,
-      name: root.name,
-      type: root.type,
-    });
-
-    // Add direct children (first-level blocks)
-    const childEdges = Array.from(state.edges.values()).filter(
-      (e: any) => e.sourceId === root.semanticId && e.type === 'compose'
+  for (const sysNode of sysNodes as any[]) {
+    const composeEdges = Array.from(state.edges.values()).filter(
+      (e: any) => e.sourceId === sysNode.semanticId && e.type === 'compose'
     );
 
-    for (const edge of childEdges) {
-      const child = state.nodes.get((edge as any).targetId);
-      if (child && includeNodeTypes.includes(child.type)) {
-        layoutNodes.push({
+    for (const edge of composeEdges as any[]) {
+      const child = state.nodes.get(edge.targetId);
+      // ONLY FUNC nodes - the logical architecture blocks
+      if (child && child.type === 'FUNC') {
+        topLevelFuncs.push({
           id: child.semanticId,
           name: child.name,
-          type: child.type,
-          parentId: root.semanticId,
+          type: 'FUNC',
         });
       }
     }
   }
 
-  // Get io edges between the blocks we're showing
-  const nodeIds = new Set(layoutNodes.map(n => n.id));
-  const ioEdges = Array.from(state.edges.values())
-    .filter((e: any) => e.type === 'io' && nodeIds.has(e.sourceId) && nodeIds.has(e.targetId))
-    .map((e: any) => ({ sourceId: e.sourceId, targetId: e.targetId }));
+  if (topLevelFuncs.length === 0) {
+    return ['\x1b[90m(No top-level FUNC nodes found - create FUNCs composed by SYS)\x1b[0m'];
+  }
 
-  // Compute layout
-  const layout = computeArchitectureLayout(layoutNodes, ioEdges, {
-    boxWidth: 22,
-    boxHeight: 3,
-    hSpacing: 6,
-    vSpacing: 3,
-    maxPerRow: 4,
+  // Find FLOW nodes that connect these top-level FUNCs
+  // Build: FUNC --FLOW_NAME--> FUNC connections
+  const funcIds = new Set(topLevelFuncs.map(n => n.id));
+  const funcById = new Map(topLevelFuncs.map(f => [f.id, f]));
+  const connections: Array<{ sourceFunc: string; targetFunc: string; flowName: string }> = [];
+
+  // Find FLOW nodes that bridge our top-level FUNCs
+  const flowNodes = Array.from(state.nodes.values()).filter((n: any) => n.type === 'FLOW');
+
+  for (const flowNode of flowNodes as any[]) {
+    // Incoming io edges from our FUNCs
+    const incomingFromFuncs = Array.from(state.edges.values()).filter(
+      (e: any) => e.type === 'io' && e.targetId === flowNode.semanticId && funcIds.has(e.sourceId)
+    );
+    // Outgoing io edges to our FUNCs
+    const outgoingToFuncs = Array.from(state.edges.values()).filter(
+      (e: any) => e.type === 'io' && e.sourceId === flowNode.semanticId && funcIds.has(e.targetId)
+    );
+
+    // Create connections: sourceFunc --flowName--> targetFunc
+    for (const inEdge of incomingFromFuncs as any[]) {
+      for (const outEdge of outgoingToFuncs as any[]) {
+        connections.push({
+          sourceFunc: inEdge.sourceId,
+          targetFunc: outEdge.targetId,
+          flowName: flowNode.name,
+        });
+      }
+    }
+  }
+
+  // Get system name for title
+  const sysName = (sysNodes[0] as any).name || 'System';
+
+  // Render as Mermaid + Text view
+  return renderArchitectureMermaid(sysName, topLevelFuncs, connections, funcById);
+}
+
+/**
+ * Render architecture as Mermaid flowchart + text fallback
+ * With inline image rendering for supported terminals (iTerm2, Kitty)
+ */
+async function renderArchitectureMermaid(
+  sysName: string,
+  funcs: Array<{ id: string; name: string }>,
+  connections: Array<{ sourceFunc: string; targetFunc: string; flowName: string }>,
+  funcById: Map<string, { id: string; name: string }>
+): Promise<string[]> {
+  const lines: string[] = [];
+
+  // Header
+  lines.push('\x1b[1;36m┌─ LOGICAL ARCHITECTURE ─────────────────────────┐\x1b[0m');
+  lines.push(`\x1b[1;36m│\x1b[0m  System: \x1b[35m${sysName}\x1b[0m`);
+  lines.push(`\x1b[1;36m│\x1b[0m  Functions: ${funcs.length} | Flows: ${connections.length}`);
+
+  // Show terminal graphics capability
+  const capabilities = detectTerminalCapabilities();
+  if (capabilities.supportsImages) {
+    lines.push(`\x1b[1;36m│\x1b[0m  Terminal: \x1b[32m${capabilities.termProgram} (graphics: ${capabilities.protocol})\x1b[0m`);
+  }
+
+  lines.push('\x1b[1;36m└────────────────────────────────────────────────┘\x1b[0m');
+  lines.push('');
+
+  // Build Mermaid code
+  const mermaidLines: string[] = [];
+  mermaidLines.push('graph LR');
+
+  // Define nodes with short IDs
+  const idMap = new Map<string, string>();
+  funcs.forEach((func, idx) => {
+    const shortId = `F${idx + 1}`;
+    idMap.set(func.id, shortId);
+    mermaidLines.push(`    ${shortId}[${func.name}]`);
   });
 
-  // Render to ASCII
-  return renderLayoutToAscii(layout);
+  // Add connections with FLOW labels
+  if (connections.length > 0) {
+    mermaidLines.push('');
+    for (const conn of connections) {
+      const srcId = idMap.get(conn.sourceFunc);
+      const tgtId = idMap.get(conn.targetFunc);
+      if (srcId && tgtId) {
+        mermaidLines.push(`    ${srcId} -->|${conn.flowName}| ${tgtId}`);
+      }
+    }
+  }
+
+  const mermaidCode = mermaidLines.join('\n');
+
+  // Try to render as image in terminal (always attempt, regardless of detection)
+  try {
+    const imageOutput = await renderMermaidAsImage(mermaidCode);
+    if (imageOutput) {
+      lines.push('\x1b[90m[Rendered as inline image]\x1b[0m');
+      lines.push('');
+      lines.push(imageOutput);
+
+      // Still show text fallback below
+      lines.push('\x1b[90m─── Text View ───\x1b[0m');
+    }
+  } catch (error) {
+    // Image rendering failed - silently fall back to text only
+    // (This is expected for terminals without graphics support)
+  }
+
+  // Mermaid code block (copy to markdown viewer to render)
+  lines.push('\x1b[90m```mermaid\x1b[0m');
+  lines.push(mermaidCode);
+  lines.push('\x1b[90m```\x1b[0m');
+  lines.push('');
+
+  // Text view (always works in terminal)
+  lines.push('\x1b[90m─── Data Flows ───\x1b[0m');
+  if (connections.length === 0) {
+    lines.push('  \x1b[90m(No FLOW connections between top-level functions)\x1b[0m');
+  } else {
+    for (const conn of connections) {
+      const srcName = funcById.get(conn.sourceFunc)?.name || '?';
+      const tgtName = funcById.get(conn.targetFunc)?.name || '?';
+      lines.push(`  \x1b[36m${srcName}\x1b[0m \x1b[33m──${conn.flowName}──▶\x1b[0m \x1b[36m${tgtName}\x1b[0m`);
+    }
+  }
+
+  // Show isolated functions
+  const connectedFuncs = new Set([
+    ...connections.map(c => c.sourceFunc),
+    ...connections.map(c => c.targetFunc),
+  ]);
+  const isolatedFuncs = funcs.filter(f => !connectedFuncs.has(f.id));
+  if (isolatedFuncs.length > 0) {
+    lines.push('');
+    lines.push('\x1b[90m─── Standalone Functions ───\x1b[0m');
+    for (const func of isolatedFuncs) {
+      lines.push(`  \x1b[36m${func.name}\x1b[0m`);
+    }
+  }
+
+  return lines;
 }
 
 /**
  * Render graph to console
  */
-function render(): void {
+async function render(): Promise<void> {
   // Don't clear on updates - allows scrolling through history
   // Only clear on initial render
   const state = graphCanvas.getState();
@@ -823,7 +933,7 @@ function render(): void {
   console.log('\x1b[36m' + '─'.repeat(60) + '\x1b[0m');
   console.log('');
 
-  const ascii = generateAsciiGraph();
+  const ascii = await generateAsciiGraph();
   console.log(ascii);
 
   console.log('');
@@ -884,7 +994,7 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
     }
 
     // Re-render
-    render();
+    await render();
     log(`✅ Rendered ${nodesMap.size} nodes, ${edgesMap.size} edges`);
 
   } catch (error) {
@@ -935,7 +1045,7 @@ async function main(): Promise<void> {
   }
 
   // Initial render
-  render();
+  await render();
 
   // Connect to WebSocket server
   wsClient = new CanvasWebSocketClient(

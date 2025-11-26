@@ -25,6 +25,7 @@ import { WS_URL, LOG_PATH, LLM_TEMPERATURE, AGENTDB_ENABLED } from '../shared/co
 import { DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
 import { getAgentDBService } from '../llm-engine/agentdb/agentdb-service.js';
 import { ArchitectureDerivationAgent, ArchitectureDerivationRequest } from '../llm-engine/auto-derivation.js';
+import { exportSystem, importSystem, listExports, getExportMetadata } from '../shared/parsers/import-export.js';
 
 // Configuration
 const config = {
@@ -520,6 +521,9 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('  /new            - Start new system (clear graph)');
       console.log('  /load           - List and load systems from Neo4j');
       console.log('  /save           - Save graph to Neo4j');
+      console.log('  /export [name]  - Export graph to file (default: auto-named)');
+      console.log('  /import <file>  - Import graph from file');
+      console.log('  /exports        - List available export files');
       console.log('  /stats          - Show graph statistics');
       console.log(`  /view <name>    - Switch view (${Object.keys(DEFAULT_VIEW_CONFIGS).join(', ')})`);
       console.log('  /derive         - Derive logical architecture from ALL Use Cases (UC → FUNC)');
@@ -587,7 +591,95 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       }
       break;
 
-    case '/stats':
+    case '/export': {
+      console.log('📤 Exporting graph...');
+      log('📤 Exporting graph...');
+      try {
+        const exportState = graphCanvas.getState();
+        const filename = args.length > 0
+          ? (args[0].endsWith('.txt') ? args[0] : `${args[0]}.txt`)
+          : `${config.systemId}-${Date.now()}.txt`;
+        const filePath = await exportSystem(
+          {
+            nodes: exportState.nodes,
+            edges: exportState.edges,
+            ports: exportState.ports,
+            systemId: config.systemId,
+            workspaceId: config.workspaceId,
+            version: exportState.version,
+            lastSavedVersion: exportState.lastSavedVersion,
+            lastModified: exportState.lastModified,
+          },
+          filename
+        );
+        console.log(`\x1b[32m✅ Exported to: ${filePath}\x1b[0m`);
+        log(`✅ Exported to: ${filePath}`);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.log(`\x1b[31m❌ Export failed: ${errorMsg}\x1b[0m`);
+        log(`❌ Export failed: ${errorMsg}`);
+      }
+      break;
+    }
+
+    case '/import': {
+      if (args.length === 0) {
+        console.log('\x1b[33m⚠️  Usage: /import <filename>\x1b[0m');
+        console.log('\x1b[90m   Use /exports to list available files\x1b[0m');
+        break;
+      }
+      const importFilename = args[0].endsWith('.txt') ? args[0] : `${args[0]}.txt`;
+      console.log(`📥 Importing from ${importFilename}...`);
+      log(`📥 Importing from ${importFilename}...`);
+      try {
+        const importedState = await importSystem(importFilename);
+        await graphCanvas.loadGraph({
+          nodes: importedState.nodes,
+          edges: importedState.edges,
+          ports: importedState.ports,
+        });
+        // Update system ID if available
+        if (importedState.systemId) {
+          config.systemId = importedState.systemId;
+        }
+        notifyGraphUpdate();
+        console.log(`\x1b[32m✅ Imported: ${importedState.nodes.size} nodes, ${importedState.edges.size} edges\x1b[0m`);
+        log(`✅ Imported: ${importedState.nodes.size} nodes, ${importedState.edges.size} edges`);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.log(`\x1b[31m❌ Import failed: ${errorMsg}\x1b[0m`);
+        log(`❌ Import failed: ${errorMsg}`);
+      }
+      break;
+    }
+
+    case '/exports': {
+      console.log('📁 Available exports:');
+      log('📁 Listing exports');
+      try {
+        const files = await listExports();
+        if (files.length === 0) {
+          console.log('\x1b[90m   No export files found in ./exports/\x1b[0m');
+        } else {
+          for (const file of files) {
+            try {
+              const meta = await getExportMetadata(file);
+              const info = meta.systemId ? `(${meta.systemId}, ${meta.nodeCount} nodes)` : '';
+              console.log(`   ${file} \x1b[90m${info}\x1b[0m`);
+            } catch {
+              console.log(`   ${file}`);
+            }
+          }
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.log(`\x1b[31m❌ Error listing exports: ${errorMsg}\x1b[0m`);
+      }
+      console.log('');
+      break;
+    }
+
+    case '/stats': {
       const state = graphCanvas.getState();
       console.log('');
       console.log(`Workspace: ${config.workspaceId}`);
@@ -598,6 +690,7 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('');
       log(`📊 Stats - Nodes: ${state.nodes.size}, Edges: ${state.edges.size}`);
       break;
+    }
 
     case '/view':
       // Generate valid views dynamically from DEFAULT_VIEW_CONFIGS (single source of truth)

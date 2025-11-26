@@ -23,7 +23,17 @@
       "Bash(git push:*)",
       "Bash(npx eslint:*)",
       "Bash(find:*)",
-      "Bash(NODE_ENV=test npm run test:unit:*)"
+      "Bash(NODE_ENV=test npm run test:unit:*)",
+      "Bash(npm run benchmark:*)",
+      "Bash(npm run test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(brew install:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run dev:iterm:*)"
     ],
     "deny": [],
     "ask": []

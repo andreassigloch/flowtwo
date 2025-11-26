@@ -62,6 +62,14 @@ const SYNTAX: FormatESyntax = {
     allocate: '-alc->',
     relation: '-rel->',
   },
+  // Long-form aliases for parsing compatibility
+  EDGE_ARROW_ALIASES: {
+    '-compose->': 'compose',
+    '-relation->': 'relation',
+    '-satisfy->': 'satisfy',
+    '-verify->': 'verify',
+    '-allocate->': 'allocate',
+  },
 };
 
 /**
@@ -93,15 +101,37 @@ export class FormatEParser implements IFormatEParser {
     const ports = new Map<SemanticId, any[]>();
 
     let section: 'none' | 'view' | 'nodes' | 'edges' = 'none';
-    const workspaceId = 'default-workspace';
-    const systemId = 'default-system';
+    let workspaceId = 'default-workspace';
+    let systemId = 'default-system';
 
+    // First pass: extract metadata from header comments
     for (const line of lines) {
+      if (line.startsWith('# System ID:')) {
+        systemId = line.replace('# System ID:', '').trim();
+      } else if (line.startsWith('# Workspace ID:')) {
+        workspaceId = line.replace('# Workspace ID:', '').trim();
+      }
+      // Stop at section markers (optimization)
+      if (line.startsWith('## ') || line.startsWith('[')) break;
+    }
+
+    // Second pass: parse content
+    for (const line of lines) {
+      // Check for section markers (support both ## and [] formats)
+      const lineLower = line.toLowerCase();
+      if (line === SYNTAX.VIEW_CONTEXT || lineLower === '[view-context]') {
+        section = 'view';
+        continue;
+      } else if (line === SYNTAX.NODES || lineLower === '[nodes]') {
+        section = 'nodes';
+        continue;
+      } else if (line === SYNTAX.EDGES || lineLower === '[edges]') {
+        section = 'edges';
+        continue;
+      }
+
+      // Skip empty lines and comments
       if (!line || line.startsWith('#')) {
-        // Section marker or comment
-        if (line === SYNTAX.VIEW_CONTEXT) section = 'view';
-        else if (line === SYNTAX.NODES) section = 'nodes';
-        else if (line === SYNTAX.EDGES) section = 'edges';
         continue;
       }
 
@@ -113,6 +143,11 @@ export class FormatEParser implements IFormatEParser {
         if (parsed) {
           const node = this.createNodeFromParsed(parsed, workspaceId, systemId);
           nodes.set(node.semanticId, node);
+
+          // Auto-detect systemId from first SYS node if not found in header
+          if (systemId === 'default-system' && parsed.type === 'SYS') {
+            systemId = parsed.semanticId;
+          }
         }
       } else if (section === 'edges') {
         const parsed = this.parseEdgeLine(line);
@@ -357,6 +392,7 @@ export class FormatEParser implements IFormatEParser {
     const parts = coreLine.split(SYNTAX.FIELD_SEPARATOR).map((p) => p.trim());
     if (parts.length < 3) return null;
 
+    // Format: Name|Type|SemanticId|Description
     return {
       name: parts[0],
       type: parts[1] as NodeType,
@@ -368,8 +404,10 @@ export class FormatEParser implements IFormatEParser {
 
   /**
    * Parse edge line: SourceID -type-> TargetID
+   * Supports both short (-cp->) and long (-compose->) arrow formats
    */
   private parseEdgeLine(line: string): ParsedEdgeLine | null {
+    // First try standard short arrows
     for (const [edgeType, arrow] of Object.entries(SYNTAX.EDGE_ARROW)) {
       if (line.includes(arrow)) {
         const parts = line.split(arrow).map((p) => p.trim());
@@ -382,6 +420,21 @@ export class FormatEParser implements IFormatEParser {
         }
       }
     }
+
+    // Try long-form aliases
+    for (const [longArrow, edgeType] of Object.entries(SYNTAX.EDGE_ARROW_ALIASES)) {
+      if (line.includes(longArrow)) {
+        const parts = line.split(longArrow).map((p) => p.trim());
+        if (parts.length === 2) {
+          return {
+            sourceId: parts[0],
+            type: edgeType as EdgeType,
+            targetId: parts[1],
+          };
+        }
+      }
+    }
+
     return null;
   }
 

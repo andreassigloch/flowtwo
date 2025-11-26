@@ -79,6 +79,38 @@ A.SY.001 -cp-> B.UC.001`;
       expect(result.edges.size).toBe(0);
     });
 
+    it('should extract systemId and workspaceId from header comments', () => {
+      const formatE = `# GraphEngine System Export
+# Generated: 2024-01-01T12:00:00.000Z
+# System ID: MyTestSystem.SY.001
+# Workspace ID: my-workspace
+# Nodes: 2
+# Edges: 1
+
+## Nodes
+MyTestSystem|SYS|MyTestSystem.SY.001|Test system
+TestUC|UC|TestUC.UC.001|Test use case
+
+## Edges
+MyTestSystem.SY.001 -cp-> TestUC.UC.001`;
+
+      const result = parser.parseGraph(formatE);
+
+      expect(result.systemId).toBe('MyTestSystem.SY.001');
+      expect(result.workspaceId).toBe('my-workspace');
+      expect(result.nodes.size).toBe(2);
+    });
+
+    it('should auto-detect systemId from first SYS node when not in header', () => {
+      const formatE = `## Nodes
+AutoDetectedSys|SYS|AutoDetectedSys.SY.001|Auto-detected system
+SomeUC|UC|SomeUC.UC.001|Some use case`;
+
+      const result = parser.parseGraph(formatE);
+
+      expect(result.systemId).toBe('AutoDetectedSys.SY.001');
+    });
+
     it('should parse all edge types correctly', () => {
       const formatE = `## Nodes
 A|SYS|A.SY.001|A
