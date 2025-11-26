@@ -448,9 +448,9 @@ From [requirements.md](requirements.md) Section 6:
 
 | # | Criterion | Status | Blocker |
 |---|-----------|--------|---------|
-| 1 | Create complete system via NL | ⏳ PARTIAL | Auto-derivation missing |
+| 1 | Create complete system via NL | ⏳ PARTIAL | UC→FUNC done, other derivations pending |
 | 2 | Switch between all 5 views | ❌ NO | 4 layouts missing |
-| 3 | LLM auto-derives with >80% accuracy | ❌ NO | Auto-derivation not implemented |
+| 3 | LLM auto-derives with >80% accuracy | ⏳ PARTIAL | UC→FUNC via `/derive`, REQ→TEST pending |
 | 4 | LLM validates 12 ontology rules | ❌ NO | Validation not implemented |
 | 5 | Canvas persists across sessions | ❌ NO | Persistence mocked |
 | 6 | Multi-user sync for 2+ users | ❌ NO | WebSocket not implemented |
@@ -473,9 +473,10 @@ From [requirements.md](requirements.md) Section 6:
 
 ### 🟡 HIGH PRIORITY (Week 3-4) - Needed for MVP
 5. Implement 4 missing layout algorithms
-6. Implement auto-derivation (UC→FUNC, REQ→TEST)
-7. Implement ontology validation (12 rules)
-8. Add performance benchmarks
+6. ~~Implement UC→FUNC derivation~~ ✅ `/derive` command (CR-005)
+7. Implement remaining auto-derivation (REQ→TEST, FUNC→FLOW, FUNC→MOD)
+8. Implement ontology validation (12 rules)
+9. Add performance benchmarks
 
 ### 🟢 MEDIUM PRIORITY (Week 5-6) - MVP Enhancement
 9. Integrate AgentDB caching

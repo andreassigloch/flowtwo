@@ -1,6 +1,6 @@
 # CR-005: Implement Auto-Derivation Logic
 
-**Status:** In Progress
+**Status:** Partially Complete (UC → FUNC done)
 **Priority:** CRITICAL - MVP Blocker
 **Target Phase:** Phase 3
 **Created:** 2025-11-19
@@ -15,7 +15,7 @@ Core AI-assisted derivation features are not implemented. According to [implan.m
 - **FUNC → FLOW**: Functions → Functional flows
 - **FUNC → MOD**: Functions → Module allocation
 
-**Current Status:** NOT IMPLEMENTED (explicitly marked in implan.md)
+**Current Status:** UC → FUNC implemented and tested (2025-11-21)
 
 **Impact:** Without auto-derivation, users must manually create all relationships, defeating the purpose of AI assistance.
 
@@ -154,28 +154,40 @@ interface FuncToModDerivation {
 
 ## Current Status
 
-### Phase 2: UC → FUNC (Completed 2025-11-21, Revised)
+### Phase 2: UC → FUNC ✅ COMPLETE (2025-11-21)
 
 **Implemented:**
 - `src/llm-engine/auto-derivation.ts` - Architecture Derivation Agent v2.0
   - Analyzes **ALL Use Cases** (not single UC selection)
   - Checks **existing FUNCs** for SE compliance (KEEP/OPTIMIZE/DECOMPOSE)
-  - Pure **Format E Diff** output (no custom `<derivation>` format)
+  - Pure **Format E Diff** output (no custom formats)
   - SE principle: Observable + Verifiable at interface boundary
 
-- `/derive` command in chat interface
+- `/derive` command in chat interface (`src/terminal-ui/chat-interface.ts`)
   - Analyzes ALL UCs to derive system-wide architecture
   - Shows UC list being analyzed
+  - Streams LLM analysis response in real-time
   - Extracts and applies Format E operations
   - Reports function/flow counts after application
 
-- Unit tests: 13 tests passing (tests/unit/llm-engine/auto-derivation.test.ts)
+- Unit tests: 13 tests passing (`tests/unit/llm-engine/auto-derivation.test.ts`)
 
 **SE Guidelines Applied:**
 - Functions must be observable at interface boundary (has I/O via FLOW)
 - Functions must be verifiable at interface boundary (testable at boundary)
 - Existing FUNCs checked: KEEP if compliant, OPTIMIZE if missing I/O, DECOMPOSE if impl-level
 - FUNC compose FUNC for sub-function hierarchy (L2/L3 decomposition)
+
+**Usage:**
+```
+/derive   # Analyzes ALL Use Cases and derives logical architecture
+```
+
+### Remaining Phases (Not Started)
+
+- **Phase 3: REQ → TEST** - Generate test cases from requirements
+- **Phase 4: FUNC → FLOW** - Infer I/O flows from function descriptions
+- **Phase 5: FUNC → MOD** - Suggest module allocation based on function type
 
 ## Dependencies
 

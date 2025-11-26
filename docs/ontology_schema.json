@@ -1,6 +1,6 @@
 {
-  "version": "3.0.3",
-  "change_comment": "Removed UC->ACTOR compose relationship - ACTOR only valid under FCHAIN (where they are used in flows)",
+  "version": "3.0.4",
+  "change_comment": "Added SYS->FUNC compose relationship for logical architecture (top-level functions directly under system)",
   "schema": {
     "nodes": {
       "SYS": {
@@ -97,6 +97,7 @@
         "valid_connections": [
           ["SYS", "SYS"],
           ["SYS", "UC"],
+          ["SYS", "FUNC"],
           ["SYS", "MOD"],
           ["UC", "UC"],
           ["UC", "FCHAIN"],

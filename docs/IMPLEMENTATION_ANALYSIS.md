@@ -178,8 +178,8 @@ This analysis compares the actual implementation against [requirements.md](requi
 
 | Requirement | Status | Notes |
 |------------|--------|-------|
-| **FR-8.1: Auto-Derivation** | ❌ **NOT IMPLEMENTED** | |
-| - UC → FUNC | ❌ | No auto-derivation logic |
+| **FR-8.1: Auto-Derivation** | ⏳ **PARTIAL** | UC → FUNC done |
+| - UC → FUNC | ✅ | `/derive` command, SE compliance check |
 | - REQ → TEST | ❌ | Not implemented |
 | - FUNC → FLOW | ❌ | Not implemented |
 | - FUNC → MOD | ❌ | Not implemented |
@@ -193,7 +193,7 @@ This analysis compares the actual implementation against [requirements.md](requi
 | - Maintain chat history | ✅ | Chat canvas stores history |
 | - Query Neo4j for stats | ⏳ | Possible but not implemented |
 
-**Coverage:** 25% (3/12 sub-requirements implemented)
+**Coverage:** 33% (4/12 sub-requirements implemented)
 
 ---
 
@@ -545,9 +545,9 @@ From [requirements.md](requirements.md) Section 6:
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| 1 | Create complete system via NL | ⏳ PARTIAL | LLM works, auto-derivation missing |
+| 1 | Create complete system via NL | ⏳ PARTIAL | LLM works, UC→FUNC derivation done |
 | 2 | Switch between all 5 views | ❌ NO | Only 1/5 layouts work |
-| 3 | LLM auto-derives with >80% accuracy | ❌ NO | Auto-derivation not implemented |
+| 3 | LLM auto-derives with >80% accuracy | ⏳ PARTIAL | UC→FUNC via `/derive`, REQ→TEST pending |
 | 4 | LLM validates 12 ontology rules | ❌ NO | Validation not implemented |
 | 5 | Canvas persists across sessions | ❌ NO | Persistence mocked |
 | 6 | Multi-user sync works for 2+ users | ❌ NO | WebSocket not implemented |
@@ -582,8 +582,8 @@ From [requirements.md](requirements.md) Section 6:
    - Treemap (allocation view)
    - Radial (use case diagrams)
 
-4. **Implement Auto-Derivation**
-   - UC → FUNC decomposition
+4. **Complete Auto-Derivation** (UC→FUNC ✅ done)
+   - ~~UC → FUNC decomposition~~ ✅ `/derive` command
    - REQ → TEST generation
    - FUNC → FLOW inference
    - FUNC → MOD allocation suggestions
@@ -627,7 +627,7 @@ From [requirements.md](requirements.md) Section 6:
 1. **Persistence:** All database operations mocked - **DATA LOSS**
 2. **Multi-User:** WebSocket not implemented - **NO COLLABORATION**
 3. **Layouts:** 4/5 views unusable - **LIMITED VISUALIZATION**
-4. **Auto-Derivation:** Not implemented - **NO AI ASSISTANCE**
+4. **Auto-Derivation:** UC→FUNC done, remaining derivations pending
 5. **Validation:** Not implemented - **NO QUALITY CHECKS**
 
 ### Overall Assessment
