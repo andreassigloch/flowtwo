@@ -1,10 +1,15 @@
 # CR-011: Add SE Methodology Prompts
 
-**Status:** Planned
+**Status:** Superseded by CR-024
 **Priority:** MEDIUM
 **Target Phase:** Phase 3
 **Created:** 2025-11-19
+**Superseded:** 2025-11-27
 **Author:** andreas@siglochconsulting
+
+> **⚠️ SUPERSEDED:** This CR has been integrated into [CR-024: Multi-Agent Architecture System](CR-024-multi-agent-architecture-system.md).
+> SE Methodology is now part of the **System Architect Agent** (Decision Tree) and **Architecture Reviewer Agent** (Review Checkliste).
+> See CR-024 for current implementation approach.
 
 ## Problem
 

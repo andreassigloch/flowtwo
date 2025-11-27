@@ -1,10 +1,15 @@
 # CR-012: Implement Clarifying Question Logic
 
-**Status:** Planned
+**Status:** Superseded by CR-024
 **Priority:** MEDIUM
 **Target Phase:** Phase 3
 **Created:** 2025-11-19
+**Superseded:** 2025-11-27
 **Author:** andreas@siglochconsulting
+
+> **⚠️ SUPERSEDED:** This CR has been integrated into [CR-024: Multi-Agent Architecture System](CR-024-multi-agent-architecture-system.md).
+> Clarifying questions are now part of the **Guided Correction Flow** in the **Architecture Reviewer Agent**.
+> See CR-024 for current implementation approach.
 
 ## Problem
 

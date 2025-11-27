@@ -1,6 +1,6 @@
 {
-  "version": "3.0.4",
-  "change_comment": "Added SYS->FUNC compose relationship for logical architecture (top-level functions directly under system)",
+  "version": "3.0.6",
+  "change_comment": "Added 3-Layer FLOW/SCHEMA model (Semantik → Datenformat → Protokoll) for INCOSE/SysML 2.0 conformance",
   "schema": {
     "nodes": {
       "SYS": {
@@ -44,16 +44,17 @@
         }
       },
       "FLOW": {
-        "description": "Data flow contract between functions or actors",
+        "description": "Data flow contract between functions or actors. Implements 3-Layer model: Layer 1 (Semantik) in Descr, Layer 2 (Datenformat) via relation to Data SCHEMA, Layer 3 (Protokoll) via relation to Protocol SCHEMA",
         "order": 5.5,
         "required_properties": {
           "Name": "string (max 25 chars, PascalCase)",
-          "Descr": "string"
+          "Descr": "string - semantic description of what flows (Layer 1: Semantik)"
         },
-        "optional_properties": {
-          "Type": "sync|async|stream|batch",
-          "Pattern": "request-response|publish-subscribe|pipe",
-          "Validation": "strict|loose|none"
+        "required_relations": {
+          "data_schema": "relation to SCHEMA node defining data structure (Layer 2: Datenformat)"
+        },
+        "optional_relations": {
+          "protocol_schema": "relation to SCHEMA node defining transport behavior (Layer 3: Protokoll)"
         }
       },
       "REQ": {
@@ -81,12 +82,17 @@
         }
       },
       "SCHEMA": {
-        "description": "Global Definitions. Standardized data structure, configurations or states",
+        "description": "Global Definitions. Three categories: (1) Data Schema - data structure/format (SysML Interface Block), (2) Protocol Schema - transport behavior (SysML Flow Specification), (3) Type Schema - type definitions (SysML Value Type)",
         "order": 9,
         "required_properties": {
           "Name": "string (max 25 chars, PascalCase)",
           "Descr": "string",
           "Struct": "Stringified JSON of the Datastructure as pseudo code"
+        },
+        "categories": {
+          "DataSchema": "Defines data structure/format for FLOW nodes (e.g., FormatESchema, CanvasStateSchema)",
+          "ProtocolSchema": "Defines transport behavior for FLOW nodes (e.g., StreamingProtocol, WebSocketProtocol)",
+          "TypeSchema": "Defines shared type definitions (e.g., OntologyTypesSchema, ViewTypesSchema)"
         }
       }
     },
@@ -202,6 +208,18 @@
       {
         "id": "scheme usage",
         "description": "every data structure, state or definition outside of a module need to be defined by a scheme node."
+      },
+      {
+        "id": "flow_data_schema",
+        "description": "Every FLOW node must have at least one relation edge to a Data SCHEMA node (Layer 2: Datenformat)"
+      },
+      {
+        "id": "flow_protocol_schema",
+        "description": "Inter-block FLOW nodes (between top-level FUNCs) should have a relation edge to a Protocol SCHEMA node (Layer 3: Protokoll)"
+      },
+      {
+        "id": "flow_3layer_model",
+        "description": "FLOW nodes implement 3-Layer model: Layer 1 (Semantik) in Descr property, Layer 2 (Datenformat) via relation to Data SCHEMA, Layer 3 (Protokoll) via relation to Protocol SCHEMA"
       }
     ],
     "validation": {

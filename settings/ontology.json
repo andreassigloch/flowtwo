@@ -2,8 +2,8 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "id": "graphengine-ontology",
   "name": "GraphEngine Ontology V3",
-  "version": "3.0.3",
-  "description": "10 Node Types + 6 Edge Types following SysML 2.0 inspiration",
+  "version": "3.0.6",
+  "description": "10 Node Types + 6 Edge Types following SysML 2.0 inspiration. Includes 3-Layer FLOW/SCHEMA model (Semantik → Datenformat → Protokoll)",
 
   "nodeTypes": {
     "SYS": {
@@ -43,7 +43,7 @@
     },
     "FLOW": {
       "name": "Data Flow",
-      "description": "Data flow contract / interface definition",
+      "description": "Data flow contract / interface definition. 3-Layer model: Layer 1 (Semantik) in Descr, Layer 2 (Datenformat) via relation to Data SCHEMA, Layer 3 (Protokoll) via relation to Protocol SCHEMA",
       "abbreviation": "FL",
       "color": "#808080",
       "ansiColor": "90"
@@ -71,7 +71,7 @@
     },
     "SCHEMA": {
       "name": "Schema",
-      "description": "Global data structure definition",
+      "description": "Global definition. Categories: DataSchema (data structure, SysML Interface Block), ProtocolSchema (transport behavior, SysML Flow Specification), TypeSchema (type definitions, SysML Value Type)",
       "abbreviation": "SC",
       "color": "#FFFFFF",
       "ansiColor": "37"
@@ -88,6 +88,7 @@
         { "source": "SYS", "target": "SYS" },
         { "source": "SYS", "target": "UC" },
         { "source": "SYS", "target": "MOD" },
+        { "source": "SYS", "target": "FUNC" },
         { "source": "UC", "target": "UC" },
         { "source": "UC", "target": "FCHAIN" },
         { "source": "FCHAIN", "target": "ACTOR" },

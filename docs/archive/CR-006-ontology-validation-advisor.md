@@ -1,10 +1,15 @@
 # CR-006: Implement Ontology Validation Advisor
 
-**Status:** Planned
+**Status:** Superseded by CR-024
 **Priority:** CRITICAL - MVP Blocker
 **Target Phase:** Phase 3
 **Created:** 2025-11-19
+**Superseded:** 2025-11-27
 **MVP Acceptance Criteria:** #4 (Quality assurance with validation)
+
+> **⚠️ SUPERSEDED:** This CR has been integrated into [CR-024: Multi-Agent Architecture System](CR-024-multi-agent-architecture-system.md).
+> The validation functionality is now part of the **Architecture Reviewer Agent**.
+> See CR-024 for current implementation approach.
 
 ## Problem
 
