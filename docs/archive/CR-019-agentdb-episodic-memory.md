@@ -1,32 +1,37 @@
-# CR-015: AgentDB Episodic Memory (Reflexion)
+# CR-019: AgentDB Episodic Memory (Reflexion)
 
 **Type:** Feature
-**Status:** Planned
+**Status:** Completed ✅
 **Priority:** LOW
 **Target Phase:** Phase 4 (Enhancement)
 **Created:** 2025-11-20
+**Completed:** 2025-11-27
 **Author:** andreas@siglochconsulting
 
 **Parent CR:** CR-007 (AgentDB Shared Memory)
+**Follow-up CR:** CR-026 (AgentDB Self-Learning with Ontology Rules)
 
 ## Problem / Use Case
 
-CR-007 implemented semantic caching (vector similarity) which is working perfectly. However, **episodic memory** (Reflexion) is not functional due to missing database table schema.
+CR-007 implemented semantic caching (vector similarity) which is working perfectly. However, **episodic memory** (Reflexion) was not functional due to missing database table schema.
 
-**Current Error:**
+**Original Error (RESOLVED):**
 ```
 ⚠️ AgentDB cache store failed: Error: no such table: episodes
 ```
 
-**What's Missing:**
-- Episodes table for storing task outcomes
-- Critiques and learned patterns from past executions
-- Cross-agent knowledge sharing via episodic retrieval
+**What Was Implemented:**
+- ✅ Episodes table with full schema
+- ✅ Episode embeddings table for vector similarity
+- ✅ storeEpisode() API
+- ✅ retrieveEpisodes() API with similarity search
+- ✅ ReflexionMemory integration
 
-**Impact:**
+**Current State:**
 - ✅ **Semantic caching works** - Cache hits return instantly, cost savings working
-- ❌ **No episodic learning** - Agents can't learn from past mistakes/successes
-- ❌ **No task history** - Can't retrieve similar past tasks for context
+- ✅ **Episodic storage works** - Episodes persisted to SQLite
+- ✅ **Episode retrieval works** - Similar past tasks retrievable
+- ⏳ **Self-learning pending** - Reward evaluation not yet automated (see CR-026)
 
 ## Requirements
 
@@ -164,14 +169,14 @@ interface Episode {
 
 ## Acceptance Criteria
 
-- [ ] Episodes table created automatically on init
-- [ ] `storeEpisode()` persists to database
-- [ ] `retrieveEpisodes()` returns similar past tasks
-- [ ] Vector similarity search works for episodes
-- [ ] Episodes persist across application restarts
-- [ ] No errors in STDOUT log for episode storage
-- [ ] Unit tests cover storage/retrieval (80% coverage)
-- [ ] Integration test validates end-to-end flow
+- [x] Episodes table created automatically on init
+- [x] `storeEpisode()` persists to database
+- [x] `retrieveEpisodes()` returns similar past tasks
+- [x] Vector similarity search works for episodes
+- [x] Episodes persist across application restarts
+- [x] No errors in STDOUT log for episode storage
+- [ ] Unit tests cover storage/retrieval (80% coverage) → Deferred
+- [ ] Integration test validates end-to-end flow → Deferred
 
 ## Dependencies
 
