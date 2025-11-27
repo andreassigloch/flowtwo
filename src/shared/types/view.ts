@@ -117,7 +117,8 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
    * Hierarchy View
    *
    * IMPORTANT: Nesting/indentation created by 'compose' edges ONLY in this view.
-   * - compose edges: SYS→SYS, SYS→UC, UC→FCHAIN, FCHAIN→FUNC, SYS→MOD
+   * - compose edges: SYS→SYS, SYS→UC, SYS→FUNC, UC→FCHAIN, FCHAIN→FUNC, FUNC→FUNC, SYS→MOD
+   * - DEFAULT to FUNC→FUNC for logical decomposition (SYS→SYS only for external/purchased)
    * - Per ontology_schema.json: compose, satisfy, allocate are ALL nesting edges
    * - But hierarchy view uses ONLY compose for structural decomposition
    *

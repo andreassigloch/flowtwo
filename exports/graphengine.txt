@@ -1,0 +1,609 @@
+# GraphEngine System Export
+# Generated: 2025-11-27T15:30:00.000Z
+# System ID: GraphEngine.SY.001
+# Workspace ID: demo-workspace
+# Nodes: 184
+# Edges: 412
+#
+# Format: Format E (Token-Efficient Serialization)
+# File Extension: .txt (universal editor compatibility)
+#
+## Nodes
+GraphEngine|SYS|GraphEngine.SY.001|TypeScript graph engine for systems engineering with LLM integration, Format-E serialization, and multi-view visualization [x:0,y:0,zoom:L2]
+LLMIntegration|FUNC|LLMIntegration.FN.001|LLM integration block: prompt building, streaming, response parsing, caching [x:0,y:0,zoom:L2]
+CanvasManagement|FUNC|CanvasManagement.FN.002|Canvas state management block: graph/chat state, diff processing, dirty tracking [x:0,y:0,zoom:L2]
+GraphVisualization|FUNC|GraphVisualization.FN.003|Graph visualization block: layout algorithms, view filtering, rendering [x:0,y:0,zoom:L2]
+DataPersistence|FUNC|DataPersistence.FN.004|Data persistence block: Neo4j operations, session management, audit logging [x:0,y:0,zoom:L2]
+TerminalInterface|FUNC|TerminalInterface.FN.005|Terminal UI block: chat interface, graph viewer, user input handling [x:0,y:0,zoom:L2]
+DefineSystemViaChat|UC|DefineSystemViaChat.UC.001|User defines complex systems through natural language conversation with LLM guidance [x:0,y:0,zoom:L2]
+VisualizeMultipleViews|UC|VisualizeMultipleViews.UC.001|Switch between 5 specialized SE views: hierarchy, functional-flow, requirements, allocation, architecture [x:0,y:0,zoom:L2]
+LLMGuidedModeling|UC|LLMGuidedModeling.UC.001|LLM guides user through SE methodology (INCOSE/SysML 2.0) with clarifying questions [x:0,y:0,zoom:L2]
+AutoDeriveStructures|UC|AutoDeriveStructures.UC.001|LLM automatically derives UC->FUNC, REQ->TEST, FUNC->FLOW relationships [x:0,y:0,zoom:L2]
+ValidateOntology|UC|ValidateOntology.UC.001|LLM validates graph against ontology rules and suggests fixes [x:0,y:0,zoom:L2]
+CollaborateMultiUser|UC|CollaborateMultiUser.UC.001|Multiple users edit same workspace with real-time WebSocket synchronization [x:0,y:0,zoom:L2]
+PersistAndRecover|UC|PersistAndRecover.UC.001|Auto-save to Neo4j, recover from crash, audit logging [x:0,y:0,zoom:L2]
+StreamLLMResponses|UC|StreamLLMResponses.UC.001|Real-time token-by-token streaming of LLM responses with operation extraction [x:0,y:0,zoom:L2]
+ManageGraphState|UC|ManageGraphState.UC.001|Canvas manages working state with dirty tracking and persistence strategy [x:0,y:0,zoom:L2]
+SyncTerminalViews|UC|SyncTerminalViews.UC.001|4-terminal architecture with WebSocket synchronization [x:0,y:0,zoom:L2]
+LoadGraphFromNeo4j|UC|LoadGraphFromNeo4j.UC.001|Load graph on session start from Neo4j persistence layer [x:0,y:0,zoom:L2]
+ApplyIncrementalDiff|UC|ApplyIncrementalDiff.UC.001|Apply Format-E diff operations to canvas state incrementally [x:0,y:0,zoom:L2]
+BroadcastChanges|UC|BroadcastChanges.UC.001|Broadcast graph changes to all connected WebSocket clients [x:0,y:0,zoom:L2]
+ComputeLayout|UC|ComputeLayout.UC.001|Run layout algorithms based on view type [x:0,y:0,zoom:L2]
+CachePrompts|UC|CachePrompts.UC.001|3-layer caching for 50-90% token savings [x:0,y:0,zoom:L2]
+SystemEngineer|ACTOR|SystemEngineer.AC.001|User who defines systems through natural language chat [x:0,y:0,zoom:L2]
+AnthropicClaude|ACTOR|AnthropicClaude.AC.001|LLM service providing SE guidance and operation generation [x:0,y:0,zoom:L2]
+Neo4jDatabase|ACTOR|Neo4jDatabase.AC.001|Graph database for persistence and audit logging [x:0,y:0,zoom:L2]
+UserRequestToGraphUpdate|FCHAIN|UserRequestToGraphUpdate.FC.001|Complete flow from user message to graph update and broadcast [x:0,y:0,zoom:L2]
+LoadGraphFromPersistence|FCHAIN|LoadGraphFromPersistence.FC.001|Load graph on session start from Neo4j [x:0,y:0,zoom:L2]
+ApplyDiffToCanvas|FCHAIN|ApplyDiffToCanvas.FC.001|Apply incremental Format-E diff to canvas state [x:0,y:0,zoom:L2]
+ComputeLayoutForView|FCHAIN|ComputeLayoutForView.FC.001|Compute layout for specific view with port extraction [x:0,y:0,zoom:L2]
+PersistDirtyState|FCHAIN|PersistDirtyState.FC.001|Save dirty nodes/edges to Neo4j with audit logging [x:0,y:0,zoom:L2]
+StreamLLMResponse|FCHAIN|StreamLLMResponse.FC.001|Stream LLM response token-by-token with operation extraction [x:0,y:0,zoom:L2]
+ProcessLLMRequest|FUNC|ProcessLLMRequest.FN.101|Main LLM request handler with streaming support [x:0,y:0,zoom:L2]
+BuildSystemPrompt|FUNC|BuildSystemPrompt.FN.102|Constructs cached system prompt with ontology rules [x:0,y:0,zoom:L2]
+ParseLLMResponse|FUNC|ParseLLMResponse.FN.103|Extracts text response and Format-E operations from LLM output [x:0,y:0,zoom:L2]
+StreamTokens|FUNC|StreamTokens.FN.104|Streams LLM response tokens to UI in real-time [x:0,y:0,zoom:L2]
+TrackTokenUsage|FUNC|TrackTokenUsage.FN.105|Logs token usage and cost metrics [x:0,y:0,zoom:L2]
+ApplyDiff|FUNC|ApplyDiff.FN.201|Applies Format-E diff operations to canvas state [x:0,y:0,zoom:L2]
+LoadGraph|FUNC|LoadGraph.FN.202|Loads graph from Neo4j or initializes empty state [x:0,y:0,zoom:L2]
+GetCanvasState|FUNC|GetCanvasState.FN.203|Returns read-only snapshot of canvas state [x:0,y:0,zoom:L2]
+MarkDirty|FUNC|MarkDirty.FN.204|Tracks dirty nodes/edges for incremental persistence [x:0,y:0,zoom:L2]
+PersistToNeo4j|FUNC|PersistToNeo4j.FN.205|Saves dirty state to database in batches [x:0,y:0,zoom:L2]
+ComputeGraphLayout|FUNC|ComputeGraphLayout.FN.301|Orchestrates layout computation based on view type [x:0,y:0,zoom:L2]
+ApplyViewFilter|FUNC|ApplyViewFilter.FN.302|Filters nodes/edges according to view configuration [x:0,y:0,zoom:L2]
+ExtractPorts|FUNC|ExtractPorts.FN.303|Extracts input/output ports from FLOW nodes [x:0,y:0,zoom:L2]
+ComputeReingoldTilford|FUNC|ComputeReingoldTilford.FN.304|Tree layout algorithm for hierarchical views [x:0,y:0,zoom:L2]
+ComputeSugiyama|FUNC|ComputeSugiyama.FN.305|Layered graph layout for functional-flow views [x:0,y:0,zoom:L2]
+RouteOrthogonal|FUNC|RouteOrthogonal.FN.306|Manhattan routing for orthogonal edge drawing [x:0,y:0,zoom:L2]
+ComputeRadial|FUNC|ComputeRadial.FN.307|Radial layout for use-case views [x:0,y:0,zoom:L2]
+ComputeTreemap|FUNC|ComputeTreemap.FN.308|Nested containment layout for allocation views [x:0,y:0,zoom:L2]
+CreateNode|FUNC|CreateNode.FN.401|Inserts node into Neo4j with MERGE pattern [x:0,y:0,zoom:L2]
+UpdateNode|FUNC|UpdateNode.FN.402|Updates node properties in Neo4j [x:0,y:0,zoom:L2]
+DeleteNode|FUNC|DeleteNode.FN.403|Removes node and incident edges from Neo4j [x:0,y:0,zoom:L2]
+CreateRelationship|FUNC|CreateRelationship.FN.404|Inserts edge into Neo4j [x:0,y:0,zoom:L2]
+QueryGraph|FUNC|QueryGraph.FN.405|Executes Cypher query to load graph state [x:0,y:0,zoom:L2]
+BatchPersist|FUNC|BatchPersist.FN.406|Batch write operations for performance [x:0,y:0,zoom:L2]
+CreateAuditLog|FUNC|CreateAuditLog.FN.407|Logs all operations for audit trail [x:0,y:0,zoom:L2]
+RenderChat|FUNC|RenderChat.FN.501|Renders chat interface with messages and input [x:0,y:0,zoom:L2]
+RenderGraph|FUNC|RenderGraph.FN.502|Renders ASCII graph visualization [x:0,y:0,zoom:L2]
+HandleUserInput|FUNC|HandleUserInput.FN.503|Processes user input from terminal [x:0,y:0,zoom:L2]
+DisplayStreamingTokens|FUNC|DisplayStreamingTokens.FN.504|Displays LLM tokens as they arrive [x:0,y:0,zoom:L2]
+InitTmuxLayout|FUNC|InitTmuxLayout.FN.505|Initializes 4-terminal tmux layout [x:0,y:0,zoom:L2]
+ParseFormatEDiff|FUNC|ParseFormatEDiff.FN.601|Parses Format-E diff string into operations [x:0,y:0,zoom:L2]
+SerializeGraph|FUNC|SerializeGraph.FN.602|Converts graph to Format-E string [x:0,y:0,zoom:L2]
+ValidateFormatESyntax|FUNC|ValidateFormatESyntax.FN.603|Checks Format-E syntax correctness [x:0,y:0,zoom:L2]
+ExtractOperations|FUNC|ExtractOperations.FN.604|Extracts operations from Format-E diff [x:0,y:0,zoom:L2]
+UserMessageFlow|FLOW|UserMessageFlow.FL.001|Natural language input from TerminalInterface to LLMIntegration [x:0,y:0,zoom:L2]
+LLMResponseFlow|FLOW|LLMResponseFlow.FL.002|LLM response from LLMIntegration to CanvasManagement [x:0,y:0,zoom:L2]
+CanvasStateFlow|FLOW|CanvasStateFlow.FL.003|Graph state from CanvasManagement to GraphVisualization [x:0,y:0,zoom:L2]
+PersistenceRequestFlow|FLOW|PersistenceRequestFlow.FL.004|Persistence request from CanvasManagement to DataPersistence [x:0,y:0,zoom:L2]
+LayoutResultFlow|FLOW|LayoutResultFlow.FL.005|Layout positions from GraphVisualization to TerminalInterface [x:0,y:0,zoom:L2]
+BroadcastPayloadFlow|FLOW|BroadcastPayloadFlow.FL.006|WebSocket payload from CanvasManagement to WebSocketSync [x:0,y:0,zoom:L2]
+FormatEDiffFlow|FLOW|FormatEDiffFlow.FL.007|Format-E diff from FormatESerialization to CanvasManagement [x:0,y:0,zoom:L2]
+SystemPrompt|FLOW|SystemPrompt.FL.101|Cached system prompt with ontology rules and graph state [x:0,y:0,zoom:L2]
+ParsedOperations|FLOW|ParsedOperations.FL.102|Extracted Format-E operations from LLM response [x:0,y:0,zoom:L2]
+TokenStream|FLOW|TokenStream.FL.103|Real-time token stream for UI display [x:0,y:0,zoom:L2]
+TokenUsageReport|FLOW|TokenUsageReport.FL.104|Token counts and cost metrics [x:0,y:0,zoom:L2]
+DiffOperations|FLOW|DiffOperations.FL.201|Format-E diff operations to apply [x:0,y:0,zoom:L2]
+DirtyState|FLOW|DirtyState.FL.202|Set of modified nodes/edges requiring persistence [x:0,y:0,zoom:L2]
+FilteredGraph|FLOW|FilteredGraph.FL.301|Graph filtered by view configuration [x:0,y:0,zoom:L2]
+PortDefinitions|FLOW|PortDefinitions.FL.302|Extracted input/output ports from FLOW nodes [x:0,y:0,zoom:L2]
+ViewConfig|FLOW|ViewConfig.FL.303|Configuration for specific view type [x:0,y:0,zoom:L2]
+CypherQuery|FLOW|CypherQuery.FL.401|Cypher query string for Neo4j [x:0,y:0,zoom:L2]
+QueryResult|FLOW|QueryResult.FL.402|Result set from Neo4j query [x:0,y:0,zoom:L2]
+BatchOperations|FLOW|BatchOperations.FL.403|Batch of write operations for Neo4j [x:0,y:0,zoom:L2]
+AuditEntry|FLOW|AuditEntry.FL.404|Audit log entry for operation tracking [x:0,y:0,zoom:L2]
+NaturalLanguageInterface|REQ|NaturalLanguageInterface.RQ.001|Terminal UI with chat interface, streaming responses, multi-turn context [x:0,y:0,zoom:L2]
+OntologyCompliance|REQ|OntologyCompliance.RQ.002|10 node types, 6 edge types, semantic ID format [x:0,y:0,zoom:L2]
+MultiTenancy|REQ|MultiTenancy.RQ.003|Workspace isolation, access control (owner/admin/editor/viewer) [x:0,y:0,zoom:L2]
+CanvasStateManagement|REQ|CanvasStateManagement.RQ.004|In-memory working state, dirty tracking, persistence logic [x:0,y:0,zoom:L2]
+FiveSpecializedViews|REQ|FiveSpecializedViews.RQ.005|Hierarchy, Functional-Flow, Requirements, Allocation, Architecture views [x:0,y:0,zoom:L2]
+FormatESerialization|REQ|FormatESerialization.RQ.006|>70% token reduction, diff operations, validation [x:0,y:0,zoom:L2]
+LLMAutoDerivation|REQ|LLMAutoDerivation.RQ.007|Automatic derivation of UC->FUNC, REQ->TEST relationships [x:0,y:0,zoom:L2]
+ValidationAdvisor|REQ|ValidationAdvisor.RQ.008|Ontology rules validation, explain violations, suggest fixes [x:0,y:0,zoom:L2]
+AuditLogging|REQ|AuditLogging.RQ.009|All operations logged to Neo4j, queryable [x:0,y:0,zoom:L2]
+PromptCaching|REQ|PromptCaching.RQ.010|Anthropic native + AgentDB caching, 50-90% token savings [x:0,y:0,zoom:L2]
+LayoutPerformance|REQ|LayoutPerformance.RQ.011|Layout computation <2s for 1000 nodes [x:0,y:0,zoom:L2]
+LLMResponseTime|REQ|LLMResponseTime.RQ.012|Time to first token <500ms, streaming <50ms per token [x:0,y:0,zoom:L2]
+RenderingPerformance|REQ|RenderingPerformance.RQ.013|60fps for <500 nodes [x:0,y:0,zoom:L2]
+GraphScalability|REQ|GraphScalability.RQ.014|Support 10000 nodes, 50000 edges per workspace [x:0,y:0,zoom:L2]
+ConcurrentUsers|REQ|ConcurrentUsers.RQ.015|10 users per workspace, 100 users total [x:0,y:0,zoom:L2]
+DataPersistenceReq|REQ|DataPersistenceReq.RQ.016|Auto-save every 5 min, recover from crash within 10s [x:0,y:0,zoom:L2]
+TestNaturalLanguageChat|TEST|TestNaturalLanguageChat.TC.001|E2E test: user sends message, receives streaming response [x:0,y:0,zoom:L2]
+TestOntologyValidation|TEST|TestOntologyValidation.TC.002|Unit test: validate semantic ID format and edge constraints [x:0,y:0,zoom:L2]
+TestMultiTenantIsolation|TEST|TestMultiTenantIsolation.TC.003|Integration test: workspace isolation between users [x:0,y:0,zoom:L2]
+TestCanvasDiffApplication|TEST|TestCanvasDiffApplication.TC.004|Unit test: apply Format-E diff operations correctly [x:0,y:0,zoom:L2]
+TestViewSwitching|TEST|TestViewSwitching.TC.005|E2E test: switch between 5 views, verify layout [x:0,y:0,zoom:L2]
+TestFormatEParsing|TEST|TestFormatEParsing.TC.006|Unit test: parse Format-E, verify 70% token reduction [x:0,y:0,zoom:L2]
+TestAutoDerivation|TEST|TestAutoDerivation.TC.007|Integration test: UC->FUNC derivation produces valid functions [x:0,y:0,zoom:L2]
+TestValidationRules|TEST|TestValidationRules.TC.008|Unit test: validate ontology rules [x:0,y:0,zoom:L2]
+TestAuditLogQuery|TEST|TestAuditLogQuery.TC.009|Integration test: query audit logs by chatId [x:0,y:0,zoom:L2]
+TestPromptCacheHit|TEST|TestPromptCacheHit.TC.010|Integration test: verify cache hit returns cached response [x:0,y:0,zoom:L2]
+TestLayoutSpeed|TEST|TestLayoutSpeed.TC.011|Performance test: layout 1000 nodes in <2s [x:0,y:0,zoom:L2]
+TestCrashRecovery|TEST|TestCrashRecovery.TC.012|E2E test: recover graph state after simulated crash [x:0,y:0,zoom:L2]
+GraphEngineRoot|MOD|GraphEngineRoot.MD.001|Root module containing all source code (src/) [x:0,y:0,zoom:L2]
+CanvasModule|MOD|CanvasModule.MD.001|Canvas state management layer (src/canvas/) [x:0,y:0,zoom:L2]
+GraphEngineModule|MOD|GraphEngineModule.MD.002|Layout and view filtering layer (src/graph-engine/) [x:0,y:0,zoom:L2]
+LLMEngineModule|MOD|LLMEngineModule.MD.003|LLM integration layer (src/llm-engine/) [x:0,y:0,zoom:L2]
+Neo4jClientModule|MOD|Neo4jClientModule.MD.004|Database persistence layer (src/neo4j-client/) [x:0,y:0,zoom:L2]
+TerminalUIModule|MOD|TerminalUIModule.MD.005|Terminal interface layer (src/terminal-ui/) [x:0,y:0,zoom:L2]
+SharedModule|MOD|SharedModule.MD.006|Shared utilities and types (src/shared/) [x:0,y:0,zoom:L2]
+LayoutModule|MOD|LayoutModule.MD.007|Layout algorithm implementations (src/layout/) [x:0,y:0,zoom:L2]
+CanvasBaseFile|MOD|CanvasBaseFile.MD.101|Base canvas implementation (canvas-base.ts) [x:0,y:0,zoom:L2]
+GraphCanvasFile|MOD|GraphCanvasFile.MD.102|Graph state manager (graph-canvas.ts) [x:0,y:0,zoom:L2]
+ChatCanvasFile|MOD|ChatCanvasFile.MD.103|Chat state manager (chat-canvas.ts) [x:0,y:0,zoom:L2]
+WebSocketServerFile|MOD|WebSocketServerFile.MD.104|Broadcasting server (websocket-server.ts) [x:0,y:0,zoom:L2]
+WebSocketClientFile|MOD|WebSocketClientFile.MD.105|Client-side WebSocket handler (websocket-client.ts) [x:0,y:0,zoom:L2]
+GraphEngineImplFile|MOD|GraphEngineImplFile.MD.201|Main graph engine (graph-engine.ts) [x:0,y:0,zoom:L2]
+ViewFilterFile|MOD|ViewFilterFile.MD.202|View filtering logic (view-filter.ts) [x:0,y:0,zoom:L2]
+PortExtractorFile|MOD|PortExtractorFile.MD.203|Port extraction (port-extractor.ts) [x:0,y:0,zoom:L2]
+ReingoldTilfordFile|MOD|ReingoldTilfordFile.MD.204|Tree layout (reingold-tilford.ts) [x:0,y:0,zoom:L2]
+LLMEngineImplFile|MOD|LLMEngineImplFile.MD.301|Main LLM engine (llm-engine.ts) [x:0,y:0,zoom:L2]
+PromptBuilderFile|MOD|PromptBuilderFile.MD.302|Prompt construction (prompt-builder.ts) [x:0,y:0,zoom:L2]
+ResponseParserFile|MOD|ResponseParserFile.MD.303|Response parsing (response-parser.ts) [x:0,y:0,zoom:L2]
+AgentDBServiceFile|MOD|AgentDBServiceFile.MD.304|AgentDB caching service (agentdb/agentdb-service.ts) [x:0,y:0,zoom:L2]
+Neo4jClientImplFile|MOD|Neo4jClientImplFile.MD.401|Database client (neo4j-client.ts) [x:0,y:0,zoom:L2]
+SessionManagerFile|MOD|SessionManagerFile.MD.402|Session management (session-manager.ts) [x:0,y:0,zoom:L2]
+ChatInterfaceFile|MOD|ChatInterfaceFile.MD.501|Chat UI (chat-interface.ts) [x:0,y:0,zoom:L2]
+GraphViewerFile|MOD|GraphViewerFile.MD.502|ASCII graph rendering (graph-viewer.ts) [x:0,y:0,zoom:L2]
+AsciiGridFile|MOD|AsciiGridFile.MD.503|2D ASCII grid renderer (ascii-grid.ts) [x:0,y:0,zoom:L2]
+AppFile|MOD|AppFile.MD.504|Main application (app.ts) [x:0,y:0,zoom:L2]
+ParsersModule|MOD|ParsersModule.MD.601|Parser implementations (src/shared/parsers/) [x:0,y:0,zoom:L2]
+TypesModule|MOD|TypesModule.MD.602|Type definitions (src/shared/types/) [x:0,y:0,zoom:L2]
+ConfigFile|MOD|ConfigFile.MD.603|Configuration (config.ts) [x:0,y:0,zoom:L2]
+FormatEParserFile|MOD|FormatEParserFile.MD.604|Format-E parser (format-e-parser.ts) [x:0,y:0,zoom:L2]
+OntologyTypesFile|MOD|OntologyTypesFile.MD.605|Ontology types (ontology.ts) [x:0,y:0,zoom:L2]
+RadialLayoutFile|MOD|RadialLayoutFile.MD.701|Radial layout (radial.ts) [x:0,y:0,zoom:L2]
+OrthogonalLayoutFile|MOD|OrthogonalLayoutFile.MD.702|Orthogonal layout (orthogonal.ts) [x:0,y:0,zoom:L2]
+SugiyamaLayoutFile|MOD|SugiyamaLayoutFile.MD.703|Sugiyama layout (sugiyama.ts) [x:0,y:0,zoom:L2]
+TreemapLayoutFile|MOD|TreemapLayoutFile.MD.704|Treemap layout (treemap.ts) [x:0,y:0,zoom:L2]
+CanvasStateSchema|SCHEMA|CanvasStateSchema.SC.002|GraphCanvasState, ChatCanvasState, Operation, DiffResult [x:0,y:0,zoom:L2]
+ViewTypesSchema|SCHEMA|ViewTypesSchema.SC.004|ViewType, ViewConfig, ViewFilter, LayoutConfig [x:0,y:0,zoom:L2]
+LayoutTypesSchema|SCHEMA|LayoutTypesSchema.SC.005|LayoutResult, Position, Port, EdgeRoute [x:0,y:0,zoom:L2]
+LLMTypesSchema|SCHEMA|LLMTypesSchema.SC.006|LLMRequest, LLMResponse, StreamChunk, TokenUsage [x:0,y:0,zoom:L2]
+Neo4jTypesSchema|SCHEMA|Neo4jTypesSchema.SC.007|Neo4jNode, Neo4jRelationship, CypherQuery, QueryResult [x:0,y:0,zoom:L2]
+FormatESerializationModule|MOD|FormatESerializationModule.MD.008|Format-E parsing, serialization, and validation module [x:0,y:0,zoom:L2]
+ClientManagement|FUNC|ClientManagement.FN.008|Multi-user client synchronization: broadcast updates, manage connections, sync state [x:0,y:0,zoom:L2]
+BroadcastUpdate|FUNC|BroadcastUpdate.FN.801|Broadcast Format-E diffs to all connected clients [x:0,y:0,zoom:L2]
+SyncClientState|FUNC|SyncClientState.FN.802|Synchronize client state with current canvas [x:0,y:0,zoom:L2]
+ManageConnections|FUNC|ManageConnections.FN.803|Handle client connect/disconnect, session management [x:0,y:0,zoom:L2]
+SyncClients|FCHAIN|SyncClients.FC.008|Broadcast canvas changes to all connected clients [x:0,y:0,zoom:L2]
+StreamingProtocol|SCHEMA|StreamingProtocol.SC.009|Token-by-token streaming protocol with backpressure [x:0,y:0,zoom:L2]
+PlainTextFormat|SCHEMA|PlainTextFormat.SC.010|Unstructured plain text format [x:0,y:0,zoom:L2]
+RequestResponseProtocol|SCHEMA|RequestResponseProtocol.SC.011|Synchronous request-response communication [x:0,y:0,zoom:L2]
+WebSocketProtocol|SCHEMA|WebSocketProtocol.SC.012|Bidirectional WebSocket communication protocol [x:0,y:0,zoom:L2]
+FormatETypes|SCHEMA|FormatETypes.SC.001|Unified Format-E type system: Node, Edge, NodeType, EdgeType, SemanticId, FormatEDiff, Operations, Transport serialization [x:0,y:0,zoom:L2]
+MultiAgentArchitecture|UC|MultiAgentArchitecture.UC.002|CR-024: Specialized agents for requirements, architecture, review, and functional analysis with INCOSE compliance [x:0,y:0,zoom:L2]
+CoordinateAgents|FUNC|CoordinateAgents.FN.901|Orchestrates multi-agent workflow: requirements→architect→reviewer→analyst [x:0,y:0,zoom:L2]
+ValidateArchitecture|FUNC|ValidateArchitecture.FN.902|Validates graph against INCOSE/SysML 2.0 rules, generates V1-V10 errors/warnings [x:0,y:0,zoom:L2]
+ClassifyNodeType|FUNC|ClassifyNodeType.FN.903|Decision tree for node type classification: FUNC vs SCHEMA vs FLOW [x:0,y:0,zoom:L2]
+GenerateAgentPrompts|FUNC|GenerateAgentPrompts.FN.904|Generates role-specific prompts for each agent type [x:0,y:0,zoom:L2]
+ExecuteReviewFlow|FUNC|ExecuteReviewFlow.FN.905|Manages review cycle with user feedback integration [x:0,y:0,zoom:L2]
+BuildDecisionQueries|FUNC|BuildDecisionQueries.FN.906|Generates Cypher queries for validation checks [x:0,y:0,zoom:L2]
+AgentsModule|MOD|AgentsModule.MD.901|Multi-agent system module (src/llm-engine/agents/) [x:0,y:0,zoom:L2]
+AgentCoordinatorFile|MOD|AgentCoordinatorFile.MD.902|Agent coordinator (agent-coordinator.ts) [x:0,y:0,zoom:L2]
+ArchitectureValidatorFile|MOD|ArchitectureValidatorFile.MD.903|Architecture validator (architecture-validator.ts) [x:0,y:0,zoom:L2]
+DecisionTreeFile|MOD|DecisionTreeFile.MD.904|Decision tree (decision-tree.ts) [x:0,y:0,zoom:L2]
+AgentPromptsFile|MOD|AgentPromptsFile.MD.905|Agent prompts (agent-prompts.ts) [x:0,y:0,zoom:L2]
+ReviewFlowFile|MOD|ReviewFlowFile.MD.906|Review flow (review-flow.ts) [x:0,y:0,zoom:L2]
+ValidationQueriesFile|MOD|ValidationQueriesFile.MD.907|Validation queries (validation-queries.ts) [x:0,y:0,zoom:L2]
+AgentTypesFile|MOD|AgentTypesFile.MD.908|Agent types (types.ts) [x:0,y:0,zoom:L2]
+MultiAgentProcessorFile|MOD|MultiAgentProcessorFile.MD.909|Multi-agent processor (multi-agent-processor.ts) [x:0,y:0,zoom:L2]
+TerminalGraphicsFile|MOD|TerminalGraphicsFile.MD.506|2D terminal graphics layer (terminal-graphics.ts) [x:0,y:0,zoom:L2]
+AutoDerivationFile|MOD|AutoDerivationFile.MD.305|Auto-derivation logic (auto-derivation.ts) [x:0,y:0,zoom:L2]
+AgentHandoffFlow|FLOW|AgentHandoffFlow.FL.901|Agent-to-agent handoff with graph snapshot and context [x:0,y:0,zoom:L2]
+ValidationResultFlow|FLOW|ValidationResultFlow.FL.902|Validation errors/warnings from architecture validator [x:0,y:0,zoom:L2]
+
+## Edges
+GraphEngine.SY.001 -cp-> LLMIntegration.FN.001
+GraphEngine.SY.001 -cp-> CanvasManagement.FN.002
+GraphEngine.SY.001 -cp-> GraphVisualization.FN.003
+GraphEngine.SY.001 -cp-> DataPersistence.FN.004
+GraphEngine.SY.001 -cp-> TerminalInterface.FN.005
+GraphEngine.SY.001 -cp-> FormatESerialization.FN.006
+GraphEngine.SY.001 -cp-> WebSocketSync.FN.007
+GraphEngine.SY.001 -cp-> DefineSystemViaChat.UC.001
+GraphEngine.SY.001 -cp-> VisualizeMultipleViews.UC.001
+GraphEngine.SY.001 -cp-> LLMGuidedModeling.UC.001
+GraphEngine.SY.001 -cp-> AutoDeriveStructures.UC.001
+GraphEngine.SY.001 -cp-> ValidateOntology.UC.001
+GraphEngine.SY.001 -cp-> CollaborateMultiUser.UC.001
+GraphEngine.SY.001 -cp-> PersistAndRecover.UC.001
+GraphEngine.SY.001 -cp-> StreamLLMResponses.UC.001
+GraphEngine.SY.001 -cp-> ManageGraphState.UC.001
+GraphEngine.SY.001 -cp-> SyncTerminalViews.UC.001
+GraphEngine.SY.001 -cp-> LoadGraphFromNeo4j.UC.001
+GraphEngine.SY.001 -cp-> ApplyIncrementalDiff.UC.001
+GraphEngine.SY.001 -cp-> BroadcastChanges.UC.001
+GraphEngine.SY.001 -cp-> ComputeLayout.UC.001
+GraphEngine.SY.001 -cp-> CachePrompts.UC.001
+GraphEngine.SY.001 -cp-> GraphEngineRoot.MD.001
+LLMIntegration.FN.001 -cp-> ProcessLLMRequest.FN.101
+LLMIntegration.FN.001 -cp-> BuildSystemPrompt.FN.102
+LLMIntegration.FN.001 -cp-> ParseLLMResponse.FN.103
+LLMIntegration.FN.001 -cp-> StreamTokens.FN.104
+LLMIntegration.FN.001 -cp-> TrackTokenUsage.FN.105
+CanvasManagement.FN.002 -cp-> ApplyDiff.FN.201
+CanvasManagement.FN.002 -cp-> LoadGraph.FN.202
+CanvasManagement.FN.002 -cp-> GetCanvasState.FN.203
+CanvasManagement.FN.002 -cp-> MarkDirty.FN.204
+CanvasManagement.FN.002 -cp-> PersistToNeo4j.FN.205
+GraphVisualization.FN.003 -cp-> ComputeGraphLayout.FN.301
+GraphVisualization.FN.003 -cp-> ApplyViewFilter.FN.302
+GraphVisualization.FN.003 -cp-> ExtractPorts.FN.303
+GraphVisualization.FN.003 -cp-> ComputeReingoldTilford.FN.304
+GraphVisualization.FN.003 -cp-> ComputeSugiyama.FN.305
+GraphVisualization.FN.003 -cp-> RouteOrthogonal.FN.306
+GraphVisualization.FN.003 -cp-> ComputeRadial.FN.307
+GraphVisualization.FN.003 -cp-> ComputeTreemap.FN.308
+DataPersistence.FN.004 -cp-> CreateNode.FN.401
+DataPersistence.FN.004 -cp-> UpdateNode.FN.402
+DataPersistence.FN.004 -cp-> DeleteNode.FN.403
+DataPersistence.FN.004 -cp-> CreateRelationship.FN.404
+DataPersistence.FN.004 -cp-> QueryGraph.FN.405
+DataPersistence.FN.004 -cp-> BatchPersist.FN.406
+DataPersistence.FN.004 -cp-> CreateAuditLog.FN.407
+TerminalInterface.FN.005 -cp-> RenderChat.FN.501
+TerminalInterface.FN.005 -cp-> RenderGraph.FN.502
+TerminalInterface.FN.005 -cp-> HandleUserInput.FN.503
+TerminalInterface.FN.005 -cp-> DisplayStreamingTokens.FN.504
+TerminalInterface.FN.005 -cp-> InitTmuxLayout.FN.505
+FormatESerialization.FN.006 -cp-> ParseFormatEDiff.FN.601
+FormatESerialization.FN.006 -cp-> SerializeGraph.FN.602
+FormatESerialization.FN.006 -cp-> ValidateFormatESyntax.FN.603
+FormatESerialization.FN.006 -cp-> ExtractOperations.FN.604
+WebSocketSync.FN.007 -cp-> BroadcastUpdate.FN.701
+WebSocketSync.FN.007 -cp-> SerializeToFormatE.FN.702
+TerminalInterface.FN.005 -io-> UserMessageFlow.FL.001
+UserMessageFlow.FL.001 -io-> LLMIntegration.FN.001
+LLMIntegration.FN.001 -io-> LLMResponseFlow.FL.002
+LLMResponseFlow.FL.002 -io-> CanvasManagement.FN.002
+CanvasManagement.FN.002 -io-> CanvasStateFlow.FL.003
+CanvasStateFlow.FL.003 -io-> GraphVisualization.FN.003
+CanvasManagement.FN.002 -io-> PersistenceRequestFlow.FL.004
+PersistenceRequestFlow.FL.004 -io-> DataPersistence.FN.004
+GraphVisualization.FN.003 -io-> LayoutResultFlow.FL.005
+LayoutResultFlow.FL.005 -io-> TerminalInterface.FN.005
+CanvasManagement.FN.002 -io-> BroadcastPayloadFlow.FL.006
+BroadcastPayloadFlow.FL.006 -io-> WebSocketSync.FN.007
+FormatESerialization.FN.006 -io-> FormatEDiffFlow.FL.007
+FormatEDiffFlow.FL.007 -io-> CanvasManagement.FN.002
+WebSocketSync.FN.007 -io-> BroadcastPayloadFlow.FL.006
+HandleUserInput.FN.503 -io-> UserMessageFlow.FL.001
+ProcessLLMRequest.FN.101 -io-> LLMResponseFlow.FL.002
+ParseLLMResponse.FN.103 -io-> ParsedOperations.FL.102
+ApplyDiff.FN.201 -io-> DirtyState.FL.202
+GetCanvasState.FN.203 -io-> CanvasStateFlow.FL.003
+MarkDirty.FN.204 -io-> DirtyState.FL.202
+PersistToNeo4j.FN.205 -io-> PersistenceRequestFlow.FL.004
+ApplyViewFilter.FN.302 -io-> FilteredGraph.FL.301
+ComputeGraphLayout.FN.301 -io-> LayoutResultFlow.FL.005
+ExtractPorts.FN.303 -io-> PortDefinitions.FL.302
+QueryGraph.FN.405 -io-> CypherQuery.FL.401
+BatchPersist.FN.406 -io-> BatchOperations.FL.403
+CreateAuditLog.FN.407 -io-> AuditEntry.FL.404
+ParseFormatEDiff.FN.601 -io-> FormatEDiffFlow.FL.007
+SerializeGraph.FN.602 -io-> FormatEDiffFlow.FL.007
+BroadcastUpdate.FN.701 -io-> BroadcastPayloadFlow.FL.006
+SystemEngineer.AC.001 -io-> UserMessageFlow.FL.001
+AnthropicClaude.AC.001 -io-> LLMResponseFlow.FL.002
+Neo4jDatabase.AC.001 -io-> QueryResult.FL.402
+PersistenceRequestFlow.FL.004 -io-> Neo4jDatabase.AC.001
+BroadcastPayloadFlow.FL.006 -io-> SystemEngineer.AC.001
+DefineSystemViaChat.UC.001 -cp-> UserRequestToGraphUpdate.FC.001
+LoadGraphFromNeo4j.UC.001 -cp-> LoadGraphFromPersistence.FC.001
+ApplyIncrementalDiff.UC.001 -cp-> ApplyDiffToCanvas.FC.001
+ComputeLayout.UC.001 -cp-> ComputeLayoutForView.FC.001
+BroadcastChanges.UC.001 -cp-> SyncWebSocketClients.FC.001
+StreamLLMResponses.UC.001 -cp-> StreamLLMResponse.FC.001
+ManageGraphState.UC.001 -cp-> ApplyDiffToCanvas.FC.001
+ManageGraphState.UC.001 -cp-> PersistDirtyState.FC.001
+UserRequestToGraphUpdate.FC.001 -cp-> SystemEngineer.AC.001
+UserRequestToGraphUpdate.FC.001 -cp-> AnthropicClaude.AC.001
+LoadGraphFromPersistence.FC.001 -cp-> Neo4jDatabase.AC.001
+StreamLLMResponse.FC.001 -cp-> AnthropicClaude.AC.001
+PersistDirtyState.FC.001 -cp-> Neo4jDatabase.AC.001
+SyncWebSocketClients.FC.001 -cp-> SystemEngineer.AC.001
+UserRequestToGraphUpdate.FC.001 -cp-> HandleUserInput.FN.503
+UserRequestToGraphUpdate.FC.001 -cp-> BuildSystemPrompt.FN.102
+UserRequestToGraphUpdate.FC.001 -cp-> ProcessLLMRequest.FN.101
+UserRequestToGraphUpdate.FC.001 -cp-> ParseLLMResponse.FN.103
+UserRequestToGraphUpdate.FC.001 -cp-> ApplyDiff.FN.201
+UserRequestToGraphUpdate.FC.001 -cp-> PersistToNeo4j.FN.205
+UserRequestToGraphUpdate.FC.001 -cp-> BroadcastUpdate.FN.701
+LoadGraphFromPersistence.FC.001 -cp-> QueryGraph.FN.405
+LoadGraphFromPersistence.FC.001 -cp-> ParseFormatEDiff.FN.601
+LoadGraphFromPersistence.FC.001 -cp-> LoadGraph.FN.202
+ApplyDiffToCanvas.FC.001 -cp-> ParseFormatEDiff.FN.601
+ApplyDiffToCanvas.FC.001 -cp-> ValidateFormatESyntax.FN.603
+ApplyDiffToCanvas.FC.001 -cp-> ApplyDiff.FN.201
+ApplyDiffToCanvas.FC.001 -cp-> MarkDirty.FN.204
+ApplyDiffToCanvas.FC.001 -cp-> BroadcastUpdate.FN.701
+ComputeLayoutForView.FC.001 -cp-> ApplyViewFilter.FN.302
+ComputeLayoutForView.FC.001 -cp-> ExtractPorts.FN.303
+ComputeLayoutForView.FC.001 -cp-> ComputeGraphLayout.FN.301
+PersistDirtyState.FC.001 -cp-> MarkDirty.FN.204
+PersistDirtyState.FC.001 -cp-> BatchPersist.FN.406
+PersistDirtyState.FC.001 -cp-> CreateAuditLog.FN.407
+StreamLLMResponse.FC.001 -cp-> BuildSystemPrompt.FN.102
+StreamLLMResponse.FC.001 -cp-> ProcessLLMRequest.FN.101
+StreamLLMResponse.FC.001 -cp-> StreamTokens.FN.104
+StreamLLMResponse.FC.001 -cp-> DisplayStreamingTokens.FN.504
+StreamLLMResponse.FC.001 -cp-> ParseLLMResponse.FN.103
+StreamLLMResponse.FC.001 -cp-> ExtractOperations.FN.604
+SyncWebSocketClients.FC.001 -cp-> MarkDirty.FN.204
+SyncWebSocketClients.FC.001 -cp-> SerializeToFormatE.FN.702
+SyncWebSocketClients.FC.001 -cp-> BroadcastUpdate.FN.701
+UserRequestToGraphUpdate.FC.001 -cp-> UserMessageFlow.FL.001
+UserRequestToGraphUpdate.FC.001 -cp-> SystemPrompt.FL.101
+UserRequestToGraphUpdate.FC.001 -cp-> LLMResponseFlow.FL.002
+UserRequestToGraphUpdate.FC.001 -cp-> ParsedOperations.FL.102
+UserRequestToGraphUpdate.FC.001 -cp-> BroadcastPayloadFlow.FL.006
+LoadGraphFromPersistence.FC.001 -cp-> CypherQuery.FL.401
+LoadGraphFromPersistence.FC.001 -cp-> QueryResult.FL.402
+LoadGraphFromPersistence.FC.001 -cp-> CanvasStateFlow.FL.003
+StreamLLMResponse.FC.001 -cp-> SystemPrompt.FL.101
+StreamLLMResponse.FC.001 -cp-> TokenStream.FL.103
+StreamLLMResponse.FC.001 -cp-> LLMResponseFlow.FL.002
+StreamLLMResponse.FC.001 -cp-> ParsedOperations.FL.102
+LLMIntegration.FN.001 -sat-> NaturalLanguageInterface.RQ.001
+LLMIntegration.FN.001 -sat-> PromptCaching.RQ.010
+LLMIntegration.FN.001 -sat-> LLMResponseTime.RQ.012
+CanvasManagement.FN.002 -sat-> CanvasStateManagement.RQ.004
+CanvasManagement.FN.002 -sat-> GraphScalability.RQ.014
+GraphVisualization.FN.003 -sat-> FiveSpecializedViews.RQ.005
+GraphVisualization.FN.003 -sat-> LayoutPerformance.RQ.011
+GraphVisualization.FN.003 -sat-> RenderingPerformance.RQ.013
+DataPersistence.FN.004 -sat-> DataPersistenceReq.RQ.016
+DataPersistence.FN.004 -sat-> AuditLogging.RQ.009
+TerminalInterface.FN.005 -sat-> NaturalLanguageInterface.RQ.001
+FormatESerialization.FN.006 -sat-> FormatESerialization.RQ.006
+FormatESerialization.FN.006 -sat-> OntologyCompliance.RQ.002
+WebSocketSync.FN.007 -sat-> ConcurrentUsers.RQ.015
+WebSocketSync.FN.007 -sat-> MultiTenancy.RQ.003
+DefineSystemViaChat.UC.001 -sat-> NaturalLanguageInterface.RQ.001
+VisualizeMultipleViews.UC.001 -sat-> FiveSpecializedViews.RQ.005
+LLMGuidedModeling.UC.001 -sat-> NaturalLanguageInterface.RQ.001
+AutoDeriveStructures.UC.001 -sat-> LLMAutoDerivation.RQ.007
+ValidateOntology.UC.001 -sat-> ValidationAdvisor.RQ.008
+ValidateOntology.UC.001 -sat-> OntologyCompliance.RQ.002
+CollaborateMultiUser.UC.001 -sat-> MultiTenancy.RQ.003
+CollaborateMultiUser.UC.001 -sat-> ConcurrentUsers.RQ.015
+PersistAndRecover.UC.001 -sat-> DataPersistenceReq.RQ.016
+PersistAndRecover.UC.001 -sat-> AuditLogging.RQ.009
+StreamLLMResponses.UC.001 -sat-> LLMResponseTime.RQ.012
+ManageGraphState.UC.001 -sat-> CanvasStateManagement.RQ.004
+ComputeLayout.UC.001 -sat-> LayoutPerformance.RQ.011
+CachePrompts.UC.001 -sat-> PromptCaching.RQ.010
+NaturalLanguageInterface.RQ.001 -ver-> TestNaturalLanguageChat.TC.001
+OntologyCompliance.RQ.002 -ver-> TestOntologyValidation.TC.002
+MultiTenancy.RQ.003 -ver-> TestMultiTenantIsolation.TC.003
+CanvasStateManagement.RQ.004 -ver-> TestCanvasDiffApplication.TC.004
+FiveSpecializedViews.RQ.005 -ver-> TestViewSwitching.TC.005
+FormatESerialization.RQ.006 -ver-> TestFormatEParsing.TC.006
+LLMAutoDerivation.RQ.007 -ver-> TestAutoDerivation.TC.007
+ValidationAdvisor.RQ.008 -ver-> TestValidationRules.TC.008
+AuditLogging.RQ.009 -ver-> TestAuditLogQuery.TC.009
+PromptCaching.RQ.010 -ver-> TestPromptCacheHit.TC.010
+LayoutPerformance.RQ.011 -ver-> TestLayoutSpeed.TC.011
+DataPersistenceReq.RQ.016 -ver-> TestCrashRecovery.TC.012
+GraphEngineRoot.MD.001 -cp-> CanvasModule.MD.001
+GraphEngineRoot.MD.001 -cp-> GraphEngineModule.MD.002
+GraphEngineRoot.MD.001 -cp-> LLMEngineModule.MD.003
+GraphEngineRoot.MD.001 -cp-> Neo4jClientModule.MD.004
+GraphEngineRoot.MD.001 -cp-> TerminalUIModule.MD.005
+GraphEngineRoot.MD.001 -cp-> SharedModule.MD.006
+GraphEngineRoot.MD.001 -cp-> LayoutModule.MD.007
+CanvasModule.MD.001 -cp-> CanvasBaseFile.MD.101
+CanvasModule.MD.001 -cp-> GraphCanvasFile.MD.102
+CanvasModule.MD.001 -cp-> ChatCanvasFile.MD.103
+CanvasModule.MD.001 -cp-> WebSocketServerFile.MD.104
+CanvasModule.MD.001 -cp-> WebSocketClientFile.MD.105
+GraphEngineModule.MD.002 -cp-> GraphEngineImplFile.MD.201
+GraphEngineModule.MD.002 -cp-> ViewFilterFile.MD.202
+GraphEngineModule.MD.002 -cp-> PortExtractorFile.MD.203
+GraphEngineModule.MD.002 -cp-> ReingoldTilfordFile.MD.204
+LLMEngineModule.MD.003 -cp-> LLMEngineImplFile.MD.301
+LLMEngineModule.MD.003 -cp-> PromptBuilderFile.MD.302
+LLMEngineModule.MD.003 -cp-> ResponseParserFile.MD.303
+LLMEngineModule.MD.003 -cp-> AgentDBServiceFile.MD.304
+Neo4jClientModule.MD.004 -cp-> Neo4jClientImplFile.MD.401
+Neo4jClientModule.MD.004 -cp-> SessionManagerFile.MD.402
+TerminalUIModule.MD.005 -cp-> ChatInterfaceFile.MD.501
+TerminalUIModule.MD.005 -cp-> GraphViewerFile.MD.502
+TerminalUIModule.MD.005 -cp-> AsciiGridFile.MD.503
+TerminalUIModule.MD.005 -cp-> AppFile.MD.504
+SharedModule.MD.006 -cp-> ParsersModule.MD.601
+SharedModule.MD.006 -cp-> TypesModule.MD.602
+SharedModule.MD.006 -cp-> ConfigFile.MD.603
+ParsersModule.MD.601 -cp-> FormatEParserFile.MD.604
+TypesModule.MD.602 -cp-> OntologyTypesFile.MD.605
+LayoutModule.MD.007 -cp-> RadialLayoutFile.MD.701
+LayoutModule.MD.007 -cp-> OrthogonalLayoutFile.MD.702
+LayoutModule.MD.007 -cp-> SugiyamaLayoutFile.MD.703
+LayoutModule.MD.007 -cp-> TreemapLayoutFile.MD.704
+GraphCanvasFile.MD.102 -alc-> ApplyDiff.FN.201
+GraphCanvasFile.MD.102 -alc-> LoadGraph.FN.202
+GraphCanvasFile.MD.102 -alc-> GetCanvasState.FN.203
+GraphCanvasFile.MD.102 -alc-> MarkDirty.FN.204
+GraphCanvasFile.MD.102 -alc-> PersistToNeo4j.FN.205
+WebSocketServerFile.MD.104 -alc-> BroadcastUpdate.FN.701
+WebSocketClientFile.MD.105 -alc-> SerializeToFormatE.FN.702
+LLMEngineImplFile.MD.301 -alc-> ProcessLLMRequest.FN.101
+PromptBuilderFile.MD.302 -alc-> BuildSystemPrompt.FN.102
+ResponseParserFile.MD.303 -alc-> ParseLLMResponse.FN.103
+LLMEngineImplFile.MD.301 -alc-> StreamTokens.FN.104
+LLMEngineImplFile.MD.301 -alc-> TrackTokenUsage.FN.105
+GraphEngineImplFile.MD.201 -alc-> ComputeGraphLayout.FN.301
+ViewFilterFile.MD.202 -alc-> ApplyViewFilter.FN.302
+PortExtractorFile.MD.203 -alc-> ExtractPorts.FN.303
+ReingoldTilfordFile.MD.204 -alc-> ComputeReingoldTilford.FN.304
+SugiyamaLayoutFile.MD.703 -alc-> ComputeSugiyama.FN.305
+OrthogonalLayoutFile.MD.702 -alc-> RouteOrthogonal.FN.306
+RadialLayoutFile.MD.701 -alc-> ComputeRadial.FN.307
+TreemapLayoutFile.MD.704 -alc-> ComputeTreemap.FN.308
+Neo4jClientImplFile.MD.401 -alc-> CreateNode.FN.401
+Neo4jClientImplFile.MD.401 -alc-> UpdateNode.FN.402
+Neo4jClientImplFile.MD.401 -alc-> DeleteNode.FN.403
+Neo4jClientImplFile.MD.401 -alc-> CreateRelationship.FN.404
+Neo4jClientImplFile.MD.401 -alc-> QueryGraph.FN.405
+Neo4jClientImplFile.MD.401 -alc-> BatchPersist.FN.406
+Neo4jClientImplFile.MD.401 -alc-> CreateAuditLog.FN.407
+ChatInterfaceFile.MD.501 -alc-> RenderChat.FN.501
+GraphViewerFile.MD.502 -alc-> RenderGraph.FN.502
+ChatInterfaceFile.MD.501 -alc-> HandleUserInput.FN.503
+ChatInterfaceFile.MD.501 -alc-> DisplayStreamingTokens.FN.504
+AppFile.MD.504 -alc-> InitTmuxLayout.FN.505
+FormatEParserFile.MD.604 -alc-> ParseFormatEDiff.FN.601
+FormatEParserFile.MD.604 -alc-> SerializeGraph.FN.602
+FormatEParserFile.MD.604 -alc-> ValidateFormatESyntax.FN.603
+FormatEParserFile.MD.604 -alc-> ExtractOperations.FN.604
+OntologyTypesSchema.SC.001 -rel-> ValidateFormatESyntax.FN.603
+OntologyTypesSchema.SC.001 -rel-> ApplyDiff.FN.201
+OntologyTypesSchema.SC.001 -rel-> ApplyViewFilter.FN.302
+CanvasStateSchema.SC.002 -rel-> GetCanvasState.FN.203
+CanvasStateSchema.SC.002 -rel-> ApplyDiff.FN.201
+FormatESchema.SC.003 -rel-> ParseFormatEDiff.FN.601
+FormatESchema.SC.003 -rel-> SerializeGraph.FN.602
+ViewTypesSchema.SC.004 -rel-> ApplyViewFilter.FN.302
+ViewTypesSchema.SC.004 -rel-> ComputeGraphLayout.FN.301
+LayoutTypesSchema.SC.005 -rel-> ComputeGraphLayout.FN.301
+LLMTypesSchema.SC.006 -rel-> ProcessLLMRequest.FN.101
+LLMTypesSchema.SC.006 -rel-> BuildSystemPrompt.FN.102
+Neo4jTypesSchema.SC.007 -rel-> QueryGraph.FN.405
+Neo4jTypesSchema.SC.007 -rel-> BatchPersist.FN.406
+CanvasStateFlow.FL.003 -rel-> CanvasStateSchema.SC.002
+FormatEDiffFlow.FL.007 -rel-> FormatESchema.SC.003
+LLMResponseFlow.FL.002 -rel-> LLMTypesSchema.SC.006
+LayoutResultFlow.FL.005 -rel-> LayoutTypesSchema.SC.005
+CypherQuery.FL.401 -rel-> Neo4jTypesSchema.SC.007
+QueryResult.FL.402 -rel-> Neo4jTypesSchema.SC.007
+GraphEngineRoot.MD.001 -cp-> FormatESerializationModule.MD.008
+FormatESerializationModule.MD.008 -cp-> ParsersModule.MD.601
+FormatESerializationModule.MD.008 -alc-> ParseFormatEDiff.FN.601
+FormatESerializationModule.MD.008 -alc-> SerializeGraph.FN.602
+FormatESerializationModule.MD.008 -alc-> ValidateFormatESyntax.FN.603
+FormatESerializationModule.MD.008 -alc-> ExtractOperations.FN.604
+CanvasManagement.FN.002 -cp-> FormatESerialization.FN.006
+LLMIntegration.FN.001 -cp-> ValidateFormatESyntax.FN.603
+CanvasManagement.FN.002 -cp-> ParseFormatEDiff.FN.601
+CanvasManagement.FN.002 -cp-> ValidateFormatESyntax.FN.603
+LLMResponseFlow.FL.002 -rel-> FormatETransport.SC.008
+FormatEDiffFlow.FL.007 -rel-> FormatETransport.SC.008
+BroadcastPayloadFlow.FL.006 -rel-> FormatETransport.SC.008
+PersistenceRequestFlow.FL.004 -rel-> FormatETransport.SC.008
+GraphEngine.SY.001 -cp-> ClientManagement.FN.008
+ClientManagement.FN.008 -cp-> BroadcastUpdate.FN.801
+ClientManagement.FN.008 -cp-> SyncClientState.FN.802
+ClientManagement.FN.008 -cp-> ManageConnections.FN.803
+ClientManagement.FN.008 -io-> BroadcastPayloadFlow.FL.006
+BroadcastPayloadFlow.FL.006 -io-> ClientManagement.FN.008
+DirtyState.FL.202 -io-> ClientManagement.FN.008
+BroadcastUpdate.FN.801 -io-> BroadcastPayloadFlow.FL.006
+BroadcastChanges.UC.001 -cp-> SyncClients.FC.008
+SyncClients.FC.008 -cp-> MarkDirty.FN.204
+SyncClients.FC.008 -cp-> BroadcastUpdate.FN.801
+SyncClients.FC.008 -cp-> SyncClientState.FN.802
+ClientManagement.FN.008 -sat-> ConcurrentUsers.RQ.015
+ClientManagement.FN.008 -sat-> MultiTenancy.RQ.003
+WebSocketServerFile.MD.104 -alc-> BroadcastUpdate.FN.801
+WebSocketServerFile.MD.104 -alc-> ManageConnections.FN.803
+WebSocketClientFile.MD.105 -alc-> SyncClientState.FN.802
+UserMessageFlow.FL.001 -rel-> PlainTextFormat.SC.010
+UserMessageFlow.FL.001 -rel-> RequestResponseProtocol.SC.011
+LLMResponseFlow.FL.002 -rel-> StreamingProtocol.SC.009
+CanvasStateFlow.FL.003 -rel-> FormatETransport.SC.008
+CanvasStateFlow.FL.003 -rel-> RequestResponseProtocol.SC.011
+PersistenceRequestFlow.FL.004 -rel-> RequestResponseProtocol.SC.011
+BroadcastPayloadFlow.FL.006 -rel-> WebSocketProtocol.SC.012
+FormatEDiffFlow.FL.007 -rel-> RequestResponseProtocol.SC.011
+SystemPrompt.FL.101 -rel-> PlainTextFormat.SC.010
+SystemPrompt.FL.101 -rel-> RequestResponseProtocol.SC.011
+ParsedOperations.FL.102 -rel-> FormatETransport.SC.008
+ParsedOperations.FL.102 -rel-> RequestResponseProtocol.SC.011
+TokenStream.FL.103 -rel-> PlainTextFormat.SC.010
+TokenStream.FL.103 -rel-> StreamingProtocol.SC.009
+TokenUsageReport.FL.104 -rel-> PlainTextFormat.SC.010
+TokenUsageReport.FL.104 -rel-> RequestResponseProtocol.SC.011
+DiffOperations.FL.201 -rel-> FormatETransport.SC.008
+DiffOperations.FL.201 -rel-> RequestResponseProtocol.SC.011
+DirtyState.FL.202 -rel-> FormatETransport.SC.008
+DirtyState.FL.202 -rel-> RequestResponseProtocol.SC.011
+FilteredGraph.FL.301 -rel-> FormatETransport.SC.008
+FilteredGraph.FL.301 -rel-> RequestResponseProtocol.SC.011
+PortDefinitions.FL.302 -rel-> FormatETransport.SC.008
+PortDefinitions.FL.302 -rel-> RequestResponseProtocol.SC.011
+ViewConfig.FL.303 -rel-> PlainTextFormat.SC.010
+ViewConfig.FL.303 -rel-> RequestResponseProtocol.SC.011
+CypherQuery.FL.401 -rel-> PlainTextFormat.SC.010
+CypherQuery.FL.401 -rel-> RequestResponseProtocol.SC.011
+QueryResult.FL.402 -rel-> FormatETransport.SC.008
+QueryResult.FL.402 -rel-> RequestResponseProtocol.SC.011
+BatchOperations.FL.403 -rel-> FormatETransport.SC.008
+BatchOperations.FL.403 -rel-> RequestResponseProtocol.SC.011
+AuditEntry.FL.404 -rel-> FormatETransport.SC.008
+AuditEntry.FL.404 -rel-> RequestResponseProtocol.SC.011
+LayoutResultFlow.FL.005 -rel-> FormatETransport.SC.008
+LayoutResultFlow.FL.005 -rel-> RequestResponseProtocol.SC.011
+FormatETypes.SC.001 -rel-> ValidateFormatESyntax.FN.603
+FormatETypes.SC.001 -rel-> ApplyDiff.FN.201
+FormatETypes.SC.001 -rel-> ApplyViewFilter.FN.302
+FormatETypes.SC.001 -rel-> ParseFormatEDiff.FN.601
+FormatETypes.SC.001 -rel-> SerializeGraph.FN.602
+LLMResponseFlow.FL.002 -rel-> FormatETypes.SC.001
+FormatEDiffFlow.FL.007 -rel-> FormatETypes.SC.001
+BroadcastPayloadFlow.FL.006 -rel-> FormatETypes.SC.001
+PersistenceRequestFlow.FL.004 -rel-> FormatETypes.SC.001
+CanvasStateFlow.FL.003 -rel-> FormatETypes.SC.001
+QueryResult.FL.402 -rel-> FormatETypes.SC.001
+BatchOperations.FL.403 -rel-> FormatETypes.SC.001
+AuditEntry.FL.404 -rel-> FormatETypes.SC.001
+LayoutResultFlow.FL.005 -rel-> FormatETypes.SC.001
+ParsedOperations.FL.102 -rel-> FormatETypes.SC.001
+DiffOperations.FL.201 -rel-> FormatETypes.SC.001
+DirtyState.FL.202 -rel-> FormatETypes.SC.001
+FilteredGraph.FL.301 -rel-> FormatETypes.SC.001
+PortDefinitions.FL.302 -rel-> FormatETypes.SC.001
+DataPersistence.FN.004 -io-> QueryResult.FL.402
+TokenStream.FL.103 -io-> TerminalInterface.FN.005
+LLMResponseFlow.FL.002 -io-> ParseFormatEDiff.FN.601
+ApplyDiff.FN.201 -io-> MarkDirty.FN.204
+PersistenceRequestFlow.FL.004 -io-> BatchPersist.FN.406
+BatchOperations.FL.403 -io-> CreateNode.FN.401
+BatchOperations.FL.403 -io-> UpdateNode.FN.402
+BatchOperations.FL.403 -io-> DeleteNode.FN.403
+BatchOperations.FL.403 -io-> CreateRelationship.FN.404
+CypherQuery.FL.401 -io-> QueryGraph.FN.405
+AuditEntry.FL.404 -io-> CreateAuditLog.FN.407
+LLMIntegration.FN.001 -io-> TokenStream.FL.103
+CanvasManagement.FN.002 -io-> DirtyState.FL.202
+GraphEngine.SY.001 -cp-> MultiAgentArchitecture.UC.002
+LLMIntegration.FN.001 -cp-> CoordinateAgents.FN.901
+LLMIntegration.FN.001 -cp-> ValidateArchitecture.FN.902
+LLMIntegration.FN.001 -cp-> ClassifyNodeType.FN.903
+LLMIntegration.FN.001 -cp-> GenerateAgentPrompts.FN.904
+LLMIntegration.FN.001 -cp-> ExecuteReviewFlow.FN.905
+LLMIntegration.FN.001 -cp-> BuildDecisionQueries.FN.906
+MultiAgentArchitecture.UC.002 -sat-> ValidationAdvisor.RQ.008
+MultiAgentArchitecture.UC.002 -sat-> OntologyCompliance.RQ.002
+LLMEngineModule.MD.003 -cp-> AgentsModule.MD.901
+AgentsModule.MD.901 -cp-> AgentCoordinatorFile.MD.902
+AgentsModule.MD.901 -cp-> ArchitectureValidatorFile.MD.903
+AgentsModule.MD.901 -cp-> DecisionTreeFile.MD.904
+AgentsModule.MD.901 -cp-> AgentPromptsFile.MD.905
+AgentsModule.MD.901 -cp-> ReviewFlowFile.MD.906
+AgentsModule.MD.901 -cp-> ValidationQueriesFile.MD.907
+AgentsModule.MD.901 -cp-> AgentTypesFile.MD.908
+LLMEngineModule.MD.003 -cp-> MultiAgentProcessorFile.MD.909
+LLMEngineModule.MD.003 -cp-> AutoDerivationFile.MD.305
+TerminalUIModule.MD.005 -cp-> TerminalGraphicsFile.MD.506
+AgentCoordinatorFile.MD.902 -alc-> CoordinateAgents.FN.901
+ArchitectureValidatorFile.MD.903 -alc-> ValidateArchitecture.FN.902
+DecisionTreeFile.MD.904 -alc-> ClassifyNodeType.FN.903
+AgentPromptsFile.MD.905 -alc-> GenerateAgentPrompts.FN.904
+ReviewFlowFile.MD.906 -alc-> ExecuteReviewFlow.FN.905
+ValidationQueriesFile.MD.907 -alc-> BuildDecisionQueries.FN.906
+CoordinateAgents.FN.901 -io-> AgentHandoffFlow.FL.901
+AgentHandoffFlow.FL.901 -io-> ValidateArchitecture.FN.902
+ValidateArchitecture.FN.902 -io-> ValidationResultFlow.FL.902
+ValidationResultFlow.FL.902 -io-> ExecuteReviewFlow.FN.905

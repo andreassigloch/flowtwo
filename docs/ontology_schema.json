@@ -1,10 +1,10 @@
 {
-  "version": "3.0.6",
-  "change_comment": "Added 3-Layer FLOW/SCHEMA model (Semantik → Datenformat → Protokoll) for INCOSE/SysML 2.0 conformance",
+  "version": "3.0.7",
+  "change_comment": "Removed SYS→SYS compose - use FUNC→FUNC for logical decomposition per System Decomposition Rules",
   "schema": {
     "nodes": {
       "SYS": {
-        "description": "System that can contain other systems or use cases",
+        "description": "Top-level system boundary ONLY. Use FUNC for logical decomposition, not nested SYS",
         "order": 1,
         "required_properties": {
           "Name": "string (max 25 chars, PascalCase)",
@@ -98,7 +98,7 @@
     },
     "relationships": {
       "compose": {
-        "description": "Represents composition relationship",
+        "description": "Represents composition relationship. SYS→SYS is valid but ONLY for external/purchased subsystems - default to FUNC→FUNC for logical decomposition",
         "isNesting": true,
         "valid_connections": [
           ["SYS", "SYS"],

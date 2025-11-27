@@ -434,10 +434,11 @@ export class ArchitectureValidator {
   }
 
   /**
-   * V10: No nested SYS nodes (subsystems should be FUNC)
+   * V10: Nested SYS review (subsystems should usually be FUNC)
    *
-   * In logical architecture, use FUNC for decomposition, not nested SYS.
-   * SYS should only be used for the top-level system boundary.
+   * SYS→SYS is valid but ONLY for: purchased/third-party, different team, black-box.
+   * Default should be FUNC→FUNC for logical decomposition.
+   * This is a WARNING to prompt review, not an error.
    */
   private validateNoNestedSYS(
     nodes: ParsedNode[],
@@ -456,27 +457,28 @@ export class ArchitectureValidator {
       );
 
       if (hasParentSYS) {
+        // Warning: nested SYS should be reviewed - might need to be FUNC
         errors.push({
           code: 'V10',
-          severity: 'error',
+          severity: 'warning',
           semanticId: sys.semanticId,
-          issue: `Nested SYS "${sys.name}" should be a FUNC, not a subsystem`,
-          suggestion: 'Convert to FUNC for logical decomposition',
-          incoseReference: 'SysML 2.0: Use Activities (FUNC) for logical architecture, not nested Blocks (SYS)',
+          issue: `Nested SYS "${sys.name}" - verify subsystem criteria are met`,
+          suggestion: 'Use FUNC unless: purchased/third-party, different team, black-box integration',
+          incoseReference: 'System Decomposition Rules: Default FUNC, SYS only when all criteria met',
         });
       }
     }
 
-    // Also check for SYS nodes with "Subsystem" in name
+    // Check for SYS nodes with "Subsystem" in name - likely misclassification
     for (const sys of sysNodes) {
       if (sys.name.toLowerCase().includes('subsystem')) {
         errors.push({
           code: 'V10',
-          severity: 'error',
+          severity: 'warning',
           semanticId: sys.semanticId,
-          issue: `"${sys.name}" should be a FUNC, not a SYS - use FUNC for logical subsystems`,
-          suggestion: 'Convert to FUNC type',
-          incoseReference: 'SysML 2.0: Logical architecture uses Activities (FUNC)',
+          issue: `"${sys.name}" named as subsystem - review if FUNC is more appropriate`,
+          suggestion: 'Rename or convert to FUNC unless truly external/black-box',
+          incoseReference: 'System Decomposition Rules: "Subsystem" terminology often indicates FUNC',
         });
       }
     }

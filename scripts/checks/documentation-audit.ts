@@ -82,23 +82,22 @@ function analyzeFile(filename: string): AuditResult {
 
   // Terminal solution
   if (filename === '3TERMINAL_SOLUTION.md') {
-    // Check if tmux solution is implemented
-    const graphengineShExists = fs.existsSync(path.join(ROOT_DIR, 'graphengine.sh'));
-    const launchScriptExists = fs.existsSync(path.join(ROOT_DIR, 'launch-3terminals.sh'));
+    // Check if startup.sh exists (multi-terminal solution)
+    const startupShExists = fs.existsSync(path.join(ROOT_DIR, 'startup.sh'));
 
-    if (graphengineShExists && launchScriptExists) {
+    if (startupShExists) {
       return {
         file: filename,
         category: 'implemented',
         action: `Move to docs/archive/${filename}`,
-        reason: 'Tmux solution implemented (graphengine.sh, launch-3terminals.sh exist)'
+        reason: 'Multi-terminal solution implemented (startup.sh exists)'
       };
     } else {
       return {
         file: filename,
         category: 'unimplemented',
-        action: 'Create CR-006-implement-tmux-solution.md',
-        reason: 'Tmux solution not fully implemented'
+        action: 'Create CR for terminal solution',
+        reason: 'Terminal solution not fully implemented'
       };
     }
   }

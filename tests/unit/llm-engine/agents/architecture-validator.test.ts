@@ -252,8 +252,8 @@ describe('ArchitectureValidator', () => {
       });
     });
 
-    describe('V10: No nested SYS (subsystems)', () => {
-      it('should error when SYS is composed into another SYS', () => {
+    describe('V10: Nested SYS review (default to FUNC)', () => {
+      it('should warn when SYS is composed into another SYS', () => {
         const formatE = `
 ## Nodes
 + DroneDefense|SYS|DroneDefense.SY.001|Main system
@@ -268,10 +268,11 @@ describe('ArchitectureValidator', () => {
 
         expect(v10Errors.length).toBeGreaterThan(0);
         expect(v10Errors[0].semanticId).toBe('SensorSubsystem.SY.002');
+        expect(v10Errors[0].severity).toBe('warning');
         expect(v10Errors[0].suggestion).toContain('FUNC');
       });
 
-      it('should error when SYS has Subsystem in name', () => {
+      it('should warn when SYS has Subsystem in name', () => {
         const formatE = `
 ## Nodes
 + TrackingSubsystem|SYS|TrackingSubsystem.SY.001|Tracking
@@ -283,6 +284,7 @@ describe('ArchitectureValidator', () => {
         const v10Errors = errors.filter((e) => e.code === 'V10');
 
         expect(v10Errors.length).toBe(1);
+        expect(v10Errors[0].severity).toBe('warning');
         expect(v10Errors[0].issue).toContain('FUNC');
       });
 
