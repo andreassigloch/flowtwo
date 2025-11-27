@@ -218,4 +218,45 @@ export class AgentDBLogger {
   static setEnabled(enabled: boolean): void {
     this.enabled = enabled;
   }
+
+  /**
+   * Log agent activity (CR-024)
+   */
+  static agentActivity(
+    agentId: string,
+    action: string,
+    details?: string
+  ): void {
+    const detailsStr = details ? ` ${details}` : '';
+    this.log(
+      AgentDBLogLevel.INFO,
+      `🤖 AGENT [${agentId}] ${action}${detailsStr}`
+    );
+  }
+
+  /**
+   * Log agent validation result (CR-024)
+   */
+  static validationResult(
+    errorCount: number,
+    warningCount: number
+  ): void {
+    this.log(
+      AgentDBLogLevel.INFO,
+      `✅ VALIDATION: ${errorCount} errors, ${warningCount} warnings`
+    );
+  }
+
+  /**
+   * Log agent review question (CR-024)
+   */
+  static reviewQuestion(
+    semanticId: string,
+    question: string
+  ): void {
+    this.log(
+      AgentDBLogLevel.INFO,
+      `❓ REVIEW [${semanticId}] ${question.substring(0, 60)}...`
+    );
+  }
 }
