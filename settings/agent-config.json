@@ -1,0 +1,389 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "graphengine-agent-config",
+  "version": "1.0.0",
+  "description": "Agent behavior configuration: roles, responsibilities, workflow routing, tool access. Separate from ontology-rules.json which defines WHAT is correct (domain knowledge).",
+
+  "meta": {
+    "author": "andreas@siglochconsulting",
+    "created": "2025-11-28",
+    "relatedFiles": {
+      "ontologyRules": "settings/ontology-rules.json",
+      "prompts": "settings/prompts/"
+    }
+  },
+
+  "agents": {
+    "requirements-engineer": {
+      "role": "Extract requirements from stakeholder input",
+      "description": "Parses natural language descriptions into structured UC, REQ, ACTOR nodes. Ensures requirement completeness and traceability.",
+      "responsibilities": [
+        "Parse user descriptions into UC, REQ, ACTOR nodes",
+        "Validate requirement completeness (INVEST criteria)",
+        "Create satisfy edges UC→REQ",
+        "Identify NFRs and link to SYS",
+        "Detect ambiguities and ask clarifying questions"
+      ],
+      "inputPhases": ["phase0_concept", "phase1_requirements"],
+      "outputNodeTypes": ["SYS", "UC", "REQ", "ACTOR"],
+      "outputEdgeTypes": ["compose", "satisfy"],
+      "promptTemplate": "settings/prompts/requirements-engineer.md",
+      "toolAccess": ["graph_read", "graph_write", "validation_check", "user_question"],
+      "decisionTrees": [],
+      "successCriteria": {
+        "rules": ["req_semantic_id", "uc_satisfy_req", "required_properties", "naming"],
+        "minReward": 0.7
+      },
+      "outputFormat": {
+        "nodes": "Format E node definitions",
+        "edges": "Format E edge definitions",
+        "questions": "Structured clarification requests"
+      }
+    },
+
+    "system-architect": {
+      "role": "Design logical and physical architecture",
+      "description": "Generates FUNC decomposition from requirements. Applies decision trees for classification, enforces Miller's Law, creates FLOW interfaces with 3-layer model.",
+      "responsibilities": [
+        "Generate FUNC decomposition from UC/REQ",
+        "Apply decision trees for node classification",
+        "Enforce Miller's Law (5-9 children per parent)",
+        "Create FLOW interfaces with 3-layer model",
+        "Assign volatility levels to FUNC nodes",
+        "Allocate FUNC to MOD (physical architecture)",
+        "Ensure high-volatility FUNC isolation"
+      ],
+      "inputPhases": ["phase2_logical", "phase3_physical"],
+      "outputNodeTypes": ["FUNC", "FLOW", "SCHEMA", "MOD"],
+      "outputEdgeTypes": ["compose", "io", "relation", "allocate"],
+      "promptTemplate": "settings/prompts/system-architect.md",
+      "toolAccess": ["graph_read", "graph_write", "validation_check", "layout_compute"],
+      "decisionTrees": [
+        "nestingVsSubsystem",
+        "subsystemCriteria",
+        "actorVsSubsystem",
+        "volatilityClassification",
+        "allocationOptimization",
+        "moduleCohesion"
+      ],
+      "successCriteria": {
+        "rules": [
+          "millers_law_func",
+          "millers_law_mod",
+          "function_requirements",
+          "function_io",
+          "flow_connectivity",
+          "flow_data_schema",
+          "nested_func_isolation",
+          "volatile_func_isolation",
+          "function_allocation"
+        ],
+        "minReward": 0.7
+      },
+      "outputFormat": {
+        "nodes": "Format E node definitions with volatility property",
+        "edges": "Format E edge definitions",
+        "rationale": "Brief explanation of architectural decisions"
+      }
+    },
+
+    "architecture-reviewer": {
+      "role": "Validate INCOSE/SysML conformance",
+      "description": "Checks current graph against validation rules. Identifies misclassifications, generates correction suggestions, creates work items for fixes.",
+      "responsibilities": [
+        "Check current graph against all validation rules",
+        "Identify node type misclassifications",
+        "Detect missing edges (satisfy, io, allocate, verify)",
+        "Generate structured correction suggestions",
+        "Create work items for responsible agents",
+        "Validate phase gate readiness"
+      ],
+      "inputPhases": ["all"],
+      "outputNodeTypes": [],
+      "outputEdgeTypes": [],
+      "promptTemplate": "settings/prompts/architecture-reviewer.md",
+      "toolAccess": ["graph_read", "validation_check", "workitem_create"],
+      "decisionTrees": [],
+      "reviewTriggers": [
+        "after_agent_action",
+        "phase_gate_check",
+        "user_request",
+        "periodic_30min"
+      ],
+      "successCriteria": {
+        "rules": [],
+        "completeness": "All violations identified and routed"
+      },
+      "outputFormat": {
+        "errors": [
+          {
+            "ruleId": "string",
+            "semanticIds": ["array of affected nodes"],
+            "severity": "error|warning",
+            "suggestion": "Fix instruction from llmContext.suggestionMap"
+          }
+        ],
+        "workItems": [
+          {
+            "targetAgent": "string",
+            "action": "string",
+            "affectedNodes": ["array"],
+            "priority": "high|medium|low"
+          }
+        ],
+        "gateStatus": {
+          "phase": "string",
+          "ready": "boolean",
+          "blockers": ["array of blocking rule IDs"]
+        }
+      }
+    },
+
+    "functional-analyst": {
+      "role": "Create activity sequences and actor boundaries",
+      "description": "Creates FCHAIN for each leaf UC. Defines ACTOR boundaries, sequences FUNC within chains, connects via FLOW nodes.",
+      "responsibilities": [
+        "Create FCHAIN for each leaf UC",
+        "Define ACTOR boundaries (start/end of chain)",
+        "Sequence FUNC within FCHAIN (activity diagram)",
+        "Connect FUNC via FLOW nodes",
+        "Ensure at least 2 ACTORs per FCHAIN"
+      ],
+      "inputPhases": ["phase2_logical"],
+      "outputNodeTypes": ["FCHAIN", "ACTOR", "FLOW"],
+      "outputEdgeTypes": ["compose", "io"],
+      "promptTemplate": "settings/prompts/functional-analyst.md",
+      "toolAccess": ["graph_read", "graph_write"],
+      "decisionTrees": ["actorVsSubsystem"],
+      "successCriteria": {
+        "rules": ["fchain_actor_boundary"],
+        "minReward": 0.7
+      },
+      "outputFormat": {
+        "nodes": "Format E node definitions",
+        "edges": "Format E edge definitions",
+        "activitySequence": "Ordered list of FUNC in chain"
+      }
+    },
+
+    "verification-engineer": {
+      "role": "Define test coverage and traceability",
+      "description": "Creates TEST nodes for each REQ. Ensures verify edges exist for full traceability. Identifies coverage gaps.",
+      "responsibilities": [
+        "Create TEST node for each REQ",
+        "Add verify edges REQ→TEST",
+        "Identify coverage gaps (untested requirements)",
+        "Suggest test types (unit, integration, E2E)",
+        "Validate full traceability path"
+      ],
+      "inputPhases": ["phase4_verification"],
+      "outputNodeTypes": ["TEST"],
+      "outputEdgeTypes": ["verify"],
+      "promptTemplate": "settings/prompts/verification-engineer.md",
+      "toolAccess": ["graph_read", "graph_write", "validation_check"],
+      "decisionTrees": [],
+      "successCriteria": {
+        "rules": ["requirements_verification", "isolation"],
+        "minReward": 0.7
+      },
+      "outputFormat": {
+        "nodes": "Format E TEST node definitions",
+        "edges": "Format E verify edge definitions",
+        "coverageReport": "List of REQs with/without TEST"
+      }
+    }
+  },
+
+  "workflow": {
+    "phaseSequence": [
+      "phase1_requirements",
+      "phase2_logical",
+      "phase3_physical",
+      "phase4_verification"
+    ],
+
+    "routing": {
+      "user_input": {
+        "description": "Route user natural language input to appropriate agent",
+        "rules": [
+          {
+            "condition": "graph_empty OR phase == 'phase1_requirements'",
+            "agent": "requirements-engineer"
+          },
+          {
+            "condition": "phase == 'phase2_logical' AND context contains 'function|architecture|design'",
+            "agent": "system-architect"
+          },
+          {
+            "condition": "phase == 'phase2_logical' AND context contains 'activity|sequence|flow'",
+            "agent": "functional-analyst"
+          },
+          {
+            "condition": "phase == 'phase3_physical'",
+            "agent": "system-architect"
+          },
+          {
+            "condition": "phase == 'phase4_verification'",
+            "agent": "verification-engineer"
+          },
+          {
+            "condition": "context contains 'review|check|validate'",
+            "agent": "architecture-reviewer"
+          }
+        ],
+        "default": "requirements-engineer"
+      },
+
+      "validation_failure": {
+        "description": "Route validation failures to reviewer, then to responsible agent",
+        "steps": [
+          "architecture-reviewer analyzes violations",
+          "architecture-reviewer creates work items",
+          "work items routed to responsible agent based on outputNodeTypes"
+        ]
+      },
+
+      "phase_gate": {
+        "description": "Gate check before advancing to next phase",
+        "steps": [
+          "architecture-reviewer validates all gate rules",
+          "if pass: unlock next phase agents",
+          "if fail: create blocking work items, stay in current phase"
+        ]
+      }
+    },
+
+    "agentHandoff": {
+      "requirements-engineer → system-architect": {
+        "trigger": "SRR gate pass (phase1_requirements complete)",
+        "handoffData": {
+          "snapshot": "Format E graph state",
+          "summary": "UC count, REQ count, ACTOR list",
+          "openQuestions": "Unresolved ambiguities"
+        }
+      },
+
+      "system-architect → functional-analyst": {
+        "trigger": "FUNC structure created (top-level decomposition done)",
+        "handoffData": {
+          "snapshot": "Format E graph state",
+          "funcList": "List of FUNC nodes needing FCHAIN",
+          "ucMapping": "Which UC each FUNC relates to"
+        }
+      },
+
+      "functional-analyst → system-architect": {
+        "trigger": "FCHAIN complete, ready for physical allocation",
+        "handoffData": {
+          "snapshot": "Format E graph state",
+          "fchainList": "Completed FCHAIN nodes",
+          "funcConnections": "FUNC→FLOW→FUNC patterns"
+        }
+      },
+
+      "system-architect → verification-engineer": {
+        "trigger": "CDR gate pass (phase3_physical complete)",
+        "handoffData": {
+          "snapshot": "Format E graph state",
+          "reqList": "All REQ nodes needing TEST",
+          "funcAllocation": "FUNC→MOD mapping for test planning"
+        }
+      },
+
+      "any → architecture-reviewer": {
+        "trigger": "after each agent action (automatic)",
+        "handoffData": {
+          "recentChanges": "Format E diff of last operation",
+          "currentPhase": "Active phase ID",
+          "agentSource": "Which agent made changes"
+        }
+      }
+    }
+  },
+
+  "coordination": {
+    "workItemQueue": {
+      "storage": "agentdb",
+      "prioritization": [
+        "phase_gate_blocker",
+        "hard_rule_violation",
+        "soft_rule_violation",
+        "user_request"
+      ],
+      "fields": {
+        "id": "UUID",
+        "targetAgent": "Agent ID",
+        "action": "Description of work",
+        "affectedNodes": "Array of semanticIds",
+        "sourceRule": "Validation rule ID",
+        "priority": "high|medium|low",
+        "status": "pending|in_progress|completed|blocked",
+        "createdAt": "ISO timestamp",
+        "createdBy": "Agent or user ID"
+      },
+      "timeout": {
+        "high": 60,
+        "medium": 300,
+        "low": 900
+      }
+    },
+
+    "agentCommunication": {
+      "protocol": "agentdb_messages",
+      "messageFormat": {
+        "from": "Agent ID",
+        "to": "Agent ID",
+        "type": "handoff|question|workitem|status",
+        "payload": {
+          "graphSnapshot": "Format E (optional, for context)",
+          "diff": "Format E diff (optional, for changes)",
+          "content": "Message content"
+        },
+        "timestamp": "ISO timestamp"
+      }
+    },
+
+    "sessionState": {
+      "storage": "canvas",
+      "fields": {
+        "currentPhase": "Active phase ID",
+        "activeAgent": "Currently working agent",
+        "pendingWorkItems": "Count of unresolved items",
+        "gateStatus": "Map of phase → ready boolean",
+        "lastValidation": "Timestamp of last review"
+      }
+    }
+  },
+
+  "toolDefinitions": {
+    "graph_read": {
+      "description": "Read current graph state",
+      "returns": "Format E serialized graph"
+    },
+    "graph_write": {
+      "description": "Apply Format E diff to graph",
+      "input": "Format E diff operations",
+      "returns": "Success/failure with affected nodes"
+    },
+    "validation_check": {
+      "description": "Run validation rules against current graph",
+      "input": "Optional: specific rule IDs to check",
+      "returns": "List of violations with suggestions"
+    },
+    "workitem_create": {
+      "description": "Create work item in queue",
+      "input": "Work item fields",
+      "returns": "Work item ID"
+    },
+    "user_question": {
+      "description": "Ask user for clarification",
+      "input": "Question text, options (optional)",
+      "returns": "User response"
+    },
+    "layout_compute": {
+      "description": "Compute layout positions for current view",
+      "input": "View type",
+      "returns": "Position map for nodes"
+    }
+  }
+}
