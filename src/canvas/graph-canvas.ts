@@ -48,8 +48,6 @@ export class GraphCanvas extends CanvasBase {
       nodes: new Map(),
       edges: new Map(),
       ports: new Map(),
-      dirtyNodeIds: new Set(),
-      dirtyEdgeIds: new Set(),
       version: 1,
       lastSavedVersion: 1,
       lastModified: new Date(),
@@ -61,6 +59,14 @@ export class GraphCanvas extends CanvasBase {
    */
   getState(): Readonly<GraphCanvasState> {
     return this.state;
+  }
+
+  /**
+   * Get dirty item IDs (for testing/debugging)
+   * Returns Set of semanticIds (nodes) and composite keys (edges)
+   */
+  getDirtyIds(): ReadonlySet<string> {
+    return this.dirty;
   }
 
   /**
@@ -80,7 +86,7 @@ export class GraphCanvas extends CanvasBase {
     // Update all existing edges with the new systemId
     for (const edge of this.state.edges.values()) {
       edge.systemId = newSystemId;
-      this.markDirty([edge.semanticId || `${edge.sourceId}-${edge.targetId}`]);
+      this.markDirty([`${edge.sourceId}-${edge.type}-${edge.targetId}`]);
     }
   }
 
@@ -95,6 +101,19 @@ export class GraphCanvas extends CanvasBase {
     }
 
     this.lastFetchTime = new Date();
+  }
+
+  /**
+   * Mark all nodes and edges as dirty (for import scenarios)
+   * Use this after loadGraph() when all data should be persisted
+   */
+  markAllDirty(): void {
+    for (const node of this.state.nodes.values()) {
+      this.markDirty([node.semanticId]);
+    }
+    for (const edge of this.state.edges.values()) {
+      this.markDirty([`${edge.sourceId}-${edge.type}-${edge.targetId}`]);
+    }
   }
 
   /**
@@ -246,25 +265,25 @@ export class GraphCanvas extends CanvasBase {
   protected serializeDirtyAsDiff(): string {
     const operations: Operation[] = [];
 
-    // Dirty nodes
-    for (const nodeId of this.state.dirtyNodeIds) {
-      const node = this.state.nodes.get(nodeId);
+    // Use base class dirty set (populated by markDirty())
+    for (const id of this.dirty) {
+      // Try as node first
+      const node = this.state.nodes.get(id);
       if (node) {
         operations.push({
           type: 'add_node',
-          semanticId: nodeId,
+          semanticId: id,
           node,
         });
+        continue;
       }
-    }
 
-    // Dirty edges
-    for (const edgeKey of this.state.dirtyEdgeIds) {
-      const edge = this.state.edges.get(edgeKey);
+      // Try as edge (id is composite key: sourceId-type-targetId)
+      const edge = this.state.edges.get(id);
       if (edge) {
         operations.push({
           type: 'add_edge',
-          semanticId: edgeKey,
+          semanticId: id,
           edge,
         });
       }
@@ -351,8 +370,7 @@ export class GraphCanvas extends CanvasBase {
    * Clear subclass dirty tracking
    */
   protected clearSubclassDirtyTracking(): void {
-    // Using base class dirty set - no subclass tracking needed
-    // (Legacy dirtyNodeIds/dirtyEdgeIds are unused)
+    // Using base class dirty set exclusively - no subclass tracking needed
   }
 
   /**

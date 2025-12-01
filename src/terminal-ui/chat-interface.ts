@@ -24,63 +24,38 @@ import { SessionManager } from '../session.js';
 import { WS_URL, LOG_PATH, LLM_TEMPERATURE, AGENTDB_ENABLED } from '../shared/config.js';
 import { DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
 import { getAgentDBService } from '../llm-engine/agentdb/agentdb-service.js';
-import { ArchitectureDerivationAgent, ArchitectureDerivationRequest } from '../llm-engine/auto-derivation.js';
+import {
+  ArchitectureDerivationAgent,
+  ArchitectureDerivationRequest,
+  ReqToTestDerivationAgent,
+  ReqToTestDerivationRequest,
+  FuncToFlowDerivationAgent,
+  FuncToFlowDerivationRequest,
+  FuncToModDerivationAgent,
+  FuncToModDerivationRequest,
+} from '../llm-engine/auto-derivation.js';
 import { exportSystem, importSystem, listExports, getExportMetadata } from '../shared/parsers/import-export.js';
+import { getWorkflowRouter, SessionContext } from '../llm-engine/agents/workflow-router.js';
+import { getAgentExecutor } from '../llm-engine/agents/agent-executor.js';
+import { getAgentConfigLoader } from '../llm-engine/agents/config-loader.js';
+import { initNeo4jClient, resolveSession, updateActiveSystem } from '../shared/session-resolver.js';
 
-// Configuration
+// Configuration - will be set by resolveSession() in main()
 const config = {
-  workspaceId: process.env.WORKSPACE_ID || 'demo-workspace',
-  systemId: process.env.SYSTEM_ID || 'new-system', // Will be auto-detected from first SYS node
-  chatId: process.env.CHAT_ID || 'demo-chat-001',
-  userId: process.env.USER_ID || 'andreas@siglochconsulting',
+  workspaceId: '',
+  systemId: '',
+  chatId: '',
+  userId: '',
 };
 
-// Initialize components
+// Components - initialized in main() after session resolution
 let llmEngine: LLMEngine | undefined;
-let neo4jClient: Neo4jClient | undefined;
-let sessionManager: SessionManager | undefined;
+let neo4jClient: Neo4jClient;
+let sessionManager: SessionManager;
 let wsClient: CanvasWebSocketClient;
+let graphCanvas: GraphCanvas;
+let chatCanvas: ChatCanvas;
 const parser = new FormatEParser();
-
-// Initialize Neo4j (optional)
-if (process.env.NEO4J_URI && process.env.NEO4J_USER && process.env.NEO4J_PASSWORD) {
-  neo4jClient = new Neo4jClient({
-    uri: process.env.NEO4J_URI,
-    user: process.env.NEO4J_USER,
-    password: process.env.NEO4J_PASSWORD,
-  });
-  sessionManager = new SessionManager(neo4jClient);
-}
-
-// Initialize canvases
-const graphCanvas = new GraphCanvas(
-  config.workspaceId,
-  config.systemId,
-  config.chatId,
-  config.userId,
-  'hierarchy',
-  neo4jClient
-);
-
-const chatCanvas = new ChatCanvas(
-  config.workspaceId,
-  config.systemId,
-  config.chatId,
-  config.userId,
-  graphCanvas,
-  neo4jClient
-);
-
-// Initialize LLM Engine (optional)
-if (process.env.ANTHROPIC_API_KEY) {
-  llmEngine = new LLMEngine({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    model: 'claude-sonnet-4-5-20250929',
-    maxTokens: 4096,
-    temperature: LLM_TEMPERATURE,
-    enableCache: true,
-  });
-}
 
 /**
  * Log to STDOUT file
@@ -121,7 +96,9 @@ function notifyGraphUpdate(): void {
       userId: config.userId,
       sessionId: config.chatId,
       origin: 'llm-operation',
-    }
+    },
+    config.workspaceId,
+    config.systemId
   );
 
   log('📡 Broadcast graph update via WebSocket');
@@ -225,13 +202,11 @@ async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
           return;
         }
 
-        // Update config
-        const oldSystemId = config.systemId;
-        config.systemId = selectedSystem.systemId;
-
         // Load into graph canvas
+        // Nodes: keyed by semanticId
+        // Edges: keyed by composite key (sourceId-type-targetId) - matches canvas convention
         const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
-        const edgesMap = new Map(edges.filter((e) => e.semanticId).map((e) => [e.semanticId!, e]));
+        const edgesMap = new Map(edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]));
 
         await graphCanvas.loadGraph({
           nodes: nodesMap,
@@ -239,27 +214,16 @@ async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
           ports: new Map(),
         });
 
-        // Invalidate cache for both old and new systems
-        const agentdb = await getAgentDBService();
-        await agentdb.invalidateGraphSnapshot(oldSystemId);
-        await agentdb.invalidateGraphSnapshot(config.systemId);
+        // Use unified updateActiveSystem for consistent behavior
+        // Note: persistGraph=false because data comes from Neo4j, no need to write back
+        await updateActiveSystem(neo4jClient!, graphCanvas, config, selectedSystem.systemId, {
+          persistGraph: false,
+          getAgentDB: getAgentDBService,
+        });
+        log(`💾 Session updated: ${config.systemId}`);
 
         console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges\x1b[0m`);
         log(`✅ Loaded ${nodes.length} nodes, ${edges.length} edges`);
-
-        // Save session with new system ID
-        if (sessionManager) {
-          const state = graphCanvas.getState();
-          await sessionManager.saveSession({
-            userId: config.userId,
-            workspaceId: config.workspaceId,
-            activeSystemId: config.systemId,
-            currentView: state.currentView,
-            chatId: config.chatId,
-            lastActive: new Date(),
-          });
-          log(`💾 Session updated: ${config.systemId}`);
-        }
 
         // Notify graph viewer
         notifyGraphUpdate();
@@ -285,19 +249,46 @@ async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
 }
 
 /**
- * Handle /derive command - derive logical architecture from ALL Use Cases
- * Uses Architecture Derivation Agent for UC → FUNC derivation
+ * Handle /derive command - derive architecture elements
+ * Supports: UC → FUNC, REQ → TEST, FUNC → FLOW, FUNC → MOD
  */
-async function handleDeriveCommand(_args: string[], mainRl: readline.Interface): Promise<void> {
+async function handleDeriveCommand(args: string[], mainRl: readline.Interface): Promise<void> {
   if (!llmEngine) {
     console.log('\x1b[33m⚠️  LLM Engine not configured (set ANTHROPIC_API_KEY in .env)\x1b[0m');
     mainRl.prompt();
     return;
   }
 
-  const state = graphCanvas.getState();
+  const derivationType = args[0]?.toLowerCase() || 'arch';
 
-  // Get all UC nodes from the graph
+  switch (derivationType) {
+    case 'tests':
+    case 'test':
+      await executeDeriveTests(mainRl);
+      break;
+    case 'flows':
+    case 'flow':
+      await executeDeriveFlows(mainRl);
+      break;
+    case 'modules':
+    case 'module':
+    case 'mods':
+    case 'mod':
+      await executeDeriveModules(mainRl);
+      break;
+    case 'arch':
+    case 'architecture':
+    default:
+      await executeDeriveFuncs(mainRl);
+      break;
+  }
+}
+
+/**
+ * Execute UC → FUNC derivation
+ */
+async function executeDeriveFuncs(mainRl: readline.Interface): Promise<void> {
+  const state = graphCanvas.getState();
   const ucNodes = Array.from(state.nodes.values()).filter(n => n.type === 'UC');
 
   if (ucNodes.length === 0) {
@@ -308,7 +299,6 @@ async function handleDeriveCommand(_args: string[], mainRl: readline.Interface):
     return;
   }
 
-  // Show what will be analyzed
   console.log('');
   console.log('\x1b[1;36m🏗️  Deriving Logical Architecture from ALL Use Cases\x1b[0m');
   console.log('\x1b[90m   Applying SE principle: Observable + Verifiable at interface boundary\x1b[0m');
@@ -508,6 +498,372 @@ async function executeDeriveArchitecture(mainRl: readline.Interface): Promise<vo
 }
 
 /**
+ * Execute REQ → TEST derivation
+ * Generates test cases for requirements
+ */
+async function executeDeriveTests(mainRl: readline.Interface): Promise<void> {
+  const state = graphCanvas.getState();
+  const reqNodes = Array.from(state.nodes.values()).filter(n => n.type === 'REQ');
+
+  if (reqNodes.length === 0) {
+    console.log('\x1b[33m⚠️  No Requirements (REQ) found in the graph.\x1b[0m');
+    console.log('\x1b[90m   Create Requirements first: "Add requirement for user authentication"\x1b[0m');
+    console.log('');
+    mainRl.prompt();
+    return;
+  }
+
+  console.log('');
+  console.log('\x1b[1;36m🧪  Deriving Test Cases from Requirements\x1b[0m');
+  console.log('\x1b[90m   INCOSE principle: Every requirement must be verifiable\x1b[0m');
+  console.log('');
+
+  console.log('\x1b[90mRequirements to derive tests for:\x1b[0m');
+  reqNodes.forEach(req => {
+    console.log(`  • ${req.name} (${req.semanticId})`);
+  });
+  console.log('');
+
+  // Collect requirements
+  const requirements = reqNodes.map(req => ({
+    semanticId: req.semanticId,
+    name: req.name,
+    description: req.description || '',
+    type: 'functional' as const,
+  }));
+
+  // Collect existing tests
+  const existingTests = Array.from(state.nodes.values())
+    .filter(n => n.type === 'TEST')
+    .map(t => {
+      // Find which REQ this test verifies
+      let verifies: string | undefined;
+      for (const [, edge] of state.edges) {
+        if (edge.type === 'verify' && edge.targetId === t.semanticId) {
+          verifies = edge.sourceId;
+          break;
+        }
+      }
+      return { semanticId: t.semanticId, name: t.name, verifies };
+    });
+
+  const canvasState = parser.serializeGraph(state);
+  const agent = new ReqToTestDerivationAgent();
+  const request: ReqToTestDerivationRequest = {
+    requirements,
+    existingTests,
+    canvasState,
+    systemId: config.systemId,
+  };
+
+  const derivationPrompt = agent.buildTestDerivationPrompt(request);
+  log(`🧪 Test derivation started: ${requirements.length} REQs, ${existingTests.length} existing tests`);
+
+  try {
+    await executeDerivation(agent, derivationPrompt, mainRl, 'Test', 'TEST');
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Test derivation error: ${errorMsg}\x1b[0m`);
+    log(`❌ Test derivation failed: ${errorMsg}`);
+    console.log('');
+  }
+
+  mainRl.prompt();
+}
+
+/**
+ * Execute FUNC → FLOW derivation
+ * Generates flows for functions missing I/O
+ */
+async function executeDeriveFlows(mainRl: readline.Interface): Promise<void> {
+  const state = graphCanvas.getState();
+  const funcNodes = Array.from(state.nodes.values()).filter(n => n.type === 'FUNC');
+
+  if (funcNodes.length === 0) {
+    console.log('\x1b[33m⚠️  No Functions (FUNC) found in the graph.\x1b[0m');
+    console.log('\x1b[90m   Derive architecture first: /derive\x1b[0m');
+    console.log('');
+    mainRl.prompt();
+    return;
+  }
+
+  console.log('');
+  console.log('\x1b[1;36m🔄  Deriving Data Flows for Functions\x1b[0m');
+  console.log('\x1b[90m   3-Layer Interface Model: Semantic → Data Format → Protocol\x1b[0m');
+  console.log('');
+
+  // Check I/O status for each function
+  const functions = funcNodes.map(func => {
+    let hasInputFlow = false;
+    let hasOutputFlow = false;
+
+    for (const [, edge] of state.edges) {
+      if (edge.type === 'io') {
+        if (edge.targetId === func.semanticId) hasInputFlow = true;
+        if (edge.sourceId === func.semanticId) hasOutputFlow = true;
+      }
+    }
+
+    return {
+      semanticId: func.semanticId,
+      name: func.name,
+      description: func.description || '',
+      hasInputFlow,
+      hasOutputFlow,
+    };
+  });
+
+  const missingIO = functions.filter(f => !f.hasInputFlow || !f.hasOutputFlow);
+  if (missingIO.length === 0) {
+    console.log('\x1b[32m✅ All functions have complete I/O flows\x1b[0m');
+    console.log('');
+    mainRl.prompt();
+    return;
+  }
+
+  console.log('\x1b[90mFunctions missing I/O:\x1b[0m');
+  missingIO.forEach(f => {
+    const status = [];
+    if (!f.hasInputFlow) status.push('input');
+    if (!f.hasOutputFlow) status.push('output');
+    console.log(`  • ${f.name} (missing ${status.join(', ')})`);
+  });
+  console.log('');
+
+  // Collect existing flows and schemas
+  const existingFlows = Array.from(state.nodes.values())
+    .filter(n => n.type === 'FLOW')
+    .map(fl => {
+      const connectedTo: string[] = [];
+      for (const [, edge] of state.edges) {
+        if (edge.type === 'io' && (edge.sourceId === fl.semanticId || edge.targetId === fl.semanticId)) {
+          connectedTo.push(edge.sourceId === fl.semanticId ? edge.targetId : edge.sourceId);
+        }
+      }
+      return { semanticId: fl.semanticId, name: fl.name, connectedTo };
+    });
+
+  const existingSchemas = Array.from(state.nodes.values())
+    .filter(n => n.type === 'SCHEMA')
+    .map(s => ({
+      semanticId: s.semanticId,
+      name: s.name,
+      category: 'data' as const,
+    }));
+
+  const canvasState = parser.serializeGraph(state);
+  const agent = new FuncToFlowDerivationAgent();
+  const request: FuncToFlowDerivationRequest = {
+    functions,
+    existingFlows,
+    existingSchemas,
+    canvasState,
+    systemId: config.systemId,
+  };
+
+  const derivationPrompt = agent.buildFlowDerivationPrompt(request);
+  log(`🔄 Flow derivation started: ${missingIO.length} functions need I/O`);
+
+  try {
+    await executeDerivation(agent, derivationPrompt, mainRl, 'Flow', 'FLOW');
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Flow derivation error: ${errorMsg}\x1b[0m`);
+    log(`❌ Flow derivation failed: ${errorMsg}`);
+    console.log('');
+  }
+
+  mainRl.prompt();
+}
+
+/**
+ * Execute FUNC → MOD derivation
+ * Suggests module allocation for functions
+ */
+async function executeDeriveModules(mainRl: readline.Interface): Promise<void> {
+  const state = graphCanvas.getState();
+  const funcNodes = Array.from(state.nodes.values()).filter(n => n.type === 'FUNC');
+
+  if (funcNodes.length === 0) {
+    console.log('\x1b[33m⚠️  No Functions (FUNC) found in the graph.\x1b[0m');
+    console.log('\x1b[90m   Derive architecture first: /derive\x1b[0m');
+    console.log('');
+    mainRl.prompt();
+    return;
+  }
+
+  console.log('');
+  console.log('\x1b[1;36m📦  Deriving Module Allocation for Functions\x1b[0m');
+  console.log('\x1b[90m   Principles: Cohesion, Coupling minimization, Volatility isolation\x1b[0m');
+  console.log('');
+
+  // Check allocation status and gather function info
+  const functions = funcNodes.map(func => {
+    let allocatedTo: string | undefined;
+    const connectedFuncs: string[] = [];
+
+    for (const [, edge] of state.edges) {
+      if (edge.type === 'allocate' && edge.targetId === func.semanticId) {
+        allocatedTo = edge.sourceId;
+      }
+      // Find connected functions via FLOW
+      if (edge.type === 'io' && edge.sourceId === func.semanticId) {
+        // Find target of this flow
+        for (const [, e2] of state.edges) {
+          if (e2.type === 'io' && e2.sourceId === edge.targetId) {
+            const targetNode = state.nodes.get(e2.targetId);
+            if (targetNode?.type === 'FUNC') {
+              connectedFuncs.push(e2.targetId);
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      semanticId: func.semanticId,
+      name: func.name,
+      description: func.description || '',
+      volatility: (func.attributes?.volatility as 'low' | 'medium' | 'high') || undefined,
+      connectedFuncs,
+      allocatedTo,
+    };
+  });
+
+  const unallocated = functions.filter(f => !f.allocatedTo);
+  if (unallocated.length === 0) {
+    console.log('\x1b[32m✅ All functions are allocated to modules\x1b[0m');
+    console.log('');
+    mainRl.prompt();
+    return;
+  }
+
+  console.log('\x1b[90mUnallocated functions:\x1b[0m');
+  unallocated.forEach(f => {
+    const vol = f.volatility ? ` [${f.volatility}]` : '';
+    console.log(`  • ${f.name}${vol}`);
+  });
+  console.log('');
+
+  // Collect existing modules
+  const existingModules = Array.from(state.nodes.values())
+    .filter(n => n.type === 'MOD')
+    .map(m => {
+      const allocatedFuncs: string[] = [];
+      for (const [, edge] of state.edges) {
+        if (edge.type === 'allocate' && edge.sourceId === m.semanticId) {
+          allocatedFuncs.push(edge.targetId);
+        }
+      }
+      return {
+        semanticId: m.semanticId,
+        name: m.name,
+        description: m.description || '',
+        allocatedFuncs,
+      };
+    });
+
+  const canvasState = parser.serializeGraph(state);
+  const agent = new FuncToModDerivationAgent();
+  const request: FuncToModDerivationRequest = {
+    functions,
+    existingModules,
+    canvasState,
+    systemId: config.systemId,
+  };
+
+  const derivationPrompt = agent.buildAllocationPrompt(request);
+  log(`📦 Module derivation started: ${unallocated.length} functions need allocation`);
+
+  try {
+    await executeDerivation(agent, derivationPrompt, mainRl, 'Allocation', 'MOD');
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Module derivation error: ${errorMsg}\x1b[0m`);
+    log(`❌ Module derivation failed: ${errorMsg}`);
+    console.log('');
+  }
+
+  mainRl.prompt();
+}
+
+/**
+ * Generic derivation executor - shared logic for all derivation types
+ */
+async function executeDerivation(
+  agent: { extractOperations: (response: string) => string | null },
+  prompt: string,
+  _mainRl: readline.Interface,
+  label: string,
+  primaryType: string
+): Promise<void> {
+  const canvasState = parser.serializeGraph(graphCanvas.getState());
+
+  console.log(`\x1b[33m🤖 Analyzing and deriving ${label.toLowerCase()}s...\x1b[0m`);
+
+  let isFirstChunk = true;
+  let fullResponse = '';
+
+  const llmRequest = {
+    message: prompt,
+    chatId: config.chatId,
+    workspaceId: config.workspaceId,
+    systemId: config.systemId,
+    userId: config.userId,
+    canvasState,
+  };
+
+  await llmEngine!.processRequestStream(llmRequest, async (chunk) => {
+    if (chunk.type === 'text' && chunk.text) {
+      if (isFirstChunk) {
+        console.log('');
+        process.stdout.write(`\x1b[32m${label} Agent:\x1b[0m `);
+        isFirstChunk = false;
+      }
+      const displayText = chunk.text.replace(/<operations>[\s\S]*?<\/operations>/g, '');
+      process.stdout.write(displayText);
+      fullResponse += chunk.text;
+    } else if (chunk.type === 'complete' && chunk.response) {
+      console.log('\n');
+
+      const operations = agent.extractOperations(fullResponse);
+
+      if (operations) {
+        const diff = parser.parseDiff(operations, config.workspaceId, config.systemId);
+        await graphCanvas.applyDiff(diff);
+
+        const newState = graphCanvas.getState();
+        const primaryCount = Array.from(newState.nodes.values()).filter(n => n.type === primaryType).length;
+
+        console.log(`\x1b[32m✅ ${label} derivation applied:\x1b[0m`);
+        console.log(`   Nodes: ${newState.nodes.size}, Edges: ${newState.edges.size}`);
+        console.log(`   ${primaryType} nodes: ${primaryCount}`);
+        log(`✅ ${label} derivation complete: ${primaryCount} ${primaryType} nodes`);
+
+        const agentdb = await getAgentDBService();
+        await agentdb.invalidateGraphSnapshot(config.systemId);
+        notifyGraphUpdate();
+      } else if (chunk.response.operations) {
+        const diff = parser.parseDiff(chunk.response.operations, config.workspaceId, config.systemId);
+        await graphCanvas.applyDiff(diff);
+
+        const newState = graphCanvas.getState();
+        console.log(`\x1b[32m✅ ${label} applied: ${newState.nodes.size} nodes, ${newState.edges.size} edges\x1b[0m`);
+
+        const agentdb = await getAgentDBService();
+        await agentdb.invalidateGraphSnapshot(config.systemId);
+        notifyGraphUpdate();
+      } else {
+        console.log('\x1b[33m⚠️  No operations generated\x1b[0m');
+        console.log(`\x1b[90m   The agent may have determined no ${label.toLowerCase()}s are needed\x1b[0m`);
+      }
+
+      console.log('');
+    }
+  });
+}
+
+/**
  * Handle command
  */
 async function handleCommand(cmd: string, rl: readline.Interface): Promise<void> {
@@ -526,7 +882,11 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('  /exports        - List available export files');
       console.log('  /stats          - Show graph statistics');
       console.log(`  /view <name>    - Switch view (${Object.keys(DEFAULT_VIEW_CONFIGS).join(', ')})`);
-      console.log('  /derive         - Derive logical architecture from ALL Use Cases (UC → FUNC)');
+      console.log('  /derive [type]  - Auto-derive architecture elements:');
+      console.log('                    (no arg) - UC → FUNC logical architecture');
+      console.log('                    tests    - REQ → TEST verification cases');
+      console.log('                    flows    - FUNC → FLOW interfaces');
+      console.log('                    modules  - FUNC → MOD allocation');
       console.log('  /clear          - Clear chat history');
       console.log('  /exit           - Save session and quit (also: exit, quit)');
       console.log('');
@@ -544,13 +904,11 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
         ports: new Map(),
       });
 
-      // Reset system ID to placeholder
-      const oldSystemId = config.systemId;
-      config.systemId = 'new-system';
-
-      // Invalidate old system's cache
-      const agentdb = await getAgentDBService();
-      await agentdb.invalidateGraphSnapshot(oldSystemId);
+      // Use unified updateActiveSystem for consistent behavior
+      await updateActiveSystem(neo4jClient, graphCanvas, config, 'new-system', {
+        getAgentDB: getAgentDBService,
+      });
+      log('💾 Session updated: new-system');
 
       // Notify graph viewer
       notifyGraphUpdate();
@@ -569,7 +927,7 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       await handleLoadCommand(rl);
       return; // Don't call rl.prompt() - handleLoadCommand will do it after async operation
 
-    case '/save':
+    case '/save': {
       if (!neo4jClient) {
         console.log('\x1b[33m⚠️  Neo4j not configured\x1b[0m');
         break;
@@ -580,16 +938,33 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       const graphResult = await graphCanvas.persistToNeo4j();
       const chatResult = await chatCanvas.persistToNeo4j();
 
+      // Update AppSession timestamp
+      const saveSession = neo4jClient['getSession']();
+      try {
+        await saveSession.run(
+          `MERGE (s:AppSession {userId: $userId, workspaceId: $workspaceId})
+           SET s.activeSystemId = $systemId, s.updatedAt = datetime()`,
+          { userId: config.userId, workspaceId: config.workspaceId, systemId: config.systemId }
+        );
+      } finally {
+        await saveSession.close();
+      }
+
       if (graphResult.skipped && chatResult.skipped) {
-        console.log('\x1b[33m⚠️  No changes to save (graph is up to date)\x1b[0m');
-        log('⚠️  No changes to save');
+        console.log('\x1b[32m✅ Already saved (auto-save keeps graph up to date)\x1b[0m');
+        log('✅ Already saved');
       } else {
         const graphCount = graphResult.savedCount || 0;
         const chatCount = chatResult.savedCount || 0;
-        console.log(`\x1b[32m✅ Saved successfully: ${graphCount} graph items, ${chatCount} messages\x1b[0m`);
-        log(`✅ Saved successfully: ${graphCount} graph items, ${chatCount} messages`);
+        const parts: string[] = [];
+        if (graphCount > 0) parts.push(`${graphCount} graph items`);
+        if (chatCount > 0) parts.push(`${chatCount} messages`);
+        const summary = parts.length > 0 ? parts.join(', ') : 'all changes';
+        console.log(`\x1b[32m✅ Saved ${summary}\x1b[0m`);
+        log(`✅ Saved ${summary}`);
       }
       break;
+    }
 
     case '/export': {
       console.log('📤 Exporting graph...');
@@ -633,15 +1008,24 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       log(`📥 Importing from ${importFilename}...`);
       try {
         const importedState = await importSystem(importFilename);
+
         await graphCanvas.loadGraph({
           nodes: importedState.nodes,
           edges: importedState.edges,
           ports: importedState.ports,
         });
-        // Update system ID if available
-        if (importedState.systemId) {
-          config.systemId = importedState.systemId;
-        }
+
+        // Mark all imported items as dirty for Neo4j persistence
+        graphCanvas.markAllDirty();
+
+        // Use unified updateActiveSystem for consistent behavior
+        const newSystemId = importedState.systemId || config.systemId;
+        await updateActiveSystem(neo4jClient, graphCanvas, config, newSystemId, {
+          persistGraph: true,
+          getAgentDB: getAgentDBService,
+        });
+        log(`💾 Imported system persisted to Neo4j: ${config.systemId}`);
+
         notifyGraphUpdate();
         console.log(`\x1b[32m✅ Imported: ${importedState.nodes.size} nodes, ${importedState.edges.size} edges\x1b[0m`);
         log(`✅ Imported: ${importedState.nodes.size} nodes, ${importedState.edges.size} edges`);
@@ -739,26 +1123,55 @@ async function processMessage(message: string): Promise<void> {
       return;
     }
 
-    console.log('\x1b[33m🤖 Processing...\x1b[0m');
-    log('🤖 Processing with LLM...');
-
-    // Add user message to chat canvas
-    await chatCanvas.addUserMessage(message);
+    // CR-027: Get Multi-Agent components
+    const workflowRouter = getWorkflowRouter();
+    const agentExecutor = getAgentExecutor();
+    const configLoader = getAgentConfigLoader();
 
     // Get graph snapshot from AgentDB cache (or serialize if not cached)
     const agentdb = await getAgentDBService();
     let canvasState = await agentdb.getGraphSnapshot(config.systemId);
+    const currentState = graphCanvas.getState();
 
     if (!canvasState) {
       // Cache miss - serialize and store
-      const state = graphCanvas.getState();
-      canvasState = parser.serializeGraph(state);
+      canvasState = parser.serializeGraph(currentState);
 
       await agentdb.storeGraphSnapshot(config.systemId, canvasState, {
-        nodeCount: state.nodes.size,
-        edgeCount: state.edges.size,
+        nodeCount: currentState.nodes.size,
+        edgeCount: currentState.edges.size,
       });
     }
+
+    // CR-027: Build session context for routing
+    const sessionContext: SessionContext = {
+      currentPhase: 'phase1_requirements', // TODO: Track phase state
+      graphEmpty: currentState.nodes.size === 0,
+      userMessage: message,
+      recentNodeTypes: Array.from(currentState.nodes.values())
+        .slice(-5)
+        .map((n) => n.type),
+    };
+
+    // CR-027: Route to appropriate agent based on message and context
+    const selectedAgent = workflowRouter.routeUserInput(message, sessionContext);
+    log(`🤖 Agent selected: ${selectedAgent}`);
+
+    // CR-027: Get agent-specific prompt from config
+    let agentPrompt: string;
+    try {
+      agentPrompt = agentExecutor.getAgentContextPrompt(selectedAgent, canvasState, message);
+    } catch {
+      // Fallback if agent prompt not found
+      agentPrompt = configLoader.getPrompt('system-architect');
+      log(`⚠️ Fallback to system-architect prompt (${selectedAgent} not configured)`);
+    }
+
+    console.log(`\x1b[33m🤖 Processing with ${selectedAgent}...\x1b[0m`);
+    log(`🤖 Processing with ${selectedAgent}...`);
+
+    // Add user message to chat canvas
+    await chatCanvas.addUserMessage(message);
 
     // Get conversation context for multi-turn chat (last 10 messages)
     const conversationContext = chatCanvas.getConversationContext(10);
@@ -767,7 +1180,7 @@ async function processMessage(message: string): Promise<void> {
       content: msg.content,
     }));
 
-    // Create LLM request with chat history
+    // Create LLM request with agent-specific context
     const request = {
       message,
       chatId: config.chatId,
@@ -776,6 +1189,7 @@ async function processMessage(message: string): Promise<void> {
       userId: config.userId,
       canvasState,
       chatHistory,
+      systemPrompt: agentPrompt, // CR-027: Use agent-specific prompt
     };
 
     // Track streaming state
@@ -806,6 +1220,15 @@ async function processMessage(message: string): Promise<void> {
         // Apply operations to graph if present (silently)
         if (response.operations) {
           const diff = parser.parseDiff(response.operations, config.workspaceId, config.systemId);
+
+          // Diagnostic: Log if operations block exists but no operations parsed
+          if (diff.operations.length === 0) {
+            log(`⚠️ PARSE FAILURE: Operations block found but 0 operations parsed`);
+            log(`📋 Operations block (first 800 chars):\n${response.operations.substring(0, 800)}`);
+            console.log('\x1b[33m⚠️  Operations block found but no valid Format-E operations parsed\x1b[0m');
+            console.log('\x1b[90m   Check LOG for details. Expected format: + Name|TYPE|ID|Description\x1b[0m');
+          }
+
           await graphCanvas.applyDiff(diff);
 
           const state = graphCanvas.getState();
@@ -821,10 +1244,13 @@ async function processMessage(message: string): Promise<void> {
               const newSystemId = sysNodes[0].semanticId;
               console.log(`\x1b[90m✓ Detected new system: ${newSystemId}\x1b[0m`);
               log(`📌 System ID detected: ${newSystemId}`);
-              config.systemId = newSystemId;
 
-              // Update canvas state with new system ID
-              graphCanvas.updateSystemId(newSystemId);
+              // Use unified updateActiveSystem for consistent behavior
+              await updateActiveSystem(neo4jClient, graphCanvas, config, newSystemId, {
+                persistGraph: true,
+                getAgentDB: getAgentDBService,
+              });
+              log(`💾 System persisted to Neo4j: ${newSystemId}`);
             }
           }
 
@@ -837,6 +1263,29 @@ async function processMessage(message: string): Promise<void> {
         }
 
         log('✅ Response complete');
+
+        // CR-027: Store episode for Multi-Agent learning with routed agent
+        try {
+          // Calculate reward based on validation (CR-027)
+          const reward = agentExecutor.calculateReward(selectedAgent, {
+            agentId: selectedAgent,
+            textResponse: response.textResponse,
+            operations: response.operations ?? undefined,
+            isComplete: true,
+          });
+
+          await agentdb.storeEpisode(
+            selectedAgent, // Use CR-027 routed agent
+            message,
+            true, // success
+            { response: response.textResponse, operations: response.operations },
+            `Agent: ${selectedAgent}, Reward: ${reward.toFixed(2)}`
+          );
+          log(`🧠 Episode stored for agent: ${selectedAgent} (reward: ${reward.toFixed(2)})`);
+        } catch (episodeError) {
+          // Non-fatal - log but don't fail the request
+          log(`⚠️ Episode storage failed: ${episodeError}`);
+        }
       }
     });
 
@@ -844,6 +1293,20 @@ async function processMessage(message: string): Promise<void> {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.log(`\x1b[31mError:\x1b[0m ${errorMsg}`);
     log(`❌ Error: ${errorMsg}`);
+
+    // Store failed episode for learning
+    try {
+      const agentdb = await getAgentDBService();
+      await agentdb.storeEpisode(
+        'system-architect', // Default agent for errors
+        message,
+        false, // failure
+        { error: errorMsg },
+        `Error: ${errorMsg}`
+      );
+    } catch {
+      // Ignore episode storage errors during error handling
+    }
   }
 }
 
@@ -855,7 +1318,57 @@ async function main(): Promise<void> {
 
   log('🚀 Chat interface started');
 
-  // Initialize AgentDB if enabled
+  // ============================================
+  // STEP 1: Session Resolution (MANDATORY Neo4j)
+  // ============================================
+  // Uses central session-resolver for consistent initialization
+  // Same logic as graph-viewer.ts
+  neo4jClient = initNeo4jClient();
+  sessionManager = new SessionManager(neo4jClient);
+
+  const resolved = await resolveSession(neo4jClient);
+  config.workspaceId = resolved.workspaceId;
+  config.systemId = resolved.systemId;
+  config.userId = resolved.userId;
+  config.chatId = resolved.chatId;
+
+  console.log(`\x1b[90m✓ Session: ${resolved.systemId} (${resolved.source})\x1b[0m`);
+  log(`📋 Session: ${resolved.systemId} (source: ${resolved.source})`);
+
+  // ============================================
+  // STEP 2: Initialize Canvases (after session)
+  // ============================================
+  graphCanvas = new GraphCanvas(
+    config.workspaceId,
+    config.systemId,
+    config.chatId,
+    config.userId,
+    'hierarchy',
+    neo4jClient
+  );
+
+  chatCanvas = new ChatCanvas(
+    config.workspaceId,
+    config.systemId,
+    config.chatId,
+    config.userId,
+    graphCanvas,
+    neo4jClient
+  );
+
+  // ============================================
+  // STEP 3: Optional Components (LLM, AgentDB)
+  // ============================================
+  if (process.env.ANTHROPIC_API_KEY) {
+    llmEngine = new LLMEngine({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      model: 'claude-sonnet-4-5-20250929',
+      maxTokens: 4096,
+      temperature: LLM_TEMPERATURE,
+      enableCache: true,
+    });
+  }
+
   if (AGENTDB_ENABLED && llmEngine) {
     try {
       log('🔧 Initializing AgentDB...');
@@ -867,53 +1380,10 @@ async function main(): Promise<void> {
     }
   }
 
-  // Load session from Neo4j if available
-  if (sessionManager) {
-    try {
-      const session = await sessionManager.loadSession(config.userId, config.workspaceId);
-      if (session) {
-        // Restore session state
-        config.systemId = session.activeSystemId;
-        config.chatId = session.chatId;
-        console.log(`\x1b[90m✓ Session restored: ${session.activeSystemId}\x1b[0m`);
-        log(`📋 Session restored: ${session.activeSystemId}`);
-      }
-    } catch {
-      log('⚠️  Could not load session (starting fresh)');
-    }
-  }
-
-  // Load graph from Neo4j if available
-  if (neo4jClient) {
-    try {
-      const { nodes, edges } = await neo4jClient.loadGraph({
-        workspaceId: config.workspaceId,
-        systemId: config.systemId,
-      });
-
-      if (nodes.length > 0) {
-        console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes from Neo4j\x1b[0m`);
-        log(`📥 Loaded ${nodes.length} nodes from Neo4j`);
-
-        const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
-        const edgesMap = new Map(edges.filter((e) => e.semanticId).map((e) => [e.semanticId!, e]));
-
-        await graphCanvas.loadGraph({
-          nodes: nodesMap,
-          edges: edgesMap,
-          ports: new Map(),
-        });
-
-        notifyGraphUpdate();
-      }
-    } catch {
-      console.log('\x1b[33m⚠️  Could not load from Neo4j (starting fresh)\x1b[0m');
-    }
-  }
-
-  console.log('');
-
-  // Connect to WebSocket server
+  // ============================================
+  // STEP 4: WebSocket Connection
+  // ============================================
+  // Connect to WebSocket FIRST (before loading graph, so we can broadcast initial state)
   wsClient = new CanvasWebSocketClient(
     process.env.WS_URL || WS_URL,
     {
@@ -949,6 +1419,39 @@ async function main(): Promise<void> {
     log(`❌ WebSocket connection failed: ${errorMsg}`);
     process.exit(1);
   }
+
+  // NOW load graph from Neo4j and broadcast initial state
+  if (neo4jClient) {
+    try {
+      const { nodes, edges } = await neo4jClient.loadGraph({
+        workspaceId: config.workspaceId,
+        systemId: config.systemId,
+      });
+
+      if (nodes.length > 0) {
+        console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes from Neo4j\x1b[0m`);
+        log(`📥 Loaded ${nodes.length} nodes from Neo4j`);
+
+        // Nodes: keyed by semanticId
+        // Edges: keyed by composite key (sourceId-type-targetId)
+        const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
+        const edgesMap = new Map(edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]));
+
+        await graphCanvas.loadGraph({
+          nodes: nodesMap,
+          edges: edgesMap,
+          ports: new Map(),
+        });
+
+        // Broadcast initial state to graph viewer (WebSocket now connected)
+        notifyGraphUpdate();
+      }
+    } catch {
+      console.log('\x1b[33m⚠️  Could not load from Neo4j (starting fresh)\x1b[0m');
+    }
+  }
+
+  console.log('');
 
   // Register components with session manager for cleanup
   if (sessionManager) {

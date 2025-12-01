@@ -43,3 +43,6 @@ temp/
 # Exports directory (user-generated export files)
 exports/
 *.export.txt
+
+# Local data (AgentDB SQLite, etc.)
+data/
