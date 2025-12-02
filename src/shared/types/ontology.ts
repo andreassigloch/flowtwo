@@ -2,13 +2,13 @@
  * GraphEngine Ontology V3 - Type Definitions
  *
  * 10 Node Types + 6 Edge Types following SysML 2.0 inspiration
- * Single Source of Truth: settings/ontology.json
+ * Single Source of Truth: settings/ontology-rules.json
  *
  * @author andreas@siglochconsulting
- * @version 3.0.3
+ * @version 3.1.1
  */
 
-import ontologyJson from '../../../settings/ontology.json' assert { type: 'json' };
+import ontologyJson from '../../../settings/ontology-rules.json' assert { type: 'json' };
 
 /** Ontology JSON structure types */
 export interface OntologyNodeType {
@@ -45,7 +45,7 @@ export interface Ontology {
 /** Export the loaded ontology for runtime access */
 export const ONTOLOGY = ontologyJson as Ontology;
 
-/** Node Types (10 total) - derived from ontology.json */
+/** Node Types (10 total) - derived from ontology-rules.json */
 export type NodeType =
   | 'SYS' // System (top-level or subsystem)
   | 'UC' // Use Case
@@ -61,7 +61,7 @@ export type NodeType =
 /**
  * Edge Types (6 total)
  *
- * IMPORTANT: Three edge types create hierarchical nesting (per ontology.json):
+ * IMPORTANT: Three edge types create hierarchical nesting (per ontology-rules.json):
  * - compose, satisfy, allocate = NESTING edges (shown as indentation)
  * - io, verify, relation = CONNECTION edges (shown as arrows/lines)
  */
@@ -74,7 +74,7 @@ export type EdgeType =
   | 'relation'; // Generic relationship - Shown as gray line
 
 /**
- * Edge Type Metadata - loaded from settings/ontology.json
+ * Edge Type Metadata - loaded from settings/ontology-rules.json
  *
  * Provides backward-compatible access with string-based validConnections format.
  * For structured access, use ONTOLOGY.edgeTypes directly.
@@ -133,7 +133,7 @@ export interface Node {
 /** Edge Interface */
 export interface Edge {
   uuid: string;
-  semanticId?: SemanticId; // Optional for edges
+  // Note: No semanticId - edges are keyed by composite: ${sourceId}-${type}-${targetId}
   type: EdgeType;
   sourceId: SemanticId; // Source node semantic ID
   targetId: SemanticId; // Target node semantic ID

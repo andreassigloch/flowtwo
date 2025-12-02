@@ -121,13 +121,26 @@ export function createSampleDiff(): string {
 
 /**
  * Mock Neo4j client for testing
+ * Implements the same interface as Neo4jClient for GraphCanvas
  */
 export class MockNeo4jClient {
   private data: Map<string, unknown> = new Map();
+  public savedNodes: unknown[] = [];
+  public savedEdges: unknown[] = [];
 
   async run(query: string, params?: Record<string, unknown>): Promise<unknown> {
     console.log('Mock Neo4j query:', query, params);
     return { records: [] };
+  }
+
+  async saveNodes(nodes: unknown[]): Promise<{ savedCount: number }> {
+    this.savedNodes.push(...nodes);
+    return { savedCount: nodes.length };
+  }
+
+  async saveEdges(edges: unknown[]): Promise<{ savedCount: number }> {
+    this.savedEdges.push(...edges);
+    return { savedCount: edges.length };
   }
 
   async saveBatch(items: unknown[]): Promise<void> {
@@ -142,6 +155,8 @@ export class MockNeo4jClient {
 
   clear(): void {
     this.data.clear();
+    this.savedNodes = [];
+    this.savedEdges = [];
   }
 }
 

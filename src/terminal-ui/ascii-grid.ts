@@ -360,7 +360,7 @@ function truncateLabel(label: string, maxLen: number): string {
 
 /**
  * Get ANSI color code for node type
- * Uses ontology.json as single source of truth
+ * Uses ontology-rules.json as single source of truth
  */
 function getTypeColor(type: string): string {
   const nodeType = ONTOLOGY.nodeTypes[type];

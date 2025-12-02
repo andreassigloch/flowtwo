@@ -86,11 +86,20 @@ Migrate main.ts and app.ts to use service container.
 
 ## Current Status
 
+**Phase 1 (Initial State Sync) - COMPLETED:**
+- [x] WebSocket server caches broadcasts per workspace+system
+- [x] Chat interface includes systemId in broadcasts
+- [x] Graph viewer receives initial state on connect
+- [x] main.ts converted to startup orchestrator
+- [x] Unit tests for broadcast caching
+- [x] Integration tests for startup orchestration
+- [x] E2E tests for multi-terminal sync
+
+**Remaining (Full Service Container):**
 - [ ] Service interface defined
 - [ ] Service container implemented
 - [ ] Startup modes supported
 - [ ] Health monitoring active
-- [ ] Tests written
 - [ ] Production deployment
 
 ## Acceptance Criteria

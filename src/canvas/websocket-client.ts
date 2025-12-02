@@ -137,18 +137,32 @@ export class CanvasWebSocketClient {
   broadcastUpdate(
     type: 'graph_update' | 'chat_update',
     diff: string,
-    source: BroadcastUpdate['source']
+    source: BroadcastUpdate['source'],
+    workspaceId?: string,
+    systemId?: string
   ): void {
     const update: BroadcastUpdate = {
       type,
       diff,
       source,
+      workspaceId,
+      systemId,
       timestamp: new Date(),
     };
 
-    // Note: Client broadcasts via Canvas which has reference to server
-    // This method is for future direct client-to-server broadcasting
     this.send(update);
+  }
+
+  /**
+   * Update subscription to a different system
+   */
+  updateSubscription(systemId: string): void {
+    this.subscription.systemId = systemId;
+    this.send({
+      type: 'subscribe',
+      ...this.subscription,
+    });
+    console.log(`[WS Client] Updated subscription to ${systemId}`);
   }
 
   /**

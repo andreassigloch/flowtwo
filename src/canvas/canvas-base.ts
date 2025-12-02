@@ -42,6 +42,11 @@ export abstract class CanvasBase {
   protected lastFetchTime: Date;
   protected staleThresholdMs: number = 300000; // 5 minutes
 
+  // Auto-save state
+  private autoSaveEnabled: boolean = true;
+  private autoSavePending: boolean = false;
+  private autoSaveDebounceMs: number = 1000; // Debounce to batch rapid changes
+
   constructor(
     workspaceId: string,
     systemId: string,
@@ -91,6 +96,9 @@ export abstract class CanvasBase {
 
       // Broadcast update
       await this.broadcastUpdate(diff);
+
+      // Trigger non-blocking auto-save
+      this.triggerAutoSave();
 
       return {
         success: true,
@@ -210,6 +218,39 @@ export abstract class CanvasBase {
    */
   protected clearSubclassDirtyTracking(): void {
     // Override in subclass if needed
+  }
+
+  /**
+   * Trigger non-blocking auto-save with debounce
+   * Saves dirty state to Neo4j without blocking the caller
+   */
+  protected triggerAutoSave(): void {
+    if (!this.autoSaveEnabled || this.autoSavePending) {
+      return;
+    }
+
+    this.autoSavePending = true;
+
+    // Debounce: wait before saving to batch rapid changes
+    setTimeout(async () => {
+      this.autoSavePending = false;
+
+      try {
+        const result = await this.persistToNeo4j();
+        if (result.savedCount && result.savedCount > 0) {
+          console.log(`\x1b[90m💾 Auto-saved ${result.savedCount} items\x1b[0m`);
+        }
+      } catch (error) {
+        console.error('[AutoSave] Failed:', error instanceof Error ? error.message : error);
+      }
+    }, this.autoSaveDebounceMs);
+  }
+
+  /**
+   * Enable or disable auto-save
+   */
+  setAutoSave(enabled: boolean): void {
+    this.autoSaveEnabled = enabled;
   }
 
   // Abstract methods (implemented by subclasses)

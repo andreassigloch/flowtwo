@@ -24,40 +24,23 @@ import {
   detectTerminalCapabilities,
   renderMermaidAsImage,
 } from './terminal-graphics.js';
+import { initNeo4jClient, resolveSession } from '../shared/session-resolver.js';
 // ASCII grid imports removed - architecture view now uses Mermaid
 
-// Configuration
+// Configuration - will be set by resolveSession() in main()
 const config = {
-  workspaceId: process.env.WORKSPACE_ID || 'demo-workspace',
-  systemId: process.env.SYSTEM_ID || 'UrbanMobility.SY.001',
-  chatId: process.env.CHAT_ID || 'demo-chat-001',
-  userId: process.env.USER_ID || 'andreas@siglochconsulting',
+  workspaceId: '',
+  systemId: '',
+  chatId: '',
+  userId: '',
 };
 
-// Initialize components
-let neo4jClient: Neo4jClient | undefined;
+// Components - initialized in main() after session resolution
+let neo4jClient: Neo4jClient;
 let currentView: ViewType = 'hierarchy';
 let wsClient: CanvasWebSocketClient;
+let graphCanvas: GraphCanvas;
 let lastProcessedTimestamp: string | null = null; // Deduplication: track last processed update
-
-// Initialize Neo4j (optional)
-if (process.env.NEO4J_URI && process.env.NEO4J_USER && process.env.NEO4J_PASSWORD) {
-  neo4jClient = new Neo4jClient({
-    uri: process.env.NEO4J_URI,
-    user: process.env.NEO4J_USER,
-    password: process.env.NEO4J_PASSWORD,
-  });
-}
-
-// Initialize canvas
-const graphCanvas = new GraphCanvas(
-  config.workspaceId,
-  config.systemId,
-  config.chatId,
-  config.userId,
-  currentView,
-  neo4jClient
-);
 
 // GraphEngine instance (used for layout computation)
 void new GraphEngine(); // Suppress unused warning - kept for future use
@@ -969,6 +952,19 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
   lastProcessedTimestamp = updateTimestamp;
 
   try {
+    // Update systemId from broadcast if provided (initial state sync)
+    if (update.systemId && update.systemId !== config.systemId) {
+      const oldSystemId = config.systemId;
+      config.systemId = update.systemId;
+      log(`🔄 Switched to system: ${update.systemId} (was: ${oldSystemId || 'none'})`);
+      console.log(`\x1b[33m🔄 System: ${update.systemId}\x1b[0m`);
+
+      // Update subscription to new system
+      if (wsClient) {
+        wsClient.updateSubscription(update.systemId);
+      }
+    }
+
     // Parse JSON state (same format as file-based polling)
     const stateData = JSON.parse(update.diff || '{}');
 
@@ -1014,40 +1010,43 @@ async function main(): Promise<void> {
   console.log('\x1b[36m║     TERMINAL 2: GRAPH VIEWER         ║\x1b[0m');
   console.log('\x1b[36m╚═══════════════════════════════════════╝\x1b[0m');
   console.log('');
-  console.log('\x1b[90mGraph updates will appear below (scroll to see history)\x1b[0m');
-  console.log('');
 
   log('📊 Graph viewer started');
 
-  // Load graph from Neo4j if available
-  if (neo4jClient) {
-    try {
-      const { nodes, edges } = await neo4jClient.loadGraph({
-        workspaceId: config.workspaceId,
-        systemId: config.systemId,
-      });
+  // ============================================
+  // STEP 1: Session Resolution (MANDATORY Neo4j)
+  // ============================================
+  // Uses central session-resolver for consistent initialization
+  // Same logic as chat-interface.ts
+  neo4jClient = initNeo4jClient();
 
-      if (nodes.length > 0) {
-        log(`📥 Loaded ${nodes.length} nodes from Neo4j`);
+  const resolved = await resolveSession(neo4jClient);
+  config.workspaceId = resolved.workspaceId;
+  config.systemId = resolved.systemId;
+  config.userId = resolved.userId;
+  config.chatId = resolved.chatId;
 
-        const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
-        const edgesMap = new Map(edges.map((e) => [e.semanticId || e.uuid, e]));
+  console.log(`\x1b[90m✓ Session: ${resolved.systemId} (${resolved.source})\x1b[0m`);
+  log(`📋 Session: ${resolved.systemId} (source: ${resolved.source})`);
 
-        await graphCanvas.loadGraph({
-          nodes: nodesMap as any,
-          edges: edgesMap as any,
-          ports: new Map() as any,
-        });
-      }
-    } catch {
-      // Ignore load errors, start fresh
-    }
-  }
+  // ============================================
+  // STEP 2: Initialize Canvas (after session)
+  // ============================================
+  graphCanvas = new GraphCanvas(
+    config.workspaceId,
+    config.systemId,
+    config.chatId,
+    config.userId,
+    currentView,
+    neo4jClient
+  );
 
-  // Initial render
-  await render();
+  console.log('\x1b[90mGraph updates will appear below (scroll to see history)\x1b[0m');
+  console.log('');
 
-  // Connect to WebSocket server
+  // ============================================
+  // STEP 3: WebSocket Connection
+  // ============================================
   wsClient = new CanvasWebSocketClient(
     process.env.WS_URL || WS_URL,
     {
@@ -1080,6 +1079,9 @@ async function main(): Promise<void> {
     log(`❌ WebSocket connection failed: ${errorMsg}`);
     process.exit(1);
   }
+
+  console.log('\x1b[90mWaiting for graph updates from chat interface...\x1b[0m');
+  console.log('');
 }
 
 // Handle signals

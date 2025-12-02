@@ -1,12 +1,14 @@
-# CR-001: Implement Layout Algorithms
+# CR-001: Layout Algorithms and Rendering Configuration
 
 **Status:** Planned
 **Priority:** Medium
 **Target Phase:** Phase 3
 **Created:** 2025-11-19
+**Updated:** 2025-11-28
 
 ## Problem
 
+### Layout Algorithms
 Four layout algorithms in [graph-engine.ts:79-92](../../src/graph-engine/graph-engine.ts#L79-L92) are stubs that throw "not yet implemented (Phase 3)" errors:
 
 1. `sugiyama` - Hierarchical layout for directed acyclic graphs
@@ -16,7 +18,17 @@ Four layout algorithms in [graph-engine.ts:79-92](../../src/graph-engine/graph-e
 
 Currently only `reingold-tilford` (tree layout) and `force-directed` layouts are implemented.
 
+### Rendering Configuration (from CR-013)
+Missing `rendering_ontology.json` with:
+- L0-L4 zoom levels per node type (what to show at each zoom)
+- Symbol/shape definitions
+- Edge rendering styles
+
+**Note:** Node colors already in `settings/ontology.json` (CR-023).
+
 ## Proposed Solution
+
+### Part A: Layout Algorithms
 
 Implement basic versions of all 4 layout algorithms:
 
@@ -52,34 +64,81 @@ Implement basic versions of all 4 layout algorithms:
   - Angular spacing based on subtree size
 - **Use case:** Org charts, taxonomies, social networks
 
+### Part B: Rendering Configuration
+
+Create `settings/rendering.json`:
+
+```json
+{
+  "zoomLevels": {
+    "L0": { "showLabel": "id", "showPorts": false },
+    "L1": { "showLabel": "id + name", "showPorts": false },
+    "L2": { "showLabel": "full", "showPorts": true },
+    "L3": { "showLabel": "full + properties", "showPorts": true },
+    "L4": { "showLabel": "full + metadata", "showPorts": true }
+  },
+  "nodeShapes": {
+    "SYS": "rectangle",
+    "FUNC": "rounded-rectangle",
+    "FLOW": "ellipse",
+    "MOD": "container",
+    "REQ": "rectangle",
+    "TEST": "hexagon",
+    "UC": "oval",
+    "ACTOR": "stick-figure",
+    "FCHAIN": "rectangle-dashed",
+    "SCHEMA": "document"
+  },
+  "edgeStyles": {
+    "compose": { "style": "solid", "arrow": "none" },
+    "io": { "style": "solid", "arrow": "open" },
+    "satisfy": { "style": "dashed", "arrow": "open" },
+    "verify": { "style": "dotted", "arrow": "open" },
+    "allocate": { "style": "dashed", "arrow": "filled" },
+    "relation": { "style": "dotted", "arrow": "none" }
+  }
+}
+```
+
 ## Implementation Plan
 
+### Phase 1: Rendering Config (2-3 hours)
+1. Create `settings/rendering.json` with zoom levels
+2. Define shapes and edge styles for all types
+3. Integrate with graph-viewer.ts
+
+### Phase 2: Layout Algorithms (12-16 hours)
 1. Research existing algorithms (D3.js, Graphviz, Cytoscape.js)
-2. Implement basic version of each algorithm
-3. Add configuration options (spacing, direction, constraints)
-4. Write unit tests for each layout
-5. Add layout examples to visualize.ts
-6. Document algorithm choices and parameters
+2. Implement Sugiyama (4-5 hours)
+3. Implement Orthogonal (3-4 hours)
+4. Implement Treemap (2-3 hours)
+5. Implement Radial (2-3 hours)
+
+### Phase 3: Testing & Integration (3-5 hours)
+1. Unit tests for each layout
+2. Test zoom levels with ASCII renderer
+3. Verify view configs work with layouts
 
 ## Acceptance Criteria
 
+- [ ] `settings/rendering.json` with L0-L4 zoom levels
+- [ ] All 10 node types have shape definitions
+- [ ] All 6 edge types have style definitions
 - [ ] All 4 layout functions return valid node positions
 - [ ] No "not yet implemented" errors thrown
 - [ ] Unit tests cover basic layout scenarios
-- [ ] Documentation explains when to use each layout
-- [ ] Examples demonstrate each layout type
 
 ## Dependencies
 
-- None (can be implemented independently)
+- `settings/ontology.json` - Node colors (already exists)
+- View configs in `docs/specs/views/*.json` (already exist)
 
 ## Estimated Effort
 
-- Research: 2-4 hours
-- Implementation: 8-12 hours
-- Testing: 3-5 hours
-- Documentation: 2-3 hours
-- **Total: 15-24 hours**
+- Rendering Config: 2-3 hours
+- Layout Algorithms: 12-16 hours
+- Testing & Integration: 3-5 hours
+- **Total: 17-24 hours (2-3 days)**
 
 ## References
 

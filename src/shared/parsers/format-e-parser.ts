@@ -150,8 +150,8 @@ export class FormatEParser implements IFormatEParser {
           }
         }
       } else if (section === 'edges') {
-        const parsed = this.parseEdgeLine(line);
-        if (parsed) {
+        const parsedEdges = this.parseEdgeLine(line);
+        for (const parsed of parsedEdges) {
           const edge = this.createEdgeFromParsed(parsed, workspaceId, systemId);
           edges.set(`${edge.sourceId}-${edge.type}-${edge.targetId}`, edge);
         }
@@ -199,6 +199,11 @@ export class FormatEParser implements IFormatEParser {
     let viewContext: string | undefined;
     let section: 'none' | 'nodes' | 'edges' = 'none';
 
+    // Diagnostic counters
+    let skippedLines = 0;
+    let nodeLinesTried = 0;
+    let edgeLinesTried = 0;
+
     for (const line of lines) {
       if (!line || line.startsWith('</')) continue;
 
@@ -212,24 +217,45 @@ export class FormatEParser implements IFormatEParser {
         continue;
       }
 
-      // Section markers
-      if (line === SYNTAX.NODES) {
+      // Section markers (case-insensitive, multiple formats)
+      const lineLower = line.toLowerCase();
+      if (line === SYNTAX.NODES || lineLower === '## nodes' || lineLower === '[nodes]' || lineLower === '**nodes**' || lineLower === 'nodes:') {
         section = 'nodes';
         continue;
       }
-      if (line === SYNTAX.EDGES) {
+      if (line === SYNTAX.EDGES || lineLower === '## edges' || lineLower === '[edges]' || lineLower === '**edges**' || lineLower === 'edges:') {
         section = 'edges';
+        continue;
+      }
+
+      // Skip common non-operation lines
+      if (line.startsWith('#') || line.startsWith('```') || line.startsWith('<operations>')) {
         continue;
       }
 
       // Parse operations
       if (section === 'nodes') {
+        nodeLinesTried++;
         const op = this.parseNodeOperation(line);
-        if (op) operations.push(op);
+        if (op) {
+          operations.push(op);
+        } else {
+          skippedLines++;
+        }
       } else if (section === 'edges') {
-        const op = this.parseEdgeOperation(line);
-        if (op) operations.push(op);
+        edgeLinesTried++;
+        const ops = this.parseEdgeOperation(line);
+        if (ops.length > 0) {
+          operations.push(...ops);
+        } else {
+          skippedLines++;
+        }
       }
+    }
+
+    // Debug logging when no operations found but lines were tried
+    if (operations.length === 0 && (nodeLinesTried > 0 || edgeLinesTried > 0)) {
+      console.error(`[FormatE Parser] WARNING: Tried ${nodeLinesTried} node lines, ${edgeLinesTried} edge lines, but parsed 0 operations. ${skippedLines} lines skipped.`);
     }
 
     return {
@@ -259,13 +285,34 @@ export class FormatEParser implements IFormatEParser {
     }
     lines.push('');
 
-    // Edges
+    // Edges - grouped by (source, type) for 1:N efficiency
     lines.push(SYNTAX.EDGES);
-    for (const edge of state.edges.values()) {
-      lines.push(this.serializeEdge(edge));
+    const edgeGroups = this.groupEdgesBySourceAndType(state.edges);
+    for (const [key, targets] of edgeGroups) {
+      const [sourceId, edgeType] = key.split('|');
+      const arrow = SYNTAX.EDGE_ARROW[edgeType as EdgeType];
+      lines.push(`${sourceId} ${arrow} ${targets.join(', ')}`);
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Group edges by (sourceId, type) for 1:N serialization
+   * Returns Map<"sourceId|type", targetId[]>
+   */
+  private groupEdgesBySourceAndType(edges: Map<string, Edge>): Map<string, string[]> {
+    const groups = new Map<string, string[]>();
+
+    for (const edge of edges.values()) {
+      const key = `${edge.sourceId}|${edge.type}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(edge.targetId);
+    }
+
+    return groups;
   }
 
   /**
@@ -403,20 +450,25 @@ export class FormatEParser implements IFormatEParser {
   }
 
   /**
-   * Parse edge line: SourceID -type-> TargetID
+   * Parse edge line: SourceID -type-> TargetID or SourceID -type-> Target1, Target2, Target3
    * Supports both short (-cp->) and long (-compose->) arrow formats
+   * Supports 1:N multi-target syntax with comma-separated targets
+   *
+   * @returns Array of ParsedEdgeLine (1 for single target, N for multi-target)
    */
-  private parseEdgeLine(line: string): ParsedEdgeLine | null {
+  private parseEdgeLine(line: string): ParsedEdgeLine[] {
     // First try standard short arrows
     for (const [edgeType, arrow] of Object.entries(SYNTAX.EDGE_ARROW)) {
       if (line.includes(arrow)) {
         const parts = line.split(arrow).map((p) => p.trim());
         if (parts.length === 2) {
-          return {
-            sourceId: parts[0],
+          const sourceId = parts[0];
+          const targets = this.parseMultipleTargets(parts[1]);
+          return targets.map((targetId) => ({
+            sourceId,
             type: edgeType as EdgeType,
-            targetId: parts[1],
-          };
+            targetId,
+          }));
         }
       }
     }
@@ -426,16 +478,29 @@ export class FormatEParser implements IFormatEParser {
       if (line.includes(longArrow)) {
         const parts = line.split(longArrow).map((p) => p.trim());
         if (parts.length === 2) {
-          return {
-            sourceId: parts[0],
+          const sourceId = parts[0];
+          const targets = this.parseMultipleTargets(parts[1]);
+          return targets.map((targetId) => ({
+            sourceId,
             type: edgeType as EdgeType,
-            targetId: parts[1],
-          };
+            targetId,
+          }));
         }
       }
     }
 
-    return null;
+    return [];
+  }
+
+  /**
+   * Parse comma-separated target IDs
+   * Handles: "Target1, Target2, Target3" or just "Target1"
+   */
+  private parseMultipleTargets(targetString: string): string[] {
+    return targetString
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
   }
 
   /**
@@ -454,13 +519,13 @@ export class FormatEParser implements IFormatEParser {
   }
 
   /**
-   * Parse node operation (+ or -)
+   * Parse node operation (+ or - prefix, or implicit add without prefix)
    */
   private parseNodeOperation(line: string): Operation | null {
     const prefix = line[0];
-    const content = line.substring(1).trim();
 
     if (prefix === SYNTAX.ADD_PREFIX) {
+      const content = line.substring(1).trim();
       const parsed = this.parseNodeLine(content);
       if (!parsed) return null;
 
@@ -470,9 +535,21 @@ export class FormatEParser implements IFormatEParser {
         node: this.createNodeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
       };
     } else if (prefix === SYNTAX.REMOVE_PREFIX) {
+      const content = line.substring(1).trim();
       return {
         type: 'remove_node',
         semanticId: content,
+      };
+    }
+
+    // Fallback: Try parsing line without prefix as implicit add
+    // This handles LLM output that omits the + prefix
+    const parsed = this.parseNodeLine(line);
+    if (parsed) {
+      return {
+        type: 'add_node',
+        semanticId: parsed.semanticId,
+        node: this.createNodeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
       };
     }
 
@@ -480,32 +557,46 @@ export class FormatEParser implements IFormatEParser {
   }
 
   /**
-   * Parse edge operation (+ or -)
+   * Parse edge operation (+ or - prefix, or implicit add without prefix)
+   * Supports 1:N syntax, returns array of operations
    */
-  private parseEdgeOperation(line: string): Operation | null {
+  private parseEdgeOperation(line: string): Operation[] {
     const prefix = line[0];
-    const content = line.substring(1).trim();
+    const operations: Operation[] = [];
 
     if (prefix === SYNTAX.ADD_PREFIX) {
-      const parsed = this.parseEdgeLine(content);
-      if (!parsed) return null;
-
-      return {
-        type: 'add_edge',
-        semanticId: `${parsed.sourceId}-${parsed.type}-${parsed.targetId}`,
-        edge: this.createEdgeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
-      };
+      const content = line.substring(1).trim();
+      const parsedEdges = this.parseEdgeLine(content);
+      for (const parsed of parsedEdges) {
+        operations.push({
+          type: 'add_edge',
+          semanticId: `${parsed.sourceId}-${parsed.type}-${parsed.targetId}`,
+          edge: this.createEdgeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
+        });
+      }
     } else if (prefix === SYNTAX.REMOVE_PREFIX) {
-      const parsed = this.parseEdgeLine(content);
-      if (!parsed) return null;
-
-      return {
-        type: 'remove_edge',
-        semanticId: `${parsed.sourceId}-${parsed.type}-${parsed.targetId}`,
-      };
+      const content = line.substring(1).trim();
+      const parsedEdges = this.parseEdgeLine(content);
+      for (const parsed of parsedEdges) {
+        operations.push({
+          type: 'remove_edge',
+          semanticId: `${parsed.sourceId}-${parsed.type}-${parsed.targetId}`,
+        });
+      }
+    } else {
+      // Fallback: Try parsing line without prefix as implicit add
+      // This handles LLM output that omits the + prefix
+      const parsedEdges = this.parseEdgeLine(line);
+      for (const parsed of parsedEdges) {
+        operations.push({
+          type: 'add_edge',
+          semanticId: `${parsed.sourceId}-${parsed.type}-${parsed.targetId}`,
+          edge: this.createEdgeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
+        });
+      }
     }
 
-    return null;
+    return operations;
   }
 
   /**

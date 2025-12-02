@@ -92,9 +92,8 @@ export interface ChatCanvasState {
 export interface GraphCanvasState extends GraphState {
   currentView: string; // View ID or type
 
-  // Dirty tracking
-  dirtyNodeIds: Set<SemanticId>;
-  dirtyEdgeIds: Set<string>;
+  // Note: Dirty tracking is handled by base class CanvasBase.dirty Set<string>
+  // Uses semanticId for nodes, composite key (sourceId-type-targetId) for edges
 
   // User session state
   focus?: SemanticId; // Currently focused node

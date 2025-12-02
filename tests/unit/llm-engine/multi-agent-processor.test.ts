@@ -221,26 +221,38 @@ describe('MultiAgentProcessor', () => {
     });
   });
 
-  describe('workflow management', () => {
-    it('should initialize workflow', () => {
-      const result = processor.initializeWorkflow(
-        '## Nodes\n+ System|SYS|System.SY.001',
-        'Add payment processing'
-      );
+  describe('CR-027 routing', () => {
+    it('should route user input to appropriate agent', () => {
+      const agent = processor.routeUserInput('Add a new requirement', {
+        currentPhase: 'phase1_requirements',
+        graphEmpty: true,
+        userMessage: 'Add a new requirement',
+      });
 
-      expect(result.workflowId).toBeDefined();
-      expect(result.currentAgent).toBe('requirements-engineer');
+      expect(agent).toBe('requirements-engineer');
     });
 
-    it('should return workflow status', () => {
-      processor.initializeWorkflow('## Nodes', 'Test request');
-      const status = processor.getWorkflowStatus();
+    it('should route to system-architect when graph is empty', () => {
+      const agent = processor.routeUserInput('Create a system', {
+        currentPhase: 'phase1_requirements',
+        graphEmpty: true,
+        userMessage: 'Create a system',
+      });
 
-      // Initial workflow has agents in pending state, currentAgent may be undefined
-      expect(status.pendingAgents).toBeDefined();
-      expect(status.completedAgents).toBeDefined();
-      expect(Array.isArray(status.pendingAgents)).toBe(true);
-      expect(Array.isArray(status.completedAgents)).toBe(true);
+      // When graph is empty and asking about system creation, routes to system-architect
+      expect(agent).toBe('system-architect');
+    });
+
+    it('should calculate reward for agent execution', () => {
+      const reward = processor.calculateReward('system-architect', {
+        agentId: 'system-architect',
+        textResponse: 'Created system',
+        operations: '## Nodes\n+ Test|SYS|Test.SY.001',
+        isComplete: true,
+      });
+
+      expect(reward).toBeGreaterThanOrEqual(0);
+      expect(reward).toBeLessThanOrEqual(1);
     });
   });
 
@@ -271,12 +283,24 @@ describe('MultiAgentProcessor', () => {
   });
 
   describe('reset', () => {
-    it('should reset processor state', () => {
-      processor.initializeWorkflow('## Nodes', 'Test');
+    it('should reset processor state', async () => {
+      // Process a response to create some state
+      const mockResponse: LLMResponse = {
+        textResponse: 'Added',
+        operations: `## Nodes\n+ Test|FUNC|Test.FN.001|Test`,
+        usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        cacheHit: false,
+        model: 'test',
+        responseId: 'test',
+      };
+
+      await processor.processResponse(mockResponse, '', 'Test');
+
+      // Reset and verify no pending review questions
       processor.reset();
 
-      const status = processor.getWorkflowStatus();
-      expect(status.currentAgent).toBeUndefined();
+      const questions = processor.getPendingReviewQuestions();
+      expect(questions.length).toBe(0);
     });
   });
 

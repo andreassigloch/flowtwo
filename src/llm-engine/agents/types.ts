@@ -4,18 +4,21 @@
  * Types for the INCOSE-conformant multi-agent architecture.
  *
  * CR-024: Multi-Agent Architecture System
+ * CR-027: Agentic Framework and Process Upgrade
  *
  * @author andreas@siglochconsulting
  */
 
 /**
  * Agent role identifiers (INCOSE-conformant)
+ * CR-027: Added verification-engineer for Phase 4
  */
 export type AgentRole =
   | 'requirements-engineer'
   | 'system-architect'
   | 'architecture-reviewer'
-  | 'functional-analyst';
+  | 'functional-analyst'
+  | 'verification-engineer';
 
 /**
  * Agent message types for inter-agent communication
@@ -144,4 +147,70 @@ export interface AgentResponse {
   reviewQuestions?: ReviewQuestion[];
   nextAgent?: AgentRole;
   isComplete: boolean;
+}
+
+/**
+ * CR-027: Phase identifiers for workflow routing
+ */
+export type Phase =
+  | 'phase0_concept'
+  | 'phase1_requirements'
+  | 'phase2_logical'
+  | 'phase3_physical'
+  | 'phase4_verification';
+
+/**
+ * CR-027: Volatility classification levels
+ */
+export type VolatilityLevel = 'low' | 'medium' | 'high';
+
+/**
+ * CR-027: Test coverage report from verification-engineer
+ */
+export interface TestCoverageReport {
+  totalReqs: number;
+  coveredReqs: number;
+  uncoveredReqs: string[];
+  coveragePercent: number;
+  byTestType: {
+    unit: number;
+    integration: number;
+    e2e: number;
+  };
+}
+
+/**
+ * CR-027: Traceability path for verification
+ */
+export interface TraceabilityPath {
+  reqId: string;
+  ucId?: string;
+  funcId?: string;
+  testId?: string;
+  complete: boolean;
+  missingLinks: string[];
+}
+
+/**
+ * CR-027: Phase gate status
+ */
+export interface PhaseGateStatus {
+  phase: Phase;
+  ready: boolean;
+  blockers: string[];
+  passedRules: string[];
+  failedRules: string[];
+  timestamp: number;
+}
+
+/**
+ * CR-027: Agent execution metrics
+ */
+export interface AgentMetrics {
+  agentId: AgentRole;
+  executionCount: number;
+  successCount: number;
+  avgReward: number;
+  avgExecutionTimeMs: number;
+  lastExecution: number;
 }

@@ -5,6 +5,7 @@
  * Provides auto-validation, agent prompts, and review flow integration.
  *
  * CR-024: Multi-Agent Architecture System
+ * CR-027: Refactored to use config-driven agents (workflow-router, agent-executor)
  *
  * @author andreas@siglochconsulting
  */
@@ -15,14 +16,15 @@ import {
   ValidationError,
   CorrectionProposal,
   ReviewQuestion,
-  AgentResponse,
 } from './agents/types.js';
-import { getAgentCoordinator } from './agents/agent-coordinator.js';
 import { getArchitectureValidator } from './agents/architecture-validator.js';
 import { getReviewFlowManager } from './agents/review-flow.js';
-import { getAgentSystemPrompt, getAgentContextPrompt } from './agents/agent-prompts.js';
 import { classifyNode } from './agents/decision-tree.js';
 import { AgentDBLogger } from './agentdb/agentdb-logger.js';
+
+// CR-027: Use config-driven components
+import { getWorkflowRouter, SessionContext } from './agents/workflow-router.js';
+import { getAgentExecutor } from './agents/agent-executor.js';
 
 /**
  * Multi-Agent processing result
@@ -52,7 +54,7 @@ export interface MultiAgentConfig {
   enableReviewFlow?: boolean;
   /** Auto-apply safe corrections without user confirmation (default: false) */
   autoApplySafeCorrections?: boolean;
-  /** Agent role to use for processing (default: auto-detect) */
+  /** Agent role to use for processing (default: auto-detect via CR-027 router) */
   defaultAgent?: AgentRole;
 }
 
@@ -60,9 +62,12 @@ export interface MultiAgentConfig {
  * Multi-Agent Processor
  *
  * Coordinates multi-agent workflow and provides validation/review integration.
+ * CR-027: Now uses WorkflowRouter and AgentExecutor for config-driven behavior.
  */
 export class MultiAgentProcessor {
   private config: Required<MultiAgentConfig>;
+  private router = getWorkflowRouter();
+  private executor = getAgentExecutor();
 
   constructor(config: MultiAgentConfig = {}) {
     this.config = {
@@ -86,7 +91,13 @@ export class MultiAgentProcessor {
     graphSnapshot: string,
     userMessage: string
   ): Promise<MultiAgentResult> {
-    const processingAgent = this.detectAgent(userMessage);
+    // CR-027: Use WorkflowRouter for agent selection
+    const sessionContext: SessionContext = {
+      currentPhase: 'phase1_requirements',
+      graphEmpty: graphSnapshot.trim() === '',
+      userMessage,
+    };
+    const processingAgent = this.router.routeUserInput(userMessage, sessionContext) as AgentRole;
 
     AgentDBLogger.agentActivity(
       processingAgent,
@@ -150,16 +161,14 @@ export class MultiAgentProcessor {
   }
 
   /**
-   * Get agent-enhanced system prompt
+   * Get agent-enhanced system prompt (CR-027: uses AgentExecutor)
    *
    * @param agentRole - Agent role to get prompt for
    * @param canvasState - Current graph state
    * @returns Enhanced system prompt
    */
   getAgentPrompt(agentRole: AgentRole, canvasState: string): string {
-    const systemPrompt = getAgentSystemPrompt(agentRole);
-    const contextPrompt = getAgentContextPrompt(agentRole, canvasState);
-    return `${systemPrompt}\n\n${contextPrompt}`;
+    return this.executor.getAgentContextPrompt(agentRole, canvasState);
   }
 
   /**
@@ -212,116 +221,47 @@ export class MultiAgentProcessor {
   }
 
   /**
-   * Initialize a multi-agent workflow
+   * Route user input to appropriate agent (CR-027)
    *
-   * @param graphSnapshot - Current graph in Format E
-   * @param userRequest - User's request
-   * @returns Workflow status
+   * @param message - User message
+   * @param context - Session context
+   * @returns Selected agent ID
    */
-  initializeWorkflow(
-    graphSnapshot: string,
-    userRequest: string
-  ): { workflowId: string; currentAgent: AgentRole } {
-    const coordinator = getAgentCoordinator();
-    const workItem = coordinator.initializeWorkflow(graphSnapshot, userRequest);
-
-    return {
-      workflowId: workItem.id,
-      currentAgent: workItem.agentId,
-    };
+  routeUserInput(message: string, context: SessionContext): string {
+    return this.router.routeUserInput(message, context);
   }
 
   /**
-   * Get current workflow status
+   * Get agent context prompt (CR-027)
+   *
+   * @param agentId - Agent ID
+   * @param graphSnapshot - Current graph state
+   * @param userMessage - User message for context
+   * @returns Full agent prompt with context
    */
-  getWorkflowStatus(): {
-    currentAgent: AgentRole | undefined;
-    completedAgents: AgentRole[];
-    pendingAgents: AgentRole[];
-  } {
-    const coordinator = getAgentCoordinator();
-    const status = coordinator.getWorkflowStatus();
-    return {
-      currentAgent: status.currentAgent,
-      completedAgents: status.completedAgents,
-      pendingAgents: status.pendingAgents,
-    };
+  getAgentContextPrompt(agentId: string, graphSnapshot: string, userMessage?: string): string {
+    return this.executor.getAgentContextPrompt(agentId, graphSnapshot, userMessage);
   }
 
   /**
-   * Complete current agent and handoff to next
-   *
-   * @param response - Current agent's response
-   * @param graphSnapshot - Updated graph state
-   * @returns Next agent or undefined if workflow complete
+   * Calculate reward for agent execution (CR-027)
    */
-  handoffToNextAgent(
-    response: AgentResponse,
-    graphSnapshot: string
-  ): AgentRole | undefined {
-    const coordinator = getAgentCoordinator();
-    const status = coordinator.getWorkflowStatus();
-
-    if (!status.currentAgent) {
-      return undefined;
-    }
-
-    const workItem = coordinator.handoffToNextAgent(status.currentAgent, response, graphSnapshot);
-    return workItem?.agentId;
+  calculateReward(
+    agentId: string,
+    result: { agentId: string; textResponse: string; operations?: string; isComplete: boolean }
+  ): number {
+    return this.executor.calculateReward(agentId, result);
   }
 
   /**
    * Reset processor state
    */
   reset(): void {
-    const coordinator = getAgentCoordinator();
     const reviewManager = getReviewFlowManager();
-
-    coordinator.reset();
     reviewManager.reset();
+    this.executor.clearHistory();
 
     AgentDBLogger.agentActivity('multi-agent-processor', 'reset');
-  }
-
-  /**
-   * Detect which agent should process the request
-   *
-   * @param userMessage - User's message
-   * @returns Appropriate agent role
-   */
-  private detectAgent(userMessage: string): AgentRole {
-    const messageLower = userMessage.toLowerCase();
-
-    // Keywords for each agent
-    if (
-      messageLower.includes('requirement') ||
-      messageLower.includes('need') ||
-      messageLower.includes('must') ||
-      messageLower.includes('shall')
-    ) {
-      return 'requirements-engineer';
-    }
-
-    if (
-      messageLower.includes('validate') ||
-      messageLower.includes('check') ||
-      messageLower.includes('review') ||
-      messageLower.includes('correct')
-    ) {
-      return 'architecture-reviewer';
-    }
-
-    if (
-      messageLower.includes('chain') ||
-      messageLower.includes('sequence') ||
-      messageLower.includes('flow') ||
-      messageLower.includes('process')
-    ) {
-      return 'functional-analyst';
-    }
-
-    // Default to system architect
-    return this.config.defaultAgent;
   }
 
   /**

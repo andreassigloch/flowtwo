@@ -1,18 +1,21 @@
 # CR-003: Refactor Oversized Modules
 
 **Status:** Planned
-**Priority:** Medium
+**Priority:** HIGH (Updated 2025-11-26)
 **Target Phase:** Phase 3
 **Created:** 2025-11-19
+**Updated:** 2025-11-26
 
 ## Problem
 
 Four modules exceed the 500-line limit mandated by ESLint and code quality standards:
 
-1. **[src/terminal-ui/chat-interface.ts](../../src/terminal-ui/chat-interface.ts)** - 679 lines (35% over limit) 🔴 CRITICAL
-2. **[src/shared/parsers/format-e-parser.ts](../../src/shared/parsers/format-e-parser.ts)** - 567 lines (13% over limit) 🟡 MAJOR
-3. **[src/terminal-ui/graph-viewer.ts](../../src/terminal-ui/graph-viewer.ts)** - 540 lines (8% over limit) 🟡 MAJOR
-4. **[src/neo4j-client/neo4j-client.ts](../../src/neo4j-client/neo4j-client.ts)** - 526 lines (5% over limit) 🟠 WARNING
+1. **[src/terminal-ui/chat-interface.ts](../../src/terminal-ui/chat-interface.ts)** - 1115 lines (123% over limit) 🔴 CRITICAL
+2. **[src/terminal-ui/graph-viewer.ts](../../src/terminal-ui/graph-viewer.ts)** - 1127 lines (125% over limit) 🔴 CRITICAL
+3. **[src/shared/parsers/format-e-parser.ts](../../src/shared/parsers/format-e-parser.ts)** - 620 lines (24% over limit) 🟡 MAJOR
+4. **[src/neo4j-client/neo4j-client.ts](../../src/neo4j-client/neo4j-client.ts)** - 525 lines (5% over limit) 🟠 WARNING
+
+**Note:** File sizes have grown significantly since initial CR creation. Priority upgraded to HIGH.
 
 Large files are harder to maintain, test, and understand. Breaking them into focused modules improves code quality.
 

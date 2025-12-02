@@ -714,6 +714,85 @@ class FormatEDiffValidator {
 6. ✅ **FLOW Nodes as Ports**: Not rendered as separate symbols
 7. ✅ **Two-Layer Caching**: Anthropic native + AgentDB persistent
 8. ✅ **Chat is ALSO a Canvas**: Same pattern, same diff format, same broadcast mechanism
+9. ✅ **Config-Driven Agents**: Multi-Agent routing via `agent-config.json` (CR-027)
+
+---
+
+## 7. Multi-Agent Architecture (CR-024 + CR-027)
+
+### 7.1 Agent Framework Overview
+
+**Implementation Status**: ✅ Fully Integrated (CR-027)
+
+The system uses a config-driven multi-agent architecture for intelligent request routing:
+
+```
+User Input → WorkflowRouter → AgentExecutor → LLM → AgentDB (episodic memory)
+                ↓                    ↓
+         agent-config.json    settings/prompts/*.md
+```
+
+### 7.2 Agent Configuration
+
+**Config Files**:
+- `settings/agent-config.json` - Agent definitions, routing rules, workflow
+- `settings/prompts/*.md` - Agent-specific system prompts
+- `settings/ontology-rules.json` - Domain knowledge and validation rules
+
+**Five Agents**:
+| Agent | Phase | Responsibility |
+|-------|-------|----------------|
+| requirements-engineer | 1 | REQ, UC nodes |
+| system-architect | 1-3 | SYS, FUNC, MOD nodes (default) |
+| architecture-reviewer | all | Validation, phase gates |
+| functional-analyst | 2 | FCHAIN, FLOW analysis |
+| verification-engineer | 4 | TEST nodes, coverage |
+
+### 7.3 Request Flow (chat-interface.ts)
+
+```typescript
+// 1. Build session context
+const sessionContext: SessionContext = {
+  currentPhase: 'phase1_requirements',
+  graphEmpty: currentState.nodes.size === 0,
+  userMessage: message,
+};
+
+// 2. Route to appropriate agent (CR-027)
+const selectedAgent = workflowRouter.routeUserInput(message, sessionContext);
+
+// 3. Get agent-specific prompt
+const agentPrompt = agentExecutor.getAgentContextPrompt(selectedAgent, canvasState, message);
+
+// 4. Execute LLM with agent prompt
+await llmEngine.processRequestStream({ ...request, systemPrompt: agentPrompt });
+
+// 5. Calculate reward and store episode
+const reward = agentExecutor.calculateReward(selectedAgent, result);
+await agentdb.storeEpisode(selectedAgent, message, success, result, critique);
+```
+
+### 7.4 Module Structure
+
+```
+src/llm-engine/agents/
+├── config-loader.ts      # Load agent-config.json + prompts (hot-reload)
+├── workflow-router.ts    # Route user input to agents
+├── agent-executor.ts     # Execute agents with config-driven prompts
+├── work-item-manager.ts  # Work item lifecycle
+├── phase-gate-manager.ts # Phase transition validation
+├── decision-tree.ts      # Node classification logic
+├── architecture-validator.ts # Ontology rule validation
+└── review-flow.ts        # User review question generation
+```
+
+### 7.5 Episodic Memory (AgentDB)
+
+Each agent interaction is stored as an episode for Reflexion-style learning:
+- Agent ID and task description
+- Success/failure status
+- Reward score (0.0-1.0)
+- Critique for self-improvement
 
 ---
 

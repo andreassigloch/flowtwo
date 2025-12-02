@@ -138,6 +138,57 @@ A.SY.001 -rel-> B.UC.001`;
       expect(result.edges.has('C.FN.001-allocate-F.MD.001')).toBe(true);
       expect(result.edges.has('A.SY.001-relation-B.UC.001')).toBe(true);
     });
+
+    it('should parse 1:N multi-target edge syntax', () => {
+      const formatE = `## Nodes
+A|SYS|A.SY.001|A
+B|UC|B.UC.001|B
+C|UC|C.UC.001|C
+D|UC|D.UC.001|D
+
+## Edges
+A.SY.001 -cp-> B.UC.001, C.UC.001, D.UC.001`;
+
+      const result = parser.parseGraph(formatE);
+
+      expect(result.edges.size).toBe(3);
+      expect(result.edges.has('A.SY.001-compose-B.UC.001')).toBe(true);
+      expect(result.edges.has('A.SY.001-compose-C.UC.001')).toBe(true);
+      expect(result.edges.has('A.SY.001-compose-D.UC.001')).toBe(true);
+    });
+
+    it('should parse mixed 1:1 and 1:N edge syntax', () => {
+      const formatE = `## Nodes
+A|SYS|A.SY.001|A
+B|UC|B.UC.001|B
+C|UC|C.UC.001|C
+D|FUNC|D.FN.001|D
+
+## Edges
+A.SY.001 -cp-> B.UC.001, C.UC.001
+B.UC.001 -io-> D.FN.001`;
+
+      const result = parser.parseGraph(formatE);
+
+      expect(result.edges.size).toBe(3);
+      expect(result.edges.has('A.SY.001-compose-B.UC.001')).toBe(true);
+      expect(result.edges.has('A.SY.001-compose-C.UC.001')).toBe(true);
+      expect(result.edges.has('B.UC.001-io-D.FN.001')).toBe(true);
+    });
+
+    it('should handle trailing comma in multi-target syntax', () => {
+      const formatE = `## Nodes
+A|SYS|A.SY.001|A
+B|UC|B.UC.001|B
+
+## Edges
+A.SY.001 -cp-> B.UC.001,`;
+
+      const result = parser.parseGraph(formatE);
+
+      expect(result.edges.size).toBe(1);
+      expect(result.edges.has('A.SY.001-compose-B.UC.001')).toBe(true);
+    });
   });
 
   describe('parseDiff', () => {
@@ -315,6 +366,133 @@ A.SY.001 -rel-> B.UC.001`;
 
       expect(result).toContain('## View-Context');
       expect(result).toContain('Type: Hierarchy');
+    });
+
+    it('should serialize edges with 1:N grouping', () => {
+      const state: GraphState = {
+        workspaceId: 'test',
+        systemId: 'test',
+        nodes: new Map([
+          [
+            'A.SY.001',
+            {
+              uuid: 'u1',
+              semanticId: 'A.SY.001',
+              type: 'SYS',
+              name: 'A',
+              workspaceId: 'test',
+              systemId: 'test',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 'test',
+            },
+          ],
+        ]),
+        edges: new Map([
+          [
+            'e1',
+            {
+              uuid: 'e1',
+              type: 'compose',
+              sourceId: 'A.SY.001',
+              targetId: 'B.UC.001',
+              workspaceId: 'test',
+              systemId: 'test',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 'test',
+            },
+          ],
+          [
+            'e2',
+            {
+              uuid: 'e2',
+              type: 'compose',
+              sourceId: 'A.SY.001',
+              targetId: 'C.UC.001',
+              workspaceId: 'test',
+              systemId: 'test',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 'test',
+            },
+          ],
+          [
+            'e3',
+            {
+              uuid: 'e3',
+              type: 'compose',
+              sourceId: 'A.SY.001',
+              targetId: 'D.UC.001',
+              workspaceId: 'test',
+              systemId: 'test',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 'test',
+            },
+          ],
+        ]),
+        ports: new Map(),
+        version: 1,
+        lastSavedVersion: 1,
+        lastModified: new Date(),
+      };
+
+      const result = parser.serializeGraph(state);
+
+      // Should have ONE line for all 3 edges with same source+type
+      expect(result).toContain('A.SY.001 -cp-> B.UC.001, C.UC.001, D.UC.001');
+      // Should NOT have separate lines
+      const edgeLines = result.split('\n').filter((l) => l.includes('-cp->'));
+      expect(edgeLines.length).toBe(1);
+    });
+
+    it('should separate edges with different types', () => {
+      const state: GraphState = {
+        workspaceId: 'test',
+        systemId: 'test',
+        nodes: new Map(),
+        edges: new Map([
+          [
+            'e1',
+            {
+              uuid: 'e1',
+              type: 'compose',
+              sourceId: 'A.SY.001',
+              targetId: 'B.UC.001',
+              workspaceId: 'test',
+              systemId: 'test',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 'test',
+            },
+          ],
+          [
+            'e2',
+            {
+              uuid: 'e2',
+              type: 'io',
+              sourceId: 'A.SY.001',
+              targetId: 'C.FN.001',
+              workspaceId: 'test',
+              systemId: 'test',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 'test',
+            },
+          ],
+        ]),
+        ports: new Map(),
+        version: 1,
+        lastSavedVersion: 1,
+        lastModified: new Date(),
+      };
+
+      const result = parser.serializeGraph(state);
+
+      // Should have TWO lines - different edge types
+      expect(result).toContain('A.SY.001 -cp-> B.UC.001');
+      expect(result).toContain('A.SY.001 -io-> C.FN.001');
     });
   });
 

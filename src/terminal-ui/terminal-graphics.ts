@@ -60,12 +60,30 @@ export function detectTerminalCapabilities(): TerminalCapabilities {
 }
 
 /**
+ * Image scaling options
+ */
+export interface ImageScaleOptions {
+  scale?: number; // 1 = original, 2 = double size, etc.
+  width?: number; // Fixed width in pixels (overrides scale)
+}
+
+/**
+ * Default scale factor for terminal images
+ * Increase this value if images appear too small
+ */
+const DEFAULT_SCALE = 2;
+
+/**
  * Generate PNG from Mermaid syntax (via SVG)
  *
  * @param mermaidCode - Mermaid diagram syntax
+ * @param options - Scaling options
  * @returns Path to generated PNG file
  */
-export async function generatePNGFromMermaid(mermaidCode: string): Promise<string> {
+export async function generatePNGFromMermaid(
+  mermaidCode: string,
+  options: ImageScaleOptions = {}
+): Promise<string> {
   const tempDir = path.join(process.cwd(), '.tmp');
   await fs.mkdir(tempDir, { recursive: true });
 
@@ -75,13 +93,19 @@ export async function generatePNGFromMermaid(mermaidCode: string): Promise<strin
   // Write Mermaid code to temp file
   await fs.writeFile(inputFile, mermaidCode, 'utf-8');
 
+  // Calculate width based on scale factor (default 2x for better visibility)
+  const scale = options.scale ?? DEFAULT_SCALE;
+  const baseWidth = 800; // Base width before scaling
+  const width = options.width ?? baseWidth * scale;
+
   try {
     // Generate PNG using mmdc (mermaid-cli)
     // -b transparent: transparent background
     // -t dark: dark theme
-    // -w 1200: width 1200px for better quality
+    // -w: width for better quality (scaled)
+    // -s: scale factor for crisp rendering
     await execAsync(
-      `npx -y mmdc -i "${inputFile}" -o "${outputFile}" -b transparent -t dark -w 1200`
+      `npx -y mmdc -i "${inputFile}" -o "${outputFile}" -b transparent -t dark -w ${width} -s ${scale}`
     );
 
     // Clean up input file
@@ -103,15 +127,41 @@ export async function generatePNGFromMermaid(mermaidCode: string): Promise<strin
  * Render image using iTerm2 Inline Images Protocol
  *
  * @param imagePath - Path to PNG/JPG file
+ * @param options - Display options (width in cells or 'auto')
  * @returns ANSI escape sequence for iTerm2 image rendering
  */
-export async function renderITerm2Image(imagePath: string): Promise<string> {
+export async function renderITerm2Image(
+  imagePath: string,
+  options: { width?: string | number; height?: string | number; preserveAspectRatio?: boolean } = {}
+): Promise<string> {
   const imageData = await fs.readFile(imagePath);
   const base64Data = imageData.toString('base64');
 
+  // iTerm2 Inline Images Protocol parameters:
+  // - inline=1: display inline
+  // - width=auto/Npx/N: width (auto, pixels, or character cells)
+  // - height=auto/Npx/N: height
+  // - preserveAspectRatio=1: maintain aspect ratio
+  const params: string[] = ['inline=1'];
+
+  // Width: use 'auto' to let iTerm2 size based on image, or specify cells/pixels
+  // Default to auto which displays at native resolution
+  if (options.width !== undefined) {
+    params.push(`width=${options.width}`);
+  }
+
+  if (options.height !== undefined) {
+    params.push(`height=${options.height}`);
+  }
+
+  // Preserve aspect ratio by default
+  if (options.preserveAspectRatio !== false) {
+    params.push('preserveAspectRatio=1');
+  }
+
   // iTerm2 Inline Images Protocol
   // ESC ] 1337 ; File = [arguments] : base64-encoded-file-contents ^G
-  const escape = '\x1b]1337;File=inline=1:';
+  const escape = `\x1b]1337;File=${params.join(';')}:`;
   const bell = '\x07';
 
   return `${escape}${base64Data}${bell}\n`;

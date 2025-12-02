@@ -12,6 +12,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { GraphCanvas } from '../../../src/canvas/graph-canvas.js';
 import { Node, Edge } from '../../../src/shared/types/ontology.js';
 import { FormatEDiff } from '../../../src/shared/types/canvas.js';
+import { MockNeo4jClient } from '../../setup.js';
 
 describe('GraphCanvas', () => {
   let canvas: GraphCanvas;
@@ -142,8 +143,8 @@ describe('GraphCanvas', () => {
         ],
       });
 
-      const state = canvas.getState();
-      expect(state.dirtyNodeIds.has('Node.FN.001')).toBe(true);
+      const dirtyIds = canvas.getDirtyIds();
+      expect(dirtyIds.has('Node.FN.001')).toBe(true);
     });
   });
 
@@ -226,8 +227,8 @@ describe('GraphCanvas', () => {
         ],
       });
 
-      const state = canvas.getState();
-      expect(state.dirtyEdgeIds.has('NodeA.SY.001-compose-NodeB.UC.001')).toBe(true);
+      const dirtyIds = canvas.getDirtyIds();
+      expect(dirtyIds.has('NodeA.SY.001-compose-NodeB.UC.001')).toBe(true);
     });
   });
 
@@ -366,7 +367,18 @@ describe('GraphCanvas', () => {
     });
 
     it('should clear dirty tracking after persist', async () => {
-      await canvas.applyDiff({
+      // Create canvas with mock Neo4jClient
+      const mockNeo4j = new MockNeo4jClient();
+      const canvasWithNeo4j = new GraphCanvas(
+        'test-ws',
+        'TestSystem.SY.001',
+        'chat-001',
+        'user-001',
+        'hierarchy',
+        mockNeo4j as any
+      );
+
+      await canvasWithNeo4j.applyDiff({
         baseSnapshot: 'TestSystem.SY.001@v1',
         operations: [
           {
@@ -377,13 +389,65 @@ describe('GraphCanvas', () => {
         ],
       });
 
-      const stateBefore = canvas.getState();
-      expect(stateBefore.dirtyNodeIds.size).toBeGreaterThan(0);
+      const dirtyBefore = canvasWithNeo4j.getDirtyIds();
+      expect(dirtyBefore.size).toBeGreaterThan(0);
 
-      await canvas.persistToNeo4j();
+      await canvasWithNeo4j.persistToNeo4j();
 
-      const stateAfter = canvas.getState();
-      expect(stateAfter.dirtyNodeIds.size).toBe(0);
+      const dirtyAfter = canvasWithNeo4j.getDirtyIds();
+      expect(dirtyAfter.size).toBe(0);
+      expect(mockNeo4j.savedNodes.length).toBe(1);
+    });
+
+    it('should persist both nodes and edges', async () => {
+      // Create canvas with mock Neo4jClient
+      const mockNeo4j = new MockNeo4jClient();
+      const canvasWithNeo4j = new GraphCanvas(
+        'test-ws',
+        'TestSystem.SY.001',
+        'chat-001',
+        'user-001',
+        'hierarchy',
+        mockNeo4j as any
+      );
+
+      // Add nodes and an edge
+      await canvasWithNeo4j.applyDiff({
+        baseSnapshot: 'TestSystem.SY.001@v1',
+        operations: [
+          {
+            type: 'add_node',
+            semanticId: 'Parent.SY.001',
+            node: createTestNode('Parent.SY.001', 'Parent', 'SYS'),
+          },
+          {
+            type: 'add_node',
+            semanticId: 'Child.MOD.001',
+            node: createTestNode('Child.MOD.001', 'Child', 'MOD'),
+          },
+          {
+            type: 'add_edge',
+            semanticId: 'Parent.SY.001-compose-Child.MOD.001',
+            edge: createTestEdge('Parent.SY.001', 'Child.MOD.001', 'compose'),
+          },
+        ],
+      });
+
+      // Verify dirty tracking includes edge (using composite key)
+      const dirtyIds = canvasWithNeo4j.getDirtyIds();
+      expect(dirtyIds.has('Parent.SY.001')).toBe(true);
+      expect(dirtyIds.has('Child.MOD.001')).toBe(true);
+      expect(dirtyIds.has('Parent.SY.001-compose-Child.MOD.001')).toBe(true);
+
+      // Persist
+      await canvasWithNeo4j.persistToNeo4j();
+
+      // Verify both nodes AND edges were saved
+      expect(mockNeo4j.savedNodes.length).toBe(2);
+      expect(mockNeo4j.savedEdges.length).toBe(1);
+
+      // Verify dirty tracking is cleared
+      expect(canvasWithNeo4j.getDirtyIds().size).toBe(0);
     });
   });
 });

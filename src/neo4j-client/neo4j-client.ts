@@ -81,6 +81,25 @@ export class Neo4jClient {
   }
 
   /**
+   * Run a raw Cypher query
+   */
+  async query<T = Record<string, unknown>>(cypher: string, params?: Record<string, unknown>): Promise<T[]> {
+    const session = this.getSession();
+    try {
+      const result = await session.run(cypher, params);
+      return result.records.map(record => {
+        const obj: Record<string, unknown> = {};
+        record.keys.forEach(key => {
+          obj[String(key)] = record.get(key);
+        });
+        return obj as T;
+      });
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
    * Save nodes in batch
    */
   async saveNodes(nodes: Node[]): Promise<BatchPersistResult> {
@@ -157,13 +176,13 @@ export class Neo4jClient {
 
     try {
       // Build batch query
+      // Note: No semanticId stored - edges keyed by composite ${sourceId}-${type}-${targetId} in canvas
       const query = `
         UNWIND $edges AS edgeData
         MATCH (source:Node {semanticId: edgeData.sourceId})
         MATCH (target:Node {semanticId: edgeData.targetId})
         MERGE (source)-[r:EDGE {uuid: edgeData.uuid}]->(target)
-        SET r.semanticId = edgeData.semanticId,
-            r.type = edgeData.type,
+        SET r.type = edgeData.type,
             r.workspaceId = edgeData.workspaceId,
             r.systemId = edgeData.systemId,
             r.createdAt = datetime(edgeData.createdAt),
@@ -175,7 +194,6 @@ export class Neo4jClient {
       const parameters = {
         edges: edges.map((edge) => ({
           uuid: edge.uuid,
-          semanticId: edge.semanticId,
           type: edge.type,
           sourceId: edge.sourceId,
           targetId: edge.targetId,
@@ -332,7 +350,7 @@ export class Neo4jClient {
         const r = record.get('r').properties;
         return {
           uuid: r.uuid,
-          semanticId: r.semanticId,
+          // No semanticId - composite key derived from sourceId-type-targetId
           type: r.type,
           sourceId: record.get('sourceId'),
           targetId: record.get('targetId'),

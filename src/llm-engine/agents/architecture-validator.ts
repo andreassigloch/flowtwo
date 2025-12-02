@@ -5,11 +5,12 @@
  * Works both with Format E (in-memory) and Neo4j (when available).
  *
  * CR-024: Multi-Agent Architecture System
+ * CR-027: Added volatility classification and validation
  *
  * @author andreas@siglochconsulting
  */
 
-import { ValidationError, CorrectionProposal } from './types.js';
+import { ValidationError, CorrectionProposal, VolatilityLevel } from './types.js';
 import { classifyNode } from './decision-tree.js';
 import { AgentDBLogger } from '../agentdb/agentdb-logger.js';
 
@@ -22,6 +23,7 @@ interface ParsedNode {
   semanticId: string;
   description: string;
   position?: { x: number; y: number };
+  volatility?: VolatilityLevel;
 }
 
 /**
@@ -81,6 +83,9 @@ export class ArchitectureValidator {
     // V10: Check for nested SYS (subsystems should be FUNC)
     errors.push(...this.validateNoNestedSYS(nodes, edges));
 
+    // V11: Check volatile FUNC isolation (CR-027)
+    errors.push(...this.validateVolatileFuncIsolation(nodes, edges));
+
     const errorCount = errors.filter((e) => e.severity === 'error').length;
     const warningCount = errors.filter((e) => e.severity === 'warning').length;
     AgentDBLogger.validationResult(errorCount, warningCount);
@@ -112,6 +117,63 @@ export class ArchitectureValidator {
       confidence: result.confidence,
       reasoning: result.reasoning,
     };
+  }
+
+  /**
+   * CR-027: Classify volatility level for a FUNC node
+   *
+   * Uses decision tree criteria from ontology-rules.json
+   */
+  classifyVolatility(name: string, description: string): VolatilityLevel {
+    const combined = `${name.toLowerCase()} ${description.toLowerCase()}`;
+
+    // High volatility indicators
+    const highIndicators = [
+      'external api',
+      'third-party',
+      'ai model',
+      'llm',
+      'ml model',
+      'integration',
+      'social media',
+      'payment',
+      'weather',
+      'regulatory',
+      'configurable',
+      'plugin',
+      'extension',
+      'embedding',
+      'inference',
+      'prompt',
+    ];
+
+    if (highIndicators.some((ind) => combined.includes(ind))) {
+      return 'high';
+    }
+
+    // Low volatility indicators
+    const lowIndicators = [
+      'core logic',
+      'persistence',
+      'database',
+      'storage',
+      'cache',
+      'logging',
+      'monitoring',
+      'validation',
+      'format',
+      'sort',
+      'filter',
+      'utility',
+      'helper',
+    ];
+
+    if (lowIndicators.some((ind) => combined.includes(ind))) {
+      return 'low';
+    }
+
+    // Default to medium
+    return 'medium';
   }
 
   /**
@@ -484,6 +546,78 @@ export class ArchitectureValidator {
     }
 
     return errors;
+  }
+
+  /**
+   * V11: Volatile FUNC isolation (CR-027)
+   *
+   * High-volatility FUNC should have low fan-in (≤2 dependents) to isolate change impact.
+   * Wrap behind adapter/facade pattern.
+   */
+  private validateVolatileFuncIsolation(
+    nodes: ParsedNode[],
+    edges: ParsedEdge[]
+  ): ValidationError[] {
+    const errors: ValidationError[] = [];
+
+    // Find FUNC nodes with high volatility
+    const funcNodes = nodes.filter((n) => n.type === 'FUNC');
+    const flowNodes = nodes.filter((n) => n.type === 'FLOW');
+
+    for (const func of funcNodes) {
+      // Check if node has volatility property or classify based on description
+      const volatility = func.volatility || this.classifyVolatility(func.name, func.description);
+
+      if (volatility === 'high') {
+        // Count dependents: other FUNCs that connect via FLOW to this FUNC
+        const dependentCount = this.countDependents(func, funcNodes, flowNodes, edges);
+
+        if (dependentCount > 2) {
+          errors.push({
+            code: 'V11',
+            severity: 'warning',
+            semanticId: func.semanticId,
+            issue: `High-volatility FUNC "${func.name}" has ${dependentCount} dependents (should be ≤2)`,
+            suggestion: 'Isolate behind stable interface (Adapter/Facade pattern) to minimize change impact',
+            incoseReference: 'Design for Change: volatile_func_isolation rule',
+          });
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /**
+   * Count how many other FUNCs depend on this FUNC via FLOW connections
+   */
+  private countDependents(
+    targetFunc: ParsedNode,
+    allFuncs: ParsedNode[],
+    _allFlows: ParsedNode[],
+    edges: ParsedEdge[]
+  ): number {
+    const dependents = new Set<string>();
+
+    // Find FLOWs that have io edges TO this FUNC (input flows)
+    const inputFlowIds = edges
+      .filter((e) => e.targetId === targetFunc.semanticId && e.edgeType === 'io')
+      .map((e) => e.sourceId);
+
+    // For each input FLOW, find FUNCs that have io edges TO that FLOW
+    for (const flowId of inputFlowIds) {
+      const sourceFuncs = edges
+        .filter((e) => e.targetId === flowId && e.edgeType === 'io')
+        .map((e) => e.sourceId);
+
+      for (const funcId of sourceFuncs) {
+        if (funcId !== targetFunc.semanticId && allFuncs.some((f) => f.semanticId === funcId)) {
+          dependents.add(funcId);
+        }
+      }
+    }
+
+    return dependents.size;
   }
 
   /**

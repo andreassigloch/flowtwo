@@ -18,6 +18,9 @@ export interface BroadcastUpdate {
     sessionId: string;
     origin: 'user-edit' | 'llm-operation' | 'system';
   };
+  // Added for initial state sync and cache routing
+  workspaceId?: string;
+  systemId?: string;
   timestamp: Date | string;
 }
 
@@ -42,6 +45,8 @@ export class CanvasWebSocketServer {
   private wss: WebSocketServer;
   private clients: Map<string, Client> = new Map();
   private port: number;
+  // Cache last broadcast per workspace+system for initial state sync
+  private broadcastCache: Map<string, BroadcastUpdate> = new Map();
 
   constructor(port: number = WS_PORT) {
     this.port = port;
@@ -153,6 +158,21 @@ export class CanvasWebSocketServer {
       subscription,
       timestamp: new Date(),
     }));
+
+    // Send cached broadcast for initial state sync (if available)
+    const cacheKey = this.getCacheKey(subscription.workspaceId, subscription.systemId);
+    const cachedBroadcast = this.broadcastCache.get(cacheKey);
+    if (cachedBroadcast) {
+      console.log(`[WebSocket] Sending cached state to new client ${clientId}`);
+      ws.send(JSON.stringify(cachedBroadcast));
+    }
+  }
+
+  /**
+   * Generate cache key for workspace+system combination
+   */
+  private getCacheKey(workspaceId: string, systemId: string): string {
+    return `${workspaceId}:${systemId}`;
   }
 
   /**
@@ -182,6 +202,13 @@ export class CanvasWebSocketServer {
   private handleBroadcast(update: BroadcastUpdate): void {
     const message = JSON.stringify(update);
     let broadcastCount = 0;
+
+    // Cache broadcast for initial state sync (if workspaceId and systemId provided)
+    if (update.workspaceId && update.systemId) {
+      const cacheKey = this.getCacheKey(update.workspaceId, update.systemId);
+      this.broadcastCache.set(cacheKey, update);
+      console.log(`[WebSocket] Cached broadcast for ${cacheKey}`);
+    }
 
     for (const [clientId, client] of this.clients.entries()) {
       // Broadcast to ALL clients in same workspace+system
@@ -291,6 +318,21 @@ export class CanvasWebSocketServer {
       }
     }
     return count;
+  }
+
+  /**
+   * Get cached broadcast for workspace+system (for initial state sync)
+   */
+  getCachedBroadcast(workspaceId: string, systemId: string): BroadcastUpdate | undefined {
+    const cacheKey = this.getCacheKey(workspaceId, systemId);
+    return this.broadcastCache.get(cacheKey);
+  }
+
+  /**
+   * Clear broadcast cache (for testing)
+   */
+  clearBroadcastCache(): void {
+    this.broadcastCache.clear();
   }
 
   /**
