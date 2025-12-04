@@ -114,6 +114,9 @@ async function generateAsciiGraph(): Promise<string> {
     case 'spec':
       lines.push(...renderSpecView(state, viewConfig));
       break;
+    case 'spec+':
+      lines.push(...renderSpecPlusView(state, viewConfig));
+      break;
     case 'architecture':
       lines.push(...await renderArchitectureView(state, viewConfig));
       break;
@@ -337,6 +340,93 @@ function renderSpecView(state: any, viewConfig: any): string[] {
   rootOccurrences.forEach((rootOcc) => {
     lines.push(...renderOccurrence(rootOcc, state, occurrenceMap, '', true));
   });
+
+  return lines;
+}
+
+/**
+ * Render spec+ view (specification with inline descriptions)
+ */
+function renderSpecPlusView(state: any, viewConfig: any): string[] {
+  const lines: string[] = [];
+  const { includeEdgeTypes } = viewConfig.layoutConfig;
+  const nestingEdgeTypes = includeEdgeTypes.filter((t: string) =>
+    ['compose', 'satisfy', 'allocate'].includes(t)
+  );
+
+  // Build occurrence map
+  const occurrenceMap = buildOccurrenceMap(state, nestingEdgeTypes);
+
+  if (occurrenceMap.byNode.size === 0) {
+    lines.push('\x1b[90m(No nodes found)\x1b[0m');
+    return lines;
+  }
+
+  // Find root occurrences (depth 0)
+  const rootOccurrences: any[] = [];
+  for (const occurrences of occurrenceMap.byNode.values()) {
+    const root = occurrences.find((occ: any) => occ.depth === 0);
+    if (root) {
+      rootOccurrences.push(root);
+    }
+  }
+
+  // Render each root recursively with descriptions
+  rootOccurrences.forEach((rootOcc) => {
+    lines.push(...renderOccurrenceWithDescription(rootOcc, state, occurrenceMap, '', true));
+  });
+
+  return lines;
+}
+
+/**
+ * Render single occurrence with description (for spec+ view)
+ */
+function renderOccurrenceWithDescription(
+  occurrence: any,
+  state: any,
+  occurrenceMap: any,
+  indent: string,
+  isRoot: boolean = false
+): string[] {
+  const lines: string[] = [];
+  const node = state.nodes.get(occurrence.nodeId);
+  if (!node) return lines;
+
+  const color = getNodeColor(node.type);
+
+  if (occurrence.isPrimary) {
+    // Render primary occurrence
+    lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name}`);
+
+    // Add description as indented gray text (if exists and non-empty)
+    if (node.descr && node.descr.trim()) {
+      const descIndent = isRoot ? '  ' : indent + '  ';
+      lines.push(`${descIndent}\x1b[90m${node.descr}\x1b[0m`);
+    }
+
+    // Find and render children
+    const children = findChildOccurrences(occurrence.path, occurrenceMap);
+    const baseIndent = isRoot ? '' : indent;
+
+    children.forEach((child, idx) => {
+      const isLast = idx === children.length - 1;
+      const prefix = isLast ? '└─' : '├─';
+      const childIndent = baseIndent + (isLast ? '  ' : '│ ');
+
+      const childLines = renderOccurrenceWithDescription(child, state, occurrenceMap, childIndent, false);
+      if (childLines.length > 0) {
+        // Replace first line's indent with proper prefix
+        childLines[0] = `${baseIndent}${prefix}${childLines[0].slice(childIndent.length)}`;
+        lines.push(...childLines);
+      }
+    });
+  } else {
+    // Render reference occurrence - just arrow after name (no description for references)
+    lines.push(
+      `${indent}[${color}${node.type}\x1b[0m] ${node.name} \x1b[90m→\x1b[0m`
+    );
+  }
 
   return lines;
 }

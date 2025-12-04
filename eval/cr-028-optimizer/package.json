@@ -1,0 +1,17 @@
+{
+  "name": "cr-028-optimizer-sandbox",
+  "version": "0.1.0",
+  "description": "Isolated test environment for CR-028 Architecture Optimization",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "run": "npx tsx src/index.ts",
+    "benchmark": "npx tsx src/benchmark.ts",
+    "explore": "npx tsx src/explore-rewards.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^2.0.0"
+  }
+}

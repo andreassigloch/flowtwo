@@ -24,21 +24,21 @@ export interface ArchitectureDerivationRequest {
   useCases: Array<{
     semanticId: string;
     name: string;
-    description: string;
+    descr: string;
   }>;
 
   /** All Actors in the system */
   actors: Array<{
     semanticId: string;
     name: string;
-    description: string;
+    descr: string;
   }>;
 
   /** Existing Functions (for SE compliance check) */
   existingFunctions: Array<{
     semanticId: string;
     name: string;
-    description: string;
+    descr: string;
     parentId?: string; // Parent FCHAIN or FUNC
   }>;
 
@@ -72,16 +72,16 @@ export class ArchitectureDerivationAgent {
    */
   buildArchitecturePrompt(request: ArchitectureDerivationRequest): string {
     const ucList = request.useCases.length > 0
-      ? request.useCases.map(uc => `  - ${uc.name} (${uc.semanticId}): ${uc.description}`).join('\n')
+      ? request.useCases.map(uc => `  - ${uc.name} (${uc.semanticId}): ${uc.descr}`).join('\n')
       : '  (No Use Cases defined yet)';
 
     const actorList = request.actors.length > 0
-      ? request.actors.map(a => `  - ${a.name} (${a.semanticId}): ${a.description}`).join('\n')
+      ? request.actors.map(a => `  - ${a.name} (${a.semanticId}): ${a.descr}`).join('\n')
       : '  (No Actors defined)';
 
     const existingFuncList = request.existingFunctions.length > 0
       ? request.existingFunctions.map(f =>
-          `  - ${f.name} (${f.semanticId})${f.parentId ? ` in ${f.parentId}` : ''}: ${f.description}`
+          `  - ${f.name} (${f.semanticId})${f.parentId ? ` in ${f.parentId}` : ''}: ${f.descr}`
         ).join('\n')
       : '  (No existing functions)';
 
@@ -271,7 +271,7 @@ export interface ReqToTestDerivationRequest {
   requirements: Array<{
     semanticId: string;
     name: string;
-    description: string;
+    descr: string;
     type?: 'functional' | 'non-functional';
     acceptanceCriteria?: string[];
   }>;
@@ -308,7 +308,7 @@ export class ReqToTestDerivationAgent {
           const criteria = req.acceptanceCriteria?.length
             ? `\n    Acceptance: ${req.acceptanceCriteria.join('; ')}`
             : '';
-          return `  - ${req.name} (${req.semanticId}) [${req.type || 'functional'}]: ${req.description}${criteria}`;
+          return `  - ${req.name} (${req.semanticId}) [${req.type || 'functional'}]: ${req.descr}${criteria}`;
         }).join('\n')
       : '  (No requirements to derive tests from)';
 
@@ -453,7 +453,7 @@ export interface FuncToFlowDerivationRequest {
   functions: Array<{
     semanticId: string;
     name: string;
-    description: string;
+    descr: string;
     parentId?: string;
     hasInputFlow?: boolean;
     hasOutputFlow?: boolean;
@@ -498,7 +498,7 @@ export class FuncToFlowDerivationAgent {
       if (!f.hasInputFlow) ioStatus.push('MISSING INPUT');
       if (!f.hasOutputFlow) ioStatus.push('MISSING OUTPUT');
       const status = ioStatus.length ? ` [${ioStatus.join(', ')}]` : ' [OK]';
-      return `  - ${f.name} (${f.semanticId})${f.parentId ? ` in ${f.parentId}` : ''}${status}: ${f.description}`;
+      return `  - ${f.name} (${f.semanticId})${f.parentId ? ` in ${f.parentId}` : ''}${status}: ${f.descr}`;
     }).join('\n');
 
     const flowList = request.existingFlows.length > 0
@@ -650,7 +650,7 @@ export interface FuncToModDerivationRequest {
   functions: Array<{
     semanticId: string;
     name: string;
-    description: string;
+    descr: string;
     volatility?: 'low' | 'medium' | 'high';
     connectedFuncs?: string[]; // Functions this one communicates with
     allocatedTo?: string; // Existing allocation if any
@@ -660,7 +660,7 @@ export interface FuncToModDerivationRequest {
   existingModules: Array<{
     semanticId: string;
     name: string;
-    description: string;
+    descr: string;
     allocatedFuncs?: string[];
   }>;
 
@@ -689,13 +689,13 @@ export class FuncToModDerivationAgent {
       const vol = f.volatility ? ` [volatility: ${f.volatility}]` : '';
       const alloc = f.allocatedTo ? ` → ${f.allocatedTo}` : ' [UNALLOCATED]';
       const conn = f.connectedFuncs?.length ? ` connects: ${f.connectedFuncs.join(', ')}` : '';
-      return `  - ${f.name} (${f.semanticId})${vol}${alloc}${conn}: ${f.description}`;
+      return `  - ${f.name} (${f.semanticId})${vol}${alloc}${conn}: ${f.descr}`;
     }).join('\n');
 
     const modList = request.existingModules.length > 0
       ? request.existingModules.map(m => {
           const funcs = m.allocatedFuncs?.length ? ` contains: ${m.allocatedFuncs.join(', ')}` : '';
-          return `  - ${m.name} (${m.semanticId})${funcs}: ${m.description}`;
+          return `  - ${m.name} (${m.semanticId})${funcs}: ${m.descr}`;
         }).join('\n')
       : '  (No existing modules)';
 

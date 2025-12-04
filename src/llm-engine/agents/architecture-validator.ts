@@ -21,7 +21,7 @@ interface ParsedNode {
   name: string;
   type: string;
   semanticId: string;
-  description: string;
+  descr: string;
   position?: { x: number; y: number };
   volatility?: VolatilityLevel;
 }
@@ -228,7 +228,7 @@ export class ArchitectureValidator {
       name: match[1].trim(),
       type: match[2].trim(),
       semanticId: match[3].trim(),
-      description: match[4].trim(),
+      descr: match[4].trim(),
     };
   }
 
@@ -566,7 +566,7 @@ export class ArchitectureValidator {
 
     for (const func of funcNodes) {
       // Check if node has volatility property or classify based on description
-      const volatility = func.volatility || this.classifyVolatility(func.name, func.description);
+      const volatility = func.volatility || this.classifyVolatility(func.name, func.descr);
 
       if (volatility === 'high') {
         // Count dependents: other FUNCs that connect via FLOW to this FUNC

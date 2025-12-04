@@ -107,9 +107,9 @@ export class PortExtractor {
   private extractFlowProperties(flowNode: Node) {
     // TODO: Extract from flowNode.properties when schema is defined
     return {
-      dataType: flowNode.description?.match(/Type:\s*(\w+)/)?.[1],
-      pattern: flowNode.description?.match(/Pattern:\s*(.+)/)?.[1],
-      validation: flowNode.description?.match(/Validation:\s*(.+)/)?.[1],
+      dataType: flowNode.descr?.match(/Type:\s*(\w+)/)?.[1],
+      pattern: flowNode.descr?.match(/Pattern:\s*(.+)/)?.[1],
+      validation: flowNode.descr?.match(/Validation:\s*(.+)/)?.[1],
     };
   }
 }

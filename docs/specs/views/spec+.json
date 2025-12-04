@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "spec+",
+  "name": "Specification+ View",
+  "description": "Enhanced specification view with inline descriptions. Each element shows its description as indented text underneath the node label.",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "reingold-tilford",
+    "orientation": "top-down",
+    "includeNodeTypes": ["SYS", "UC", "FCHAIN", "FUNC", "MOD", "ACTOR", "REQ", "TEST", "SCHEMA", "FLOW"],
+    "includeRelTypes": ["compose", "satisfy", "allocate"],
+    "nodeSpacing": {
+      "horizontal": 80,
+      "vertical": 120,
+      "siblingSpacing": 60
+    },
+    "treeProperties": {
+      "alignChildren": true,
+      "minimizeWidth": true,
+      "balanceSubtrees": true,
+      "allowMultipleOccurrences": true,
+      "maxDepth": null,
+      "nestingEdgeTypes": ["compose", "satisfy", "allocate"],
+      "showDescriptions": true
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["SYS", "UC", "FCHAIN", "FUNC", "MOD", "ACTOR", "REQ", "TEST", "SCHEMA", "FLOW"],
+    "hideNodes": [],
+    "showEdges": [],
+    "hideEdges": ["compose", "satisfy", "allocate"],
+    "edgeRouting": "straight",
+    "renderingNotes": "All nesting edges implicit via containment. Descriptions shown as indented gray text under each element.",
+    "defaultZoomLevel": "L2",
+    "descriptionRendering": {
+      "enabled": true,
+      "indent": "  ",
+      "color": "gray",
+      "maxLength": null,
+      "wordWrap": false
+    },
+    "multipleOccurrenceHandling": {
+      "primaryMarker": "[primary]",
+      "referenceMarker": "->",
+      "referenceLinkFormat": "[see {path}]",
+      "showReferenceCount": true,
+      "showReferencedByList": true,
+      "showDescriptionForReferences": false
+    },
+    "nodeStyles": {
+      "SYS": {
+        "symbol": "rectangle",
+        "stereotype": "<<system>>",
+        "color": "magenta",
+        "bold": true
+      },
+      "UC": {
+        "symbol": "ellipse",
+        "stereotype": "<<use case>>",
+        "color": "yellow"
+      },
+      "FCHAIN": {
+        "symbol": "rectangle",
+        "stereotype": "<<function chain>>",
+        "color": "cyan"
+      },
+      "FUNC": {
+        "symbol": "rectangle",
+        "stereotype": "<<function>>",
+        "color": "green"
+      },
+      "MOD": {
+        "symbol": "rectangle",
+        "stereotype": "<<module>>",
+        "color": "blue"
+      },
+      "ACTOR": {
+        "symbol": "stick-figure",
+        "stereotype": "<<actor>>",
+        "color": "white"
+      },
+      "REQ": {
+        "symbol": "rectangle",
+        "stereotype": "<<requirement>>",
+        "color": "red"
+      },
+      "TEST": {
+        "symbol": "rectangle",
+        "stereotype": "<<test>>",
+        "color": "green"
+      },
+      "SCHEMA": {
+        "symbol": "rectangle",
+        "stereotype": "<<schema>>",
+        "color": "gray"
+      },
+      "FLOW": {
+        "symbol": "diamond",
+        "stereotype": "<<flow>>",
+        "color": "cyan"
+      }
+    }
+  },
+  "useCase": "Documentation and review of system specifications. Shows complete element hierarchy with descriptions visible inline, making it easy to understand what each element represents without switching views.",
+  "primaryRelationships": ["compose", "satisfy", "allocate (all implicit via nesting)"],
+  "performanceTarget": {
+    "maxNodes": 2000,
+    "maxComputeTime": "3s"
+  },
+  "exampleOutput": {
+    "description": "Example terminal output showing spec+ view format",
+    "sample": [
+      "[SYS] GraphEngine",
+      "  Graph-based systems engineering tool",
+      "├─[UC] ModelSystem",
+      "│   Create and edit system models",
+      "│ ├─[FCHAIN] CreateModel",
+      "│ │   Workflow for creating new models",
+      "│ │ └─[FUNC] ValidateInput",
+      "│ │     Validates user input before processing",
+      "│ └─[ACTOR] SystemEngineer",
+      "│     Primary user of the modeling system",
+      "└─[MOD] Backend",
+      "    Server-side processing module",
+      "  └─[FUNC] ValidateInput ->",
+      ""
+    ]
+  }
+}

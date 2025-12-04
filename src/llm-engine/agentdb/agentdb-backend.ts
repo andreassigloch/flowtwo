@@ -42,10 +42,66 @@ export class AgentDBPersistentBackend implements AgentDBBackend {
     // Create database
     this.db = await createDatabase(this.dbPath);
 
+    // Initialize schema for episodic memory (ReflexionMemory requires these tables)
+    this.initializeSchema();
+
     // Initialize ReflexionMemory for episodic storage with embedding service
     this.reflexion = new ReflexionMemory(this.db, this.embeddingService as any);
 
     AgentDBLogger.backendInitialized('agentdb', true);
+  }
+
+  /**
+   * Initialize database schema for episodic memory (Reflexion pattern)
+   * Creates episodes and episode_embeddings tables if they don't exist
+   */
+  private initializeSchema(): void {
+    // Episodes table for Reflexion-style episodic replay
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS episodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        session_id TEXT NOT NULL,
+        task TEXT NOT NULL,
+        input TEXT,
+        output TEXT,
+        critique TEXT,
+        reward REAL DEFAULT 0.0,
+        success BOOLEAN DEFAULT 0,
+        latency_ms INTEGER,
+        tokens_used INTEGER,
+        tags TEXT,
+        metadata JSON,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_episodes_ts ON episodes(ts DESC);
+      CREATE INDEX IF NOT EXISTS idx_episodes_session ON episodes(session_id);
+      CREATE INDEX IF NOT EXISTS idx_episodes_reward ON episodes(reward DESC);
+      CREATE INDEX IF NOT EXISTS idx_episodes_task ON episodes(task);
+
+      CREATE TABLE IF NOT EXISTS episode_embeddings (
+        episode_id INTEGER PRIMARY KEY,
+        embedding BLOB NOT NULL,
+        embedding_model TEXT DEFAULT 'all-MiniLM-L6-v2',
+        FOREIGN KEY(episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+      );
+
+      -- CR-030: Node embeddings for similarity detection
+      CREATE TABLE IF NOT EXISTS node_embeddings (
+        node_uuid TEXT PRIMARY KEY,
+        node_type TEXT NOT NULL,
+        text_content TEXT NOT NULL,
+        embedding BLOB NOT NULL,
+        embedding_model TEXT DEFAULT 'text-embedding-3-small',
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        invalidated_at INTEGER
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_node_embeddings_type ON node_embeddings(node_type);
+    `);
+
+    // Schema initialization complete - episodes and node_embeddings tables ready
   }
 
   async vectorSearch(query: string, threshold: number, k: number = 5): Promise<SearchResult[]> {

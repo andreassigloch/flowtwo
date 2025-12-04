@@ -109,11 +109,11 @@ export type ZoomLevel = 'L0' | 'L1' | 'L2' | 'L3' | 'L4';
 
 /** Base Node Interface */
 export interface Node {
-  uuid: string; // Internal UUID
-  semanticId: SemanticId; // User-facing semantic ID
-  type: NodeType;
-  name: string; // PascalCase, max 25 chars
-  description?: string;
+  uuid: string; // Equals semanticId (unique identifier from import)
+  semanticId: SemanticId; // User-facing semantic ID (same as uuid)
+  type: NodeType; // Must match type abbreviation in semanticId
+  name: string; // PascalCase, max 25 chars - must match name part in semanticId
+  descr: string; // Description (required, non-empty)
   workspaceId: string;
   systemId: string; // Root SYS node semantic ID
 

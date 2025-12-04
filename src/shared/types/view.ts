@@ -19,6 +19,7 @@ export type ViewType =
   | 'allocation'
   | 'use-case'
   | 'spec'
+  | 'spec+'
   | 'architecture';
 
 /**
@@ -302,6 +303,58 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
         'FLOW',
       ],
       showEdges: [], // All nesting edges implicit via containment
+    },
+  },
+
+  /**
+   * Spec+ View (Enhanced Specification)
+   *
+   * Same as spec view but with descriptions shown as indented text
+   * underneath each element. Useful for documentation and review.
+   */
+  'spec+': {
+    viewId: 'spec+',
+    name: 'Specification+ View',
+    description: 'Complete specification with inline descriptions',
+    layoutConfig: {
+      includeNodeTypes: [
+        'SYS',
+        'UC',
+        'FCHAIN',
+        'FUNC',
+        'MOD',
+        'ACTOR',
+        'REQ',
+        'TEST',
+        'SCHEMA',
+        'FLOW',
+      ],
+      includeEdgeTypes: ['compose', 'satisfy', 'allocate'],
+      algorithm: 'reingold-tilford',
+      parameters: {
+        orientation: 'top-down',
+        nodeSpacing: 50,
+        levelSpacing: 100,
+        nestingEdgeTypes: ['compose', 'satisfy', 'allocate'],
+        allowMultipleOccurrences: true,
+        maxDepth: null,
+        showDescriptions: true,
+      },
+    },
+    renderConfig: {
+      showNodes: [
+        'SYS',
+        'UC',
+        'FCHAIN',
+        'FUNC',
+        'MOD',
+        'ACTOR',
+        'REQ',
+        'TEST',
+        'SCHEMA',
+        'FLOW',
+      ],
+      showEdges: [],
     },
   },
 

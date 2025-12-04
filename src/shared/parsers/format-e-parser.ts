@@ -607,12 +607,13 @@ export class FormatEParser implements IFormatEParser {
     workspaceId: string,
     systemId: string
   ): Node {
+    // uuid equals semanticId for nodes (unique identifier from import)
     return {
-      uuid: `uuid-${Date.now()}-${Math.random()}`,
+      uuid: parsed.semanticId,
       semanticId: parsed.semanticId,
       type: parsed.type,
       name: parsed.name,
-      description: parsed.description,
+      descr: parsed.description || '',
       workspaceId,
       systemId,
       attributes: parsed.attributes,
@@ -663,7 +664,7 @@ export class FormatEParser implements IFormatEParser {
     }
 
     const attrStr = attrs.length > 0 ? ` [${attrs.join(',')}]` : '';
-    return `${node.name}|${node.type}|${node.semanticId}|${node.description || ''}${attrStr}`;
+    return `${node.name}|${node.type}|${node.semanticId}|${node.descr || ''}${attrStr}`;
   }
 
   /**

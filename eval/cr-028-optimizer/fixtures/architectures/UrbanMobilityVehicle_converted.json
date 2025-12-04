@@ -1,0 +1,1126 @@
+{
+  "id": "converted",
+  "nodes": [
+    {
+      "id": "AccessMobilityDashboard.UC.001",
+      "type": "UC",
+      "label": "AccessMobilityDashboard",
+      "properties": {
+        "description": "User interacts with an intuitive interface displaying critical information and controls for vehicle operation. The dashboard provides personalized insights on energy usage, navigation, vehicle status, and urban mobility patterns through accessible visualizations.",
+        "semanticId": "AccessMobilityDashboard.UC.001"
+      }
+    },
+    {
+      "id": "DashReceiveInput.FN.001",
+      "type": "FUNC",
+      "label": "DashReceiveInput",
+      "properties": {
+        "description": "Processes user interface commands",
+        "semanticId": "DashReceiveInput.FN.001",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "DashDisplayInfo.FN.002",
+      "type": "FUNC",
+      "label": "DashDisplayInfo",
+      "properties": {
+        "description": "Presents critical vehicle information",
+        "semanticId": "DashDisplayInfo.FN.002",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "SystemAnalysis.RQ.001",
+      "type": "REQ",
+      "label": "SystemAnalysis",
+      "properties": {
+        "description": "System Boundaries: The UrbanMobilityVehicle encompasses the physical vehicle, its powertrain, user interfaces, connectivity systems, and safety features. It excludes external infrastructure like charging stations and traffic management systems, though it interfaces with them.\n\nPrimary Stakeholders: Drivers/riders who operate the vehicle, passengers who travel in it, urban planners who consider its impact, maintenance personnel who service it, and environmental advocates concerned with sustainability.\n\nKey Interactions: The vehicle interacts with users through intuitive controls and displays, with urban infrastructure via connectivity systems, with other vehicles through safety and communication systems, and with charging/fueling systems for energy replenishment.\n\nCritical Requirements: Compact design for navigating tight urban spaces, efficient energy usage for extended range, rapid charging/refueling capability, robust safety systems for dense traffic environments, and seamless connectivity for navigation and traffic optimization.",
+        "semanticId": "SystemAnalysis.RQ.001"
+      }
+    },
+    {
+      "id": "DashAlertMaintenance.FN.003",
+      "type": "FUNC",
+      "label": "DashAlertMaintenance",
+      "properties": {
+        "description": "Notifies of service requirements",
+        "semanticId": "DashAlertMaintenance.FN.003",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "EnjoyAllWeatherProtection.UC.002",
+      "type": "UC",
+      "label": "EnjoyAllWeatherProtection",
+      "properties": {
+        "description": "Driver and passengers remain comfortable regardless of climate conditions from Mediterranean heat to Northern European rain. The weatherproof design ensures year-round usability without the compromises typically associated with micro-mobility options.",
+        "semanticId": "EnjoyAllWeatherProtection.UC.002"
+      }
+    },
+    {
+      "id": "WeathrRegulateClimate.FN.004",
+      "type": "FUNC",
+      "label": "WeathrRegulateClimate",
+      "properties": {
+        "description": "Maintains comfortable interior environment",
+        "semanticId": "WeathrRegulateClimate.FN.004",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "WeathrProtectOccupants.FN.005",
+      "type": "FUNC",
+      "label": "WeathrProtectOccupants",
+      "properties": {
+        "description": "Shields from external elements",
+        "semanticId": "WeathrProtectOccupants.FN.005",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "IntegrateWithCityServices.UC.003",
+      "type": "UC",
+      "label": "IntegrateWithCityServices",
+      "properties": {
+        "description": "User connects with urban infrastructure to enhance the overall mobility experience. The vehicle communicates with traffic systems, parking services, and public transportation networks to create a seamless urban journey.",
+        "semanticId": "IntegrateWithCityServices.UC.003"
+      }
+    },
+    {
+      "id": "CityConnectServices.FN.006",
+      "type": "FUNC",
+      "label": "CityConnectServices",
+      "properties": {
+        "description": "Interfaces with urban infrastructure",
+        "semanticId": "CityConnectServices.FN.006",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "CityExchangeData.FN.007",
+      "type": "FUNC",
+      "label": "CityExchangeData",
+      "properties": {
+        "description": "Shares and receives city information",
+        "semanticId": "CityExchangeData.FN.007",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "MaintainHighwaySpeeds.UC.004",
+      "type": "UC",
+      "label": "MaintainHighwaySpeeds",
+      "properties": {
+        "description": "Driver seamlessly transitions between city streets and highways without performance compromise. Unlike typical micro-vehicles, this system provides the confidence and capability to merge with expressway traffic safely and comfortably.",
+        "semanticId": "MaintainHighwaySpeeds.UC.004"
+      }
+    },
+    {
+      "id": "HighwayMaintainSpeed.FN.008",
+      "type": "FUNC",
+      "label": "HighwayMaintainSpeed",
+      "properties": {
+        "description": "Sustains higher velocity for expressways",
+        "semanticId": "HighwayMaintainSpeed.FN.008",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "HighwayManageSafety.FN.009",
+      "type": "FUNC",
+      "label": "HighwayManageSafety",
+      "properties": {
+        "description": "Ensures safe operation at highway speeds",
+        "semanticId": "HighwayManageSafety.FN.009",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "NavigateUrbanEnvironment.UC.005",
+      "type": "UC",
+      "label": "NavigateUrbanEnvironment",
+      "properties": {
+        "description": "Driver efficiently navigates through congested city streets to reach destinations quickly and stress-free. The system provides optimal routing considering real-time traffic, construction, and events while adapting to driver preferences for scenic or efficient routes.",
+        "semanticId": "NavigateUrbanEnvironment.UC.005"
+      }
+    },
+    {
+      "id": "NavReceiveDestination.FN.010",
+      "type": "FUNC",
+      "label": "NavReceiveDestination",
+      "properties": {
+        "description": "Processes destination input from driver",
+        "semanticId": "NavReceiveDestination.FN.010",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "NavCalculateRoute.FN.011",
+      "type": "FUNC",
+      "label": "NavCalculateRoute",
+      "properties": {
+        "description": "Determines optimal route based on traffic and preferences",
+        "semanticId": "NavCalculateRoute.FN.011",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "NavProvideDirections.FN.012",
+      "type": "FUNC",
+      "label": "NavProvideDirections",
+      "properties": {
+        "description": "Delivers turn-by-turn guidance to driver",
+        "semanticId": "NavProvideDirections.FN.012",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "OptimizeEnergyUsage.UC.006",
+      "type": "UC",
+      "label": "OptimizeEnergyUsage",
+      "properties": {
+        "description": "User maximizes vehicle range and efficiency while reducing environmental impact. The system intelligently manages energy consumption based on driving conditions, route topography, and user preferences, extending range while minimizing ecological footprint.",
+        "semanticId": "OptimizeEnergyUsage.UC.006"
+      }
+    },
+    {
+      "id": "EnergyMonitorUsage.FN.013",
+      "type": "FUNC",
+      "label": "EnergyMonitorUsage",
+      "properties": {
+        "description": "Tracks real-time energy consumption",
+        "semanticId": "EnergyMonitorUsage.FN.013",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "EnergyOptimizeDrive.FN.014",
+      "type": "FUNC",
+      "label": "EnergyOptimizeDrive",
+      "properties": {
+        "description": "Adjusts systems for maximum efficiency",
+        "semanticId": "EnergyOptimizeDrive.FN.014",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "EnergyReportStatus.FN.015",
+      "type": "FUNC",
+      "label": "EnergyReportStatus",
+      "properties": {
+        "description": "Provides feedback on efficiency metrics",
+        "semanticId": "EnergyReportStatus.FN.015",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "ParkInLimitedSpaces.UC.007",
+      "type": "UC",
+      "label": "ParkInLimitedSpaces",
+      "properties": {
+        "description": "Driver easily secures parking in crowded urban environments with minimal stress and time investment. The system assists in identifying, navigating to, and maneuvering into tight parking spaces that conventional vehicles would find challenging.",
+        "semanticId": "ParkInLimitedSpaces.UC.007"
+      }
+    },
+    {
+      "id": "ParkIdentifySpaces.FN.016",
+      "type": "FUNC",
+      "label": "ParkIdentifySpaces",
+      "properties": {
+        "description": "Detects available parking spots",
+        "semanticId": "ParkIdentifySpaces.FN.016",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "ParkAssistManeuver.FN.017",
+      "type": "FUNC",
+      "label": "ParkAssistManeuver",
+      "properties": {
+        "description": "Guides driver into tight parking spaces",
+        "semanticId": "ParkAssistManeuver.FN.017",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "TransportEverydayItems.UC.008",
+      "type": "UC",
+      "label": "TransportEverydayItems",
+      "properties": {
+        "description": "Urban driver easily carries groceries, sports equipment, and bulky items despite the vehicle's compact size. The intelligently designed cargo space accommodates surprising volume while maintaining the vehicle's small footprint for urban maneuverability.",
+        "semanticId": "TransportEverydayItems.UC.008"
+      }
+    },
+    {
+      "id": "CargoConfigureSpace.FN.018",
+      "type": "FUNC",
+      "label": "CargoConfigureSpace",
+      "properties": {
+        "description": "Adjusts internal storage layout",
+        "semanticId": "CargoConfigureSpace.FN.018",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "CargoSecureItems.FN.019",
+      "type": "FUNC",
+      "label": "CargoSecureItems",
+      "properties": {
+        "description": "Safely stores transported goods",
+        "semanticId": "CargoSecureItems.FN.019",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "TravelExtendedDistance.UC.009",
+      "type": "UC",
+      "label": "TravelExtendedDistance",
+      "properties": {
+        "description": "Urban commuter confidently completes longer trips (up to 65km one-way) without range anxiety. The efficient powertrain provides reliable performance for both daily commutes and occasional longer journeys within the metropolitan region.",
+        "semanticId": "TravelExtendedDistance.UC.009"
+      }
+    },
+    {
+      "id": "DistMonitorCapacity.FN.020",
+      "type": "FUNC",
+      "label": "DistMonitorCapacity",
+      "properties": {
+        "description": "Tracks remaining range accurately",
+        "semanticId": "DistMonitorCapacity.FN.020",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "DistOptimizeRange.FN.021",
+      "type": "FUNC",
+      "label": "DistOptimizeRange",
+      "properties": {
+        "description": "Maximizes distance per energy unit",
+        "semanticId": "DistOptimizeRange.FN.021",
+        "volatility": 0.3
+      }
+    },
+    {
+      "id": "Destinationinput.FL.001",
+      "type": "FLOW",
+      "label": "Destinationinput",
+      "properties": {
+        "description": "Address or location data",
+        "semanticId": "Destinationinput.FL.001"
+      }
+    },
+    {
+      "id": "Drivingbehavior.FL.002",
+      "type": "FLOW",
+      "label": "Drivingbehavior",
+      "properties": {
+        "description": "Acceleration patterns",
+        "semanticId": "Drivingbehavior.FL.002"
+      }
+    },
+    {
+      "id": "Storagerequest.FL.003",
+      "type": "FLOW",
+      "label": "Storagerequest",
+      "properties": {
+        "description": "Configuration command",
+        "semanticId": "Storagerequest.FL.003"
+      }
+    },
+    {
+      "id": "Comfortsettings.FL.004",
+      "type": "FLOW",
+      "label": "Comfortsettings",
+      "properties": {
+        "description": "Temperature preferences",
+        "semanticId": "Comfortsettings.FL.004"
+      }
+    },
+    {
+      "id": "Speedrequest.FL.005",
+      "type": "FLOW",
+      "label": "Speedrequest",
+      "properties": {
+        "description": "Acceleration command",
+        "semanticId": "Speedrequest.FL.005"
+      }
+    },
+    {
+      "id": "Usercommands.FL.006",
+      "type": "FLOW",
+      "label": "Usercommands",
+      "properties": {
+        "description": "Interface interactions",
+        "semanticId": "Usercommands.FL.006"
+      }
+    },
+    {
+      "id": "Servicerequest.FL.007",
+      "type": "FLOW",
+      "label": "Servicerequest",
+      "properties": {
+        "description": "Infrastructure query",
+        "semanticId": "Servicerequest.FL.007"
+      }
+    },
+    {
+      "id": "Trafficdata.FL.008",
+      "type": "FLOW",
+      "label": "Trafficdata",
+      "properties": {
+        "description": "Real-time conditions",
+        "semanticId": "Trafficdata.FL.008"
+      }
+    },
+    {
+      "id": "Parkingdata.FL.009",
+      "type": "FLOW",
+      "label": "Parkingdata",
+      "properties": {
+        "description": "Available space info",
+        "semanticId": "Parkingdata.FL.009"
+      }
+    },
+    {
+      "id": "Urbandata.FL.010",
+      "type": "FLOW",
+      "label": "Urbandata",
+      "properties": {
+        "description": "City information",
+        "semanticId": "Urbandata.FL.010"
+      }
+    },
+    {
+      "id": "Systemstatus.FL.011",
+      "type": "FLOW",
+      "label": "Systemstatus",
+      "properties": {
+        "description": "Efficiency feedback",
+        "semanticId": "Systemstatus.FL.011"
+      }
+    },
+    {
+      "id": "Energydata.FL.012",
+      "type": "FLOW",
+      "label": "Energydata",
+      "properties": {
+        "description": "Consumption metrics",
+        "semanticId": "Energydata.FL.012"
+      }
+    },
+    {
+      "id": "Commuterequest.FL.013",
+      "type": "FLOW",
+      "label": "Commuterequest",
+      "properties": {
+        "description": "Long-distance journey",
+        "semanticId": "Commuterequest.FL.013"
+      }
+    },
+    {
+      "id": "Systemstatus.FL.014",
+      "type": "FLOW",
+      "label": "Systemstatus",
+      "properties": {
+        "description": "Protection readiness",
+        "semanticId": "Systemstatus.FL.014"
+      }
+    },
+    {
+      "id": "Cargostatus.FL.015",
+      "type": "FLOW",
+      "label": "Cargostatus",
+      "properties": {
+        "description": "Load capacity",
+        "semanticId": "Cargostatus.FL.015"
+      }
+    },
+    {
+      "id": "Rangeassurance.FL.016",
+      "type": "FLOW",
+      "label": "Rangeassurance",
+      "properties": {
+        "description": "Distance confirmation",
+        "semanticId": "Rangeassurance.FL.016"
+      }
+    },
+    {
+      "id": "Speeddata.FL.017",
+      "type": "FLOW",
+      "label": "Speeddata",
+      "properties": {
+        "description": "Vehicle velocity",
+        "semanticId": "Speeddata.FL.017"
+      }
+    },
+    {
+      "id": "Locationdata.FL.018",
+      "type": "FLOW",
+      "label": "Locationdata",
+      "properties": {
+        "description": "Structured destination",
+        "semanticId": "Locationdata.FL.018"
+      }
+    },
+    {
+      "id": "Routeplan.FL.019",
+      "type": "FLOW",
+      "label": "Routeplan",
+      "properties": {
+        "description": "Turn-by-turn directions",
+        "semanticId": "Routeplan.FL.019"
+      }
+    },
+    {
+      "id": "Navigationguidance.FL.020",
+      "type": "FLOW",
+      "label": "Navigationguidance",
+      "properties": {
+        "description": "Visual/audio directions",
+        "semanticId": "Navigationguidance.FL.020"
+      }
+    },
+    {
+      "id": "Spacelocation.FL.021",
+      "type": "FLOW",
+      "label": "Spacelocation",
+      "properties": {
+        "description": "Position and dimensions",
+        "semanticId": "Spacelocation.FL.021"
+      }
+    },
+    {
+      "id": "Parkingguidance.FL.022",
+      "type": "FLOW",
+      "label": "Parkingguidance",
+      "properties": {
+        "description": "Steering instructions",
+        "semanticId": "Parkingguidance.FL.022"
+      }
+    },
+    {
+      "id": "Usagemetrics.FL.023",
+      "type": "FLOW",
+      "label": "Usagemetrics",
+      "properties": {
+        "description": "Energy consumption data",
+        "semanticId": "Usagemetrics.FL.023"
+      }
+    },
+    {
+      "id": "Efficiencycommands.FL.024",
+      "type": "FLOW",
+      "label": "Efficiencycommands",
+      "properties": {
+        "description": "System optimization",
+        "semanticId": "Efficiencycommands.FL.024"
+      }
+    },
+    {
+      "id": "Efficiencyreport.FL.025",
+      "type": "FLOW",
+      "label": "Efficiencyreport",
+      "properties": {
+        "description": "Range and usage stats",
+        "semanticId": "Efficiencyreport.FL.025"
+      }
+    },
+    {
+      "id": "Layoutcommand.FL.026",
+      "type": "FLOW",
+      "label": "Layoutcommand",
+      "properties": {
+        "description": "Space configuration",
+        "semanticId": "Layoutcommand.FL.026"
+      }
+    },
+    {
+      "id": "Securedconfirmation.FL.027",
+      "type": "FLOW",
+      "label": "Securedconfirmation",
+      "properties": {
+        "description": "Cargo status report",
+        "semanticId": "Securedconfirmation.FL.027"
+      }
+    },
+    {
+      "id": "Climatecommands.FL.028",
+      "type": "FLOW",
+      "label": "Climatecommands",
+      "properties": {
+        "description": "HVAC control signals",
+        "semanticId": "Climatecommands.FL.028"
+      }
+    },
+    {
+      "id": "Comfortenvironment.FL.029",
+      "type": "FLOW",
+      "label": "Comfortenvironment",
+      "properties": {
+        "description": "Protected cabin space",
+        "semanticId": "Comfortenvironment.FL.029"
+      }
+    },
+    {
+      "id": "Powercommand.FL.030",
+      "type": "FLOW",
+      "label": "Powercommand",
+      "properties": {
+        "description": "Performance request",
+        "semanticId": "Powercommand.FL.030"
+      }
+    },
+    {
+      "id": "Safetystatus.FL.031",
+      "type": "FLOW",
+      "label": "Safetystatus",
+      "properties": {
+        "description": "Operation parameters",
+        "semanticId": "Safetystatus.FL.031"
+      }
+    },
+    {
+      "id": "Efficiencymode.FL.032",
+      "type": "FLOW",
+      "label": "Efficiencymode",
+      "properties": {
+        "description": "Range optimization",
+        "semanticId": "Efficiencymode.FL.032"
+      }
+    },
+    {
+      "id": "Rangeparameters.FL.033",
+      "type": "FLOW",
+      "label": "Rangeparameters",
+      "properties": {
+        "description": "Distance capability",
+        "semanticId": "Rangeparameters.FL.033"
+      }
+    },
+    {
+      "id": "Vehicleinfo.FL.034",
+      "type": "FLOW",
+      "label": "Vehicleinfo",
+      "properties": {
+        "description": "Status visualization",
+        "semanticId": "Vehicleinfo.FL.034"
+      }
+    },
+    {
+      "id": "Systemstatus.FL.035",
+      "type": "FLOW",
+      "label": "Systemstatus",
+      "properties": {
+        "description": "Maintenance indicators",
+        "semanticId": "Systemstatus.FL.035"
+      }
+    },
+    {
+      "id": "Displayrequest.FL.036",
+      "type": "FLOW",
+      "label": "Displayrequest",
+      "properties": {
+        "description": "Information query",
+        "semanticId": "Displayrequest.FL.036"
+      }
+    },
+    {
+      "id": "Servicealert.FL.037",
+      "type": "FLOW",
+      "label": "Servicealert",
+      "properties": {
+        "description": "Maintenance notification",
+        "semanticId": "Servicealert.FL.037"
+      }
+    },
+    {
+      "id": "Accessrequest.FL.038",
+      "type": "FLOW",
+      "label": "Accessrequest",
+      "properties": {
+        "description": "System connection",
+        "semanticId": "Accessrequest.FL.038"
+      }
+    },
+    {
+      "id": "Serviceinfo.FL.039",
+      "type": "FLOW",
+      "label": "Serviceinfo",
+      "properties": {
+        "description": "Available resources",
+        "semanticId": "Serviceinfo.FL.039"
+      }
+    },
+    {
+      "id": "MOD_synthetic_1",
+      "type": "MOD",
+      "label": "Module 1",
+      "properties": {
+        "synthetic": true
+      }
+    },
+    {
+      "id": "MOD_synthetic_2",
+      "type": "MOD",
+      "label": "Module 2",
+      "properties": {
+        "synthetic": true
+      }
+    },
+    {
+      "id": "MOD_synthetic_3",
+      "type": "MOD",
+      "label": "Module 3",
+      "properties": {
+        "synthetic": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "c2579474-7a00-4ff4-b010-e46b0cb28849",
+      "source": "DashDisplayInfo.FN.002",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "io-in-ec250cf9-469a-4a1d-8743-9eaeb177aa4d",
+      "source": "Destinationinput.FL.001",
+      "target": "NavReceiveDestination.FN.010",
+      "type": "io"
+    },
+    {
+      "id": "io-in-b93d5871-3cc5-4053-8c58-6f997a2a6290",
+      "source": "Drivingbehavior.FL.002",
+      "target": "EnergyMonitorUsage.FN.013",
+      "type": "io"
+    },
+    {
+      "id": "io-in-6d0a72aa-44ef-4750-a6f6-99fe00186954",
+      "source": "Storagerequest.FL.003",
+      "target": "CargoConfigureSpace.FN.018",
+      "type": "io"
+    },
+    {
+      "id": "io-in-cfb63981-fc73-4c1a-a409-94fc301a3358",
+      "source": "Comfortsettings.FL.004",
+      "target": "WeathrRegulateClimate.FN.004",
+      "type": "io"
+    },
+    {
+      "id": "io-in-248116c4-f926-4871-b58b-dcc1c707bbe4",
+      "source": "Speedrequest.FL.005",
+      "target": "HighwayMaintainSpeed.FN.008",
+      "type": "io"
+    },
+    {
+      "id": "io-in-dd5d76d5-e83b-4bbe-81c2-b6ae61ab757e",
+      "source": "Usercommands.FL.006",
+      "target": "DashReceiveInput.FN.001",
+      "type": "io"
+    },
+    {
+      "id": "io-in-52209adc-992e-4daf-8091-30db049e571b",
+      "source": "Servicerequest.FL.007",
+      "target": "CityConnectServices.FN.006",
+      "type": "io"
+    },
+    {
+      "id": "io-in-8144dfc2-caf0-4ef4-ada0-8dc94aa2d581",
+      "source": "Trafficdata.FL.008",
+      "target": "NavCalculateRoute.FN.011",
+      "type": "io"
+    },
+    {
+      "id": "io-in-4241abde-9952-41f2-8308-c99316af8bbf",
+      "source": "Parkingdata.FL.009",
+      "target": "ParkIdentifySpaces.FN.016",
+      "type": "io"
+    },
+    {
+      "id": "io-in-d82c4c49-6893-456b-8df2-683737217be7",
+      "source": "Urbandata.FL.010",
+      "target": "CityExchangeData.FN.007",
+      "type": "io"
+    },
+    {
+      "id": "io-in-18ac92f9-646b-44dc-b6e1-12b2171bfcf7",
+      "source": "Systemstatus.FL.011",
+      "target": "EnergyReportStatus.FN.015",
+      "type": "io"
+    },
+    {
+      "id": "io-in-10502217-f562-423f-8a42-ed578bc46814",
+      "source": "Energydata.FL.012",
+      "target": "DistMonitorCapacity.FN.020",
+      "type": "io"
+    },
+    {
+      "id": "io-in-267134cc-e511-4a33-9fb3-b4f3753706b5",
+      "source": "Commuterequest.FL.013",
+      "target": "DistOptimizeRange.FN.021",
+      "type": "io"
+    },
+    {
+      "id": "io-in-e1c53919-fe92-421c-be6a-a277b405a462",
+      "source": "Systemstatus.FL.014",
+      "target": "WeathrProtectOccupants.FN.005",
+      "type": "io"
+    },
+    {
+      "id": "io-in-2dec5468-e15b-4a13-9f7e-4bbe5f4a54e9",
+      "source": "Cargostatus.FL.015",
+      "target": "CargoSecureItems.FN.019",
+      "type": "io"
+    },
+    {
+      "id": "io-in-bfff1ff0-0e91-48cb-af0f-c131f8412c7f",
+      "source": "Speeddata.FL.017",
+      "target": "HighwayManageSafety.FN.009",
+      "type": "io"
+    },
+    {
+      "id": "io-out-b2b39eee-1833-4bc5-b523-782e22031327",
+      "source": "NavReceiveDestination.FN.010",
+      "target": "Locationdata.FL.018",
+      "type": "io"
+    },
+    {
+      "id": "io-in-b2b39eee-1833-4bc5-b523-782e22031327",
+      "source": "Locationdata.FL.018",
+      "target": "NavCalculateRoute.FN.011",
+      "type": "io"
+    },
+    {
+      "id": "efb5d3e0-d547-41eb-8fdc-dba8ae0a8417",
+      "source": "NavReceiveDestination.FN.010",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "io-out-eddb349e-bb75-4e45-af31-16f586a92e05",
+      "source": "NavCalculateRoute.FN.011",
+      "target": "Routeplan.FL.019",
+      "type": "io"
+    },
+    {
+      "id": "io-in-eddb349e-bb75-4e45-af31-16f586a92e05",
+      "source": "Routeplan.FL.019",
+      "target": "NavProvideDirections.FN.012",
+      "type": "io"
+    },
+    {
+      "id": "io-out-39a6cf13-9099-4961-8ad0-fef59fb30db1",
+      "source": "NavProvideDirections.FN.012",
+      "target": "Navigationguidance.FL.020",
+      "type": "io"
+    },
+    {
+      "id": "io-out-5bc14a2e-3a3d-4c79-8d63-ac1bde318838",
+      "source": "ParkIdentifySpaces.FN.016",
+      "target": "Spacelocation.FL.021",
+      "type": "io"
+    },
+    {
+      "id": "io-in-5bc14a2e-3a3d-4c79-8d63-ac1bde318838",
+      "source": "Spacelocation.FL.021",
+      "target": "ParkAssistManeuver.FN.017",
+      "type": "io"
+    },
+    {
+      "id": "io-out-3992ec18-188a-47d1-96a4-321a06a18e83",
+      "source": "ParkAssistManeuver.FN.017",
+      "target": "Parkingguidance.FL.022",
+      "type": "io"
+    },
+    {
+      "id": "dc9aa622-53ba-4db2-8982-76b7594575ce",
+      "source": "ParkAssistManeuver.FN.017",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "io-out-d46b2227-5f66-4fff-99ee-867261a5a0fe",
+      "source": "EnergyMonitorUsage.FN.013",
+      "target": "Usagemetrics.FL.023",
+      "type": "io"
+    },
+    {
+      "id": "io-in-d46b2227-5f66-4fff-99ee-867261a5a0fe",
+      "source": "Usagemetrics.FL.023",
+      "target": "EnergyOptimizeDrive.FN.014",
+      "type": "io"
+    },
+    {
+      "id": "io-out-6ec390a7-5517-4532-a2c6-b4cef57c8f71",
+      "source": "EnergyOptimizeDrive.FN.014",
+      "target": "Efficiencycommands.FL.024",
+      "type": "io"
+    },
+    {
+      "id": "369faa41-a931-41ce-bef6-efb34f0c70a0",
+      "source": "EnergyOptimizeDrive.FN.014",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "io-out-4b34d728-4ada-4d50-86e6-0496b3620aad",
+      "source": "EnergyReportStatus.FN.015",
+      "target": "Efficiencyreport.FL.025",
+      "type": "io"
+    },
+    {
+      "id": "io-out-3b5ae27e-0075-44e1-8199-4a873a833da8",
+      "source": "CargoConfigureSpace.FN.018",
+      "target": "Layoutcommand.FL.026",
+      "type": "io"
+    },
+    {
+      "id": "io-out-12b47cfe-5096-495e-aacd-358ff1e7db4c",
+      "source": "CargoSecureItems.FN.019",
+      "target": "Securedconfirmation.FL.027",
+      "type": "io"
+    },
+    {
+      "id": "1eaf1944-a307-4707-a1a9-117de58e6516",
+      "source": "CargoSecureItems.FN.019",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "io-out-16f2e819-6965-4804-9239-3967f62ff7e4",
+      "source": "WeathrRegulateClimate.FN.004",
+      "target": "Climatecommands.FL.028",
+      "type": "io"
+    },
+    {
+      "id": "io-out-cc4d47d1-9505-4440-ac3c-1e55324ff2b3",
+      "source": "WeathrProtectOccupants.FN.005",
+      "target": "Comfortenvironment.FL.029",
+      "type": "io"
+    },
+    {
+      "id": "5038dd96-d11a-43b1-91c8-f4a396e60829",
+      "source": "WeathrProtectOccupants.FN.005",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "io-out-48fe034f-d9a9-4b85-8ade-1563e2e8c9d7",
+      "source": "HighwayMaintainSpeed.FN.008",
+      "target": "Powercommand.FL.030",
+      "type": "io"
+    },
+    {
+      "id": "io-out-1035c117-3008-430f-9465-9c2ef738125d",
+      "source": "HighwayManageSafety.FN.009",
+      "target": "Safetystatus.FL.031",
+      "type": "io"
+    },
+    {
+      "id": "2006622f-4048-4e75-a0a8-aedf34704f1c",
+      "source": "HighwayManageSafety.FN.009",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "io-out-4defb6c2-d7e4-427a-a246-361adfb549af",
+      "source": "DistOptimizeRange.FN.021",
+      "target": "Efficiencymode.FL.032",
+      "type": "io"
+    },
+    {
+      "id": "io-out-4d95e9dd-8f81-471f-a773-cdfcf2df8d11",
+      "source": "DistMonitorCapacity.FN.020",
+      "target": "Rangeparameters.FL.033",
+      "type": "io"
+    },
+    {
+      "id": "ee96598d-c372-40c0-aea6-f96fc2e9ce9f",
+      "source": "DistMonitorCapacity.FN.020",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "io-out-08011b8f-7b33-40db-8513-e263b39daf47",
+      "source": "DashDisplayInfo.FN.002",
+      "target": "Vehicleinfo.FL.034",
+      "type": "io"
+    },
+    {
+      "id": "io-out-eb640d4a-c8ec-472f-b8e2-cfa35e700f51",
+      "source": "DashDisplayInfo.FN.002",
+      "target": "Systemstatus.FL.035",
+      "type": "io"
+    },
+    {
+      "id": "io-in-eb640d4a-c8ec-472f-b8e2-cfa35e700f51",
+      "source": "Systemstatus.FL.035",
+      "target": "DashAlertMaintenance.FN.003",
+      "type": "io"
+    },
+    {
+      "id": "io-out-c95d070a-344b-49df-bd3e-e3a1b117d5b3",
+      "source": "DashReceiveInput.FN.001",
+      "target": "Displayrequest.FL.036",
+      "type": "io"
+    },
+    {
+      "id": "io-in-c95d070a-344b-49df-bd3e-e3a1b117d5b3",
+      "source": "Displayrequest.FL.036",
+      "target": "DashDisplayInfo.FN.002",
+      "type": "io"
+    },
+    {
+      "id": "io-out-a37da523-f96b-4889-a70b-0a055a4e2df6",
+      "source": "DashAlertMaintenance.FN.003",
+      "target": "Servicealert.FL.037",
+      "type": "io"
+    },
+    {
+      "id": "io-out-9809565d-cf0f-4fa2-b740-ecbb8e7aed3b",
+      "source": "CityConnectServices.FN.006",
+      "target": "Accessrequest.FL.038",
+      "type": "io"
+    },
+    {
+      "id": "io-out-243db7cd-a439-4956-9cc1-a5076030476d",
+      "source": "CityExchangeData.FN.007",
+      "target": "Serviceinfo.FL.039",
+      "type": "io"
+    },
+    {
+      "id": "b1157df0-c357-4ab2-8693-4df780cc056d",
+      "source": "CityExchangeData.FN.007",
+      "target": "SystemAnalysis.RQ.001",
+      "type": "satisfy"
+    },
+    {
+      "id": "alloc_DashReceiveInput.FN.001_MOD_synthetic_1",
+      "source": "DashReceiveInput.FN.001",
+      "target": "MOD_synthetic_1",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_DashDisplayInfo.FN.002_MOD_synthetic_1",
+      "source": "DashDisplayInfo.FN.002",
+      "target": "MOD_synthetic_1",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_DashAlertMaintenance.FN.003_MOD_synthetic_1",
+      "source": "DashAlertMaintenance.FN.003",
+      "target": "MOD_synthetic_1",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_WeathrRegulateClimate.FN.004_MOD_synthetic_1",
+      "source": "WeathrRegulateClimate.FN.004",
+      "target": "MOD_synthetic_1",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_WeathrProtectOccupants.FN.005_MOD_synthetic_1",
+      "source": "WeathrProtectOccupants.FN.005",
+      "target": "MOD_synthetic_1",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_CityConnectServices.FN.006_MOD_synthetic_1",
+      "source": "CityConnectServices.FN.006",
+      "target": "MOD_synthetic_1",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_CityExchangeData.FN.007_MOD_synthetic_1",
+      "source": "CityExchangeData.FN.007",
+      "target": "MOD_synthetic_1",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_HighwayMaintainSpeed.FN.008_MOD_synthetic_2",
+      "source": "HighwayMaintainSpeed.FN.008",
+      "target": "MOD_synthetic_2",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_HighwayManageSafety.FN.009_MOD_synthetic_2",
+      "source": "HighwayManageSafety.FN.009",
+      "target": "MOD_synthetic_2",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_NavReceiveDestination.FN.010_MOD_synthetic_2",
+      "source": "NavReceiveDestination.FN.010",
+      "target": "MOD_synthetic_2",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_NavCalculateRoute.FN.011_MOD_synthetic_2",
+      "source": "NavCalculateRoute.FN.011",
+      "target": "MOD_synthetic_2",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_NavProvideDirections.FN.012_MOD_synthetic_2",
+      "source": "NavProvideDirections.FN.012",
+      "target": "MOD_synthetic_2",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_EnergyMonitorUsage.FN.013_MOD_synthetic_2",
+      "source": "EnergyMonitorUsage.FN.013",
+      "target": "MOD_synthetic_2",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_EnergyOptimizeDrive.FN.014_MOD_synthetic_2",
+      "source": "EnergyOptimizeDrive.FN.014",
+      "target": "MOD_synthetic_2",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_EnergyReportStatus.FN.015_MOD_synthetic_3",
+      "source": "EnergyReportStatus.FN.015",
+      "target": "MOD_synthetic_3",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_ParkIdentifySpaces.FN.016_MOD_synthetic_3",
+      "source": "ParkIdentifySpaces.FN.016",
+      "target": "MOD_synthetic_3",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_ParkAssistManeuver.FN.017_MOD_synthetic_3",
+      "source": "ParkAssistManeuver.FN.017",
+      "target": "MOD_synthetic_3",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_CargoConfigureSpace.FN.018_MOD_synthetic_3",
+      "source": "CargoConfigureSpace.FN.018",
+      "target": "MOD_synthetic_3",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_CargoSecureItems.FN.019_MOD_synthetic_3",
+      "source": "CargoSecureItems.FN.019",
+      "target": "MOD_synthetic_3",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_DistMonitorCapacity.FN.020_MOD_synthetic_3",
+      "source": "DistMonitorCapacity.FN.020",
+      "target": "MOD_synthetic_3",
+      "type": "allocate"
+    },
+    {
+      "id": "alloc_DistOptimizeRange.FN.021_MOD_synthetic_3",
+      "source": "DistOptimizeRange.FN.021",
+      "target": "MOD_synthetic_3",
+      "type": "allocate"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "ruvector-eval",
+  "version": "1.0.0",
+  "description": "Evaluation of RuVector as Neo4j replacement for GraphEngine",
+  "type": "module",
+  "scripts": {
+    "eval": "npx tsx src/run-evaluation.ts",
+    "test:graph": "npx tsx src/test-graph-node.ts",
+    "import": "npx tsx src/import-data.ts",
+    "queries": "npx tsx src/test-queries.ts",
+    "benchmark": "npx tsx src/benchmark.ts"
+  },
+  "dependencies": {
+    "@ruvector/core": "^0.1.15",
+    "@ruvector/graph-node": "^0.1.15",
+    "neo4j-driver": "^5.27.0",
+    "ruvector": "^0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}

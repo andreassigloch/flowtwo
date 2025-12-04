@@ -39,6 +39,7 @@ import { getWorkflowRouter, SessionContext } from '../llm-engine/agents/workflow
 import { getAgentExecutor } from '../llm-engine/agents/agent-executor.js';
 import { getAgentConfigLoader } from '../llm-engine/agents/config-loader.js';
 import { initNeo4jClient, resolveSession, updateActiveSystem } from '../shared/session-resolver.js';
+import { getRuleEvaluator, getRuleLoader, type PhaseId, type ValidationResult } from '../llm-engine/validation/index.js';
 
 // Configuration - will be set by resolveSession() in main()
 const config = {
@@ -326,7 +327,7 @@ async function executeDeriveArchitecture(mainRl: readline.Interface): Promise<vo
     .map(uc => ({
       semanticId: uc.semanticId,
       name: uc.name,
-      description: uc.description || '',
+      descr: uc.descr || '',
     }));
 
   // Collect ALL Actors
@@ -335,14 +336,14 @@ async function executeDeriveArchitecture(mainRl: readline.Interface): Promise<vo
     .map(a => ({
       semanticId: a.semanticId,
       name: a.name,
-      description: a.description || '',
+      descr: a.descr || '',
     }));
 
   // Collect existing Functions with their parents
   const existingFunctions: Array<{
     semanticId: string;
     name: string;
-    description: string;
+    descr: string;
     parentId?: string;
   }> = [];
 
@@ -362,7 +363,7 @@ async function executeDeriveArchitecture(mainRl: readline.Interface): Promise<vo
       existingFunctions.push({
         semanticId: node.semanticId,
         name: node.name,
-        description: node.description || '',
+        descr: node.descr || '',
         parentId,
       });
     }
@@ -528,7 +529,7 @@ async function executeDeriveTests(mainRl: readline.Interface): Promise<void> {
   const requirements = reqNodes.map(req => ({
     semanticId: req.semanticId,
     name: req.name,
-    description: req.description || '',
+    descr: req.descr || '',
     type: 'functional' as const,
   }));
 
@@ -607,7 +608,7 @@ async function executeDeriveFlows(mainRl: readline.Interface): Promise<void> {
     return {
       semanticId: func.semanticId,
       name: func.name,
-      description: func.description || '',
+      descr: func.descr || '',
       hasInputFlow,
       hasOutputFlow,
     };
@@ -723,7 +724,7 @@ async function executeDeriveModules(mainRl: readline.Interface): Promise<void> {
     return {
       semanticId: func.semanticId,
       name: func.name,
-      description: func.description || '',
+      descr: func.descr || '',
       volatility: (func.attributes?.volatility as 'low' | 'medium' | 'high') || undefined,
       connectedFuncs,
       allocatedTo,
@@ -758,7 +759,7 @@ async function executeDeriveModules(mainRl: readline.Interface): Promise<void> {
       return {
         semanticId: m.semanticId,
         name: m.name,
-        description: m.description || '',
+        descr: m.descr || '',
         allocatedFuncs,
       };
     });
@@ -864,6 +865,313 @@ async function executeDerivation(
 }
 
 /**
+ * Handle /validate command - run full validation report
+ * CR-031: Learning System Integration
+ */
+async function handleValidateCommand(args: string[]): Promise<void> {
+  console.log('');
+  console.log('\x1b[1;36m🔍 Running Validation...\x1b[0m');
+  log('🔍 Running validation');
+
+  try {
+    // Determine phase (default: phase2_logical)
+    const phaseArg = args[0]?.toLowerCase();
+    let phase: PhaseId = 'phase2_logical';
+    if (phaseArg === '1' || phaseArg === 'requirements') phase = 'phase1_requirements';
+    else if (phaseArg === '2' || phaseArg === 'logical') phase = 'phase2_logical';
+    else if (phaseArg === '3' || phaseArg === 'physical') phase = 'phase3_physical';
+    else if (phaseArg === '4' || phaseArg === 'verification') phase = 'phase4_verification';
+
+    const evaluator = getRuleEvaluator();
+    evaluator.setNeo4jClient(neo4jClient);
+
+    const result = await evaluator.evaluate(phase, config.workspaceId, config.systemId);
+    displayValidationResult(result);
+
+    log(`✅ Validation complete: score=${result.rewardScore.toFixed(2)}, violations=${result.totalViolations}`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Validation error: ${errorMsg}\x1b[0m`);
+    log(`❌ Validation error: ${errorMsg}`);
+  }
+  console.log('');
+}
+
+/**
+ * Handle /phase-gate command - check phase gate readiness
+ * CR-031: Learning System Integration
+ */
+async function handlePhaseGateCommand(args: string[]): Promise<void> {
+  console.log('');
+  console.log('\x1b[1;36m🚪 Checking Phase Gate...\x1b[0m');
+  log('🚪 Checking phase gate');
+
+  try {
+    // Determine phase (default: current phase based on graph content)
+    const phaseArg = args[0];
+    let phase: PhaseId = 'phase2_logical';
+    if (phaseArg === '1') phase = 'phase1_requirements';
+    else if (phaseArg === '2') phase = 'phase2_logical';
+    else if (phaseArg === '3') phase = 'phase3_physical';
+    else if (phaseArg === '4') phase = 'phase4_verification';
+
+    const evaluator = getRuleEvaluator();
+    evaluator.setNeo4jClient(neo4jClient);
+    const ruleLoader = getRuleLoader();
+
+    const gateResult = await evaluator.checkPhaseGate(phase, config.workspaceId, config.systemId);
+    const phaseDef = ruleLoader.getPhaseDefinition(phase);
+
+    console.log('');
+    console.log(`\x1b[1mPhase: ${phaseDef?.name || phase}\x1b[0m`);
+    console.log(`\x1b[90m${phaseDef?.description || ''}\x1b[0m`);
+    console.log('');
+
+    if (gateResult.ready) {
+      console.log(`\x1b[32m✅ GATE PASSED - Score: ${gateResult.score.toFixed(2)}\x1b[0m`);
+      console.log('\x1b[90m   Ready to advance to next phase\x1b[0m');
+    } else {
+      console.log(`\x1b[31m❌ GATE BLOCKED - Score: ${gateResult.score.toFixed(2)}\x1b[0m`);
+      console.log('');
+      console.log('\x1b[1mBlockers:\x1b[0m');
+      for (const blocker of gateResult.blockers) {
+        console.log(`  • ${blocker}`);
+      }
+    }
+
+    // Show deliverables checklist
+    if (phaseDef?.deliverables && phaseDef.deliverables.length > 0) {
+      console.log('');
+      console.log('\x1b[1mDeliverables:\x1b[0m');
+      for (const deliverable of phaseDef.deliverables) {
+        console.log(`  □ ${deliverable}`);
+      }
+    }
+
+    log(`✅ Phase gate check complete: ${gateResult.ready ? 'PASSED' : 'BLOCKED'}`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Phase gate error: ${errorMsg}\x1b[0m`);
+    log(`❌ Phase gate error: ${errorMsg}`);
+  }
+  console.log('');
+}
+
+/**
+ * Handle /score command - show multi-objective scores
+ * CR-031: Learning System Integration
+ */
+async function handleScoreCommand(): Promise<void> {
+  console.log('');
+  console.log('\x1b[1;36m📊 Computing Scores...\x1b[0m');
+  log('📊 Computing scores');
+
+  try {
+    const evaluator = getRuleEvaluator();
+    evaluator.setNeo4jClient(neo4jClient);
+    const ruleLoader = getRuleLoader();
+
+    // Run validation for all phases to get comprehensive score
+    const result = await evaluator.evaluate('phase2_logical', config.workspaceId, config.systemId);
+    const rewardConfig = ruleLoader.getRewardConfig();
+
+    const state = graphCanvas.getState();
+    const nodeCount = state.nodes.size;
+    const edgeCount = state.edges.size;
+
+    // Count node types
+    const typeCounts: Record<string, number> = {};
+    for (const node of state.nodes.values()) {
+      typeCounts[node.type] = (typeCounts[node.type] || 0) + 1;
+    }
+
+    console.log('');
+    console.log('\x1b[1m═══════════════════════════════════════\x1b[0m');
+    console.log('\x1b[1m           SYSTEM SCORECARD            \x1b[0m');
+    console.log('\x1b[1m═══════════════════════════════════════\x1b[0m');
+    console.log('');
+
+    // Overall score
+    const scoreBar = createProgressBar(result.rewardScore, 20);
+    const scoreColor = result.rewardScore >= 0.7 ? '\x1b[32m' : result.rewardScore >= 0.5 ? '\x1b[33m' : '\x1b[31m';
+    console.log(`\x1b[1mOverall Score:\x1b[0m ${scoreColor}${(result.rewardScore * 100).toFixed(0)}%\x1b[0m ${scoreBar}`);
+    console.log(`\x1b[90mThreshold: ${(rewardConfig.successThreshold * 100).toFixed(0)}%\x1b[0m`);
+    console.log('');
+
+    // Graph metrics
+    console.log('\x1b[1mGraph Metrics:\x1b[0m');
+    console.log(`  Nodes: ${nodeCount}`);
+    console.log(`  Edges: ${edgeCount}`);
+    if (Object.keys(typeCounts).length > 0) {
+      console.log('  Types: ' + Object.entries(typeCounts).map(([t, c]) => `${t}(${c})`).join(', '));
+    }
+    console.log('');
+
+    // Violation summary
+    console.log('\x1b[1mViolation Summary:\x1b[0m');
+    console.log(`  \x1b[31mErrors:\x1b[0m   ${result.errorCount}`);
+    console.log(`  \x1b[33mWarnings:\x1b[0m ${result.warningCount}`);
+    console.log(`  \x1b[36mInfo:\x1b[0m     ${result.infoCount}`);
+    console.log('');
+
+    // Phase gate status
+    console.log('\x1b[1mPhase Gate:\x1b[0m ' + (result.phaseGateReady
+      ? '\x1b[32m✅ Ready\x1b[0m'
+      : '\x1b[31m❌ Not Ready\x1b[0m'));
+
+    log(`✅ Score computed: ${(result.rewardScore * 100).toFixed(0)}%`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Score error: ${errorMsg}\x1b[0m`);
+    log(`❌ Score error: ${errorMsg}`);
+  }
+  console.log('');
+}
+
+/**
+ * Handle /optimize command - trigger architecture optimization
+ * CR-031: Learning System Integration (placeholder - full optimizer in future)
+ */
+async function handleOptimizeCommand(): Promise<void> {
+  console.log('');
+  console.log('\x1b[1;36m⚡ Architecture Optimization\x1b[0m');
+  log('⚡ Running optimization');
+
+  try {
+    // First run validation to identify issues
+    const evaluator = getRuleEvaluator();
+    evaluator.setNeo4jClient(neo4jClient);
+
+    const result = await evaluator.evaluate('phase2_logical', config.workspaceId, config.systemId);
+
+    if (result.totalViolations === 0) {
+      console.log('');
+      console.log('\x1b[32m✅ No violations found - architecture is clean!\x1b[0m');
+      console.log(`\x1b[90m   Score: ${(result.rewardScore * 100).toFixed(0)}%\x1b[0m`);
+      console.log('');
+      log('✅ Optimization: no violations');
+      return;
+    }
+
+    console.log('');
+    console.log('\x1b[1mOptimization Suggestions:\x1b[0m');
+    console.log('');
+
+    // Group violations by type and suggest fixes
+    const suggestionGroups = new Map<string, string[]>();
+    for (const v of result.violations) {
+      const suggestion = v.suggestion || `Fix: ${v.ruleName}`;
+      if (!suggestionGroups.has(suggestion)) {
+        suggestionGroups.set(suggestion, []);
+      }
+      suggestionGroups.get(suggestion)!.push(v.semanticId);
+    }
+
+    let idx = 1;
+    for (const [suggestion, nodes] of suggestionGroups) {
+      const severityIcon = result.violations.find(v => v.suggestion === suggestion)?.severity === 'error'
+        ? '\x1b[31m●\x1b[0m'
+        : '\x1b[33m●\x1b[0m';
+      console.log(`  ${idx}. ${severityIcon} ${suggestion}`);
+      if (nodes.length <= 3) {
+        console.log(`     \x1b[90mAffects: ${nodes.join(', ')}\x1b[0m`);
+      } else {
+        console.log(`     \x1b[90mAffects: ${nodes.slice(0, 3).join(', ')} (+${nodes.length - 3} more)\x1b[0m`);
+      }
+      idx++;
+    }
+
+    // Show similarity matches if any
+    if (result.similarityMatches.length > 0) {
+      console.log('');
+      console.log('\x1b[1mMerge Candidates:\x1b[0m');
+      for (const match of result.similarityMatches.slice(0, 5)) {
+        const icon = match.recommendation === 'merge' ? '🔀' : '🔍';
+        console.log(`  ${icon} ${match.nodeA.name} ↔ ${match.nodeB.name} (${(match.score * 100).toFixed(0)}% similar)`);
+      }
+    }
+
+    console.log('');
+    console.log(`\x1b[90mTip: Use natural language to apply suggestions, e.g.:\x1b[0m`);
+    console.log(`\x1b[90m  "Add satisfy edge from ProcessData to REQ-001"\x1b[0m`);
+
+    log(`✅ Optimization suggestions: ${suggestionGroups.size} items`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Optimization error: ${errorMsg}\x1b[0m`);
+    log(`❌ Optimization error: ${errorMsg}`);
+  }
+  console.log('');
+}
+
+/**
+ * Display validation result in formatted output
+ */
+function displayValidationResult(result: ValidationResult): void {
+  const ruleLoader = getRuleLoader();
+  const phaseDef = ruleLoader.getPhaseDefinition(result.phase);
+
+  console.log('');
+  console.log('\x1b[1m═══════════════════════════════════════\x1b[0m');
+  console.log(`\x1b[1m  VALIDATION REPORT - ${phaseDef?.name || result.phase}\x1b[0m`);
+  console.log('\x1b[1m═══════════════════════════════════════\x1b[0m');
+  console.log('');
+
+  // Summary
+  const scoreBar = createProgressBar(result.rewardScore, 20);
+  const scoreColor = result.rewardScore >= 0.7 ? '\x1b[32m' : result.rewardScore >= 0.5 ? '\x1b[33m' : '\x1b[31m';
+  console.log(`\x1b[1mScore:\x1b[0m ${scoreColor}${(result.rewardScore * 100).toFixed(0)}%\x1b[0m ${scoreBar}`);
+  console.log(`\x1b[1mGate:\x1b[0m  ${result.phaseGateReady ? '\x1b[32m✅ Ready\x1b[0m' : '\x1b[31m❌ Not Ready\x1b[0m'}`);
+  console.log('');
+
+  // Violation counts
+  if (result.totalViolations === 0) {
+    console.log('\x1b[32m✅ No violations found\x1b[0m');
+  } else {
+    console.log(`\x1b[1mViolations:\x1b[0m ${result.totalViolations} total`);
+    if (result.errorCount > 0) console.log(`  \x1b[31m● Errors:\x1b[0m   ${result.errorCount}`);
+    if (result.warningCount > 0) console.log(`  \x1b[33m● Warnings:\x1b[0m ${result.warningCount}`);
+    if (result.infoCount > 0) console.log(`  \x1b[36m● Info:\x1b[0m     ${result.infoCount}`);
+    console.log('');
+
+    // List violations (max 10)
+    console.log('\x1b[1mDetails:\x1b[0m');
+    const displayViolations = result.violations.slice(0, 10);
+    for (const v of displayViolations) {
+      const icon = v.severity === 'error' ? '\x1b[31m●\x1b[0m' : v.severity === 'warning' ? '\x1b[33m●\x1b[0m' : '\x1b[36m●\x1b[0m';
+      console.log(`  ${icon} ${v.ruleName}`);
+      console.log(`    \x1b[90m${v.semanticId}: ${v.reason}\x1b[0m`);
+      if (v.suggestion) {
+        console.log(`    \x1b[32m→ ${v.suggestion}\x1b[0m`);
+      }
+    }
+    if (result.violations.length > 10) {
+      console.log(`  \x1b[90m... and ${result.violations.length - 10} more\x1b[0m`);
+    }
+  }
+
+  // Similarity matches
+  if (result.similarityMatches.length > 0) {
+    console.log('');
+    console.log(`\x1b[1mSimilarity Matches:\x1b[0m ${result.similarityMatches.length}`);
+    for (const match of result.similarityMatches.slice(0, 5)) {
+      const icon = match.recommendation === 'merge' ? '🔀' : match.recommendation === 'review' ? '🔍' : '✓';
+      console.log(`  ${icon} ${match.nodeA.name} ↔ ${match.nodeB.name} (${(match.score * 100).toFixed(0)}%)`);
+    }
+  }
+}
+
+/**
+ * Create ASCII progress bar
+ */
+function createProgressBar(value: number, width: number): string {
+  const filled = Math.round(value * width);
+  const empty = width - filled;
+  const color = value >= 0.7 ? '\x1b[32m' : value >= 0.5 ? '\x1b[33m' : '\x1b[31m';
+  return `${color}[${'█'.repeat(filled)}${'░'.repeat(empty)}]\x1b[0m`;
+}
+
+/**
  * Handle command
  */
 async function handleCommand(cmd: string, rl: readline.Interface): Promise<void> {
@@ -873,22 +1181,36 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
     case '/help':
       console.log('');
       console.log('Available commands:');
+      console.log('');
+      console.log('\x1b[1mSession:\x1b[0m');
       console.log('  /help           - Show this help');
       console.log('  /new            - Start new system (clear graph)');
       console.log('  /load           - List and load systems from Neo4j');
       console.log('  /save           - Save graph to Neo4j');
+      console.log('  /stats          - Show graph statistics');
+      console.log('  /clear          - Clear chat display');
+      console.log('  /exit           - Save session and quit (also: exit, quit)');
+      console.log('');
+      console.log('\x1b[1mImport/Export:\x1b[0m');
       console.log('  /export [name]  - Export graph to file (default: auto-named)');
       console.log('  /import <file>  - Import graph from file');
       console.log('  /exports        - List available export files');
-      console.log('  /stats          - Show graph statistics');
+      console.log('');
+      console.log('\x1b[1mViews:\x1b[0m');
       console.log(`  /view <name>    - Switch view (${Object.keys(DEFAULT_VIEW_CONFIGS).join(', ')})`);
+      console.log('');
+      console.log('\x1b[1mDerivation:\x1b[0m');
       console.log('  /derive [type]  - Auto-derive architecture elements:');
       console.log('                    (no arg) - UC → FUNC logical architecture');
       console.log('                    tests    - REQ → TEST verification cases');
       console.log('                    flows    - FUNC → FLOW interfaces');
       console.log('                    modules  - FUNC → MOD allocation');
-      console.log('  /clear          - Clear chat history');
-      console.log('  /exit           - Save session and quit (also: exit, quit)');
+      console.log('');
+      console.log('\x1b[1mValidation & Optimization (CR-031):\x1b[0m');
+      console.log('  /validate [N]   - Run validation report (phase 1-4, default: 2)');
+      console.log('  /phase-gate [N] - Check phase gate readiness (1-4)');
+      console.log('  /score          - Show multi-objective scorecard');
+      console.log('  /optimize       - Get optimization suggestions');
       console.log('');
       break;
 
@@ -1105,6 +1427,23 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
     case '/derive':
       await handleDeriveCommand(args, rl);
       return; // Don't call rl.prompt() - handleDeriveCommand will do it after async operation
+
+    // CR-031: Validation & Optimization commands
+    case '/validate':
+      await handleValidateCommand(args);
+      break;
+
+    case '/phase-gate':
+      await handlePhaseGateCommand(args);
+      break;
+
+    case '/score':
+      await handleScoreCommand();
+      break;
+
+    case '/optimize':
+      await handleOptimizeCommand();
+      break;
 
     default:
       console.log('\x1b[33mUnknown command. Type /help for available commands.\x1b[0m');

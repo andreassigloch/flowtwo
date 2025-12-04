@@ -72,15 +72,22 @@ describe('Session Resolver', () => {
       process.env.WORKSPACE_ID = 'test-workspace';
       process.env.USER_ID = 'test-user';
 
-      mockClient.mockSession.run.mockResolvedValue({
-        records: [{
-          get: (key: string) => {
-            if (key === 'activeSystemId') return 'Neo4jSystem.SY.002';
-            if (key === 'chatId') return 'neo4j-chat-001';
-            return null;
-          },
-        }],
-      });
+      // Mock sequence: 1. AppSession query, 2. Validation query (node count)
+      mockClient.mockSession.run
+        .mockResolvedValueOnce({
+          records: [{
+            get: (key: string) => {
+              if (key === 'activeSystemId') return 'Neo4jSystem.SY.002';
+              if (key === 'chatId') return 'neo4j-chat-001';
+              return null;
+            },
+          }],
+        })
+        .mockResolvedValueOnce({
+          records: [{
+            get: () => ({ toNumber: () => 10 }), // nodeCount > 0 = system exists
+          }],
+        });
 
       // Act
       const result = await resolveSession(mockClient.client as any);
@@ -97,9 +104,14 @@ describe('Session Resolver', () => {
       delete process.env.SYSTEM_ID;
       process.env.WORKSPACE_ID = 'new-workspace';
 
-      mockClient.mockSession.run.mockResolvedValue({
-        records: [], // Empty - no existing session
-      });
+      // Mock sequence: 1. No AppSession, 2. No systems with data
+      mockClient.mockSession.run
+        .mockResolvedValueOnce({
+          records: [], // Empty - no existing session
+        })
+        .mockResolvedValueOnce({
+          records: [], // No systems with data
+        });
 
       // Act
       const result = await resolveSession(mockClient.client as any);
@@ -108,6 +120,39 @@ describe('Session Resolver', () => {
       expect(result.source).toBe('new-installation');
       expect(result.systemId).toBe('new-system');
       expect(result.workspaceId).toBe('new-workspace');
+    });
+
+    it('Returns new-installation when AppSession references stale system (no fallback)', async () => {
+      // Arrange - AppSession points to system with no data
+      delete process.env.SYSTEM_ID;
+      process.env.WORKSPACE_ID = 'test-workspace';
+      process.env.USER_ID = 'test-user';
+
+      mockClient.mockSession.run
+        .mockResolvedValueOnce({
+          // AppSession exists with stale system
+          records: [{
+            get: (key: string) => {
+              if (key === 'activeSystemId') return 'StaleSystem.SY.001';
+              if (key === 'chatId') return 'test-chat';
+              return null;
+            },
+          }],
+        })
+        .mockResolvedValueOnce({
+          // Validation: stale system has 0 nodes
+          records: [{
+            get: () => ({ toNumber: () => 0 }),
+          }],
+        });
+
+      // Act
+      const result = await resolveSession(mockClient.client as any);
+
+      // Assert - no fallback, returns new-installation
+      expect(result.source).toBe('new-installation');
+      expect(result.systemId).toBe('new-system');
+      // User must explicitly /load a system
     });
   });
 

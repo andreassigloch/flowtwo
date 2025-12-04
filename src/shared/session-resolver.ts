@@ -116,31 +116,54 @@ export async function resolveSession(neo4jClient: Neo4jClient): Promise<Resolved
 
 /**
  * Load session from Neo4j AppSession node
+ *
+ * IMPORTANT: Validates that the activeSystemId actually has nodes in Neo4j.
+ * If the system no longer exists (stale), returns null → triggers new-installation flow.
+ * NO FALLBACKS - user must explicitly /load a system.
  */
 async function loadSessionFromNeo4j(
   neo4jClient: Neo4jClient,
   userId: string,
   workspaceId: string
 ): Promise<{ activeSystemId: string; chatId?: string } | null> {
-  // Access internal session method
   const session = neo4jClient['getSession']();
 
   try {
-    const result = await session.run(
+    // 1. Get AppSession
+    const sessionResult = await session.run(
       `MATCH (s:AppSession {userId: $userId, workspaceId: $workspaceId})
        RETURN s.activeSystemId as activeSystemId, s.chatId as chatId`,
       { userId, workspaceId }
     );
 
-    if (result.records.length === 0) {
+    if (sessionResult.records.length === 0) {
+      // No AppSession
       return null;
     }
 
-    const record = result.records[0];
-    return {
-      activeSystemId: record.get('activeSystemId'),
-      chatId: record.get('chatId'),
-    };
+    const record = sessionResult.records[0];
+    const activeSystemId = record.get('activeSystemId');
+    const chatId = record.get('chatId');
+
+    // 2. Validate that the system actually has nodes
+    // Note: Uses :Node label (consistent with neo4j-client.ts saveNodes)
+    const validationResult = await session.run(
+      `MATCH (n:Node {systemId: $systemId})
+       RETURN count(n) as nodeCount LIMIT 1`,
+      { systemId: activeSystemId }
+    );
+
+    const nodeCount = validationResult.records[0]?.get('nodeCount')?.toNumber() || 0;
+
+    if (nodeCount > 0) {
+      // System exists and has data - use it
+      return { activeSystemId, chatId };
+    }
+
+    // 3. System is stale (no nodes) - return null, no fallback
+    console.log(`\x1b[33m⚠️  System '${activeSystemId}' has no data in Neo4j\x1b[0m`);
+    console.log(`\x1b[33m   Use /load to select a system or /import to import one\x1b[0m`);
+    return null;
   } finally {
     await session.close();
   }

@@ -1,0 +1,63 @@
+{
+  "id": "baseline-valid",
+  "description": "Near-clean architecture with minor undersized MODs. Can be improved.",
+  "expectedScore": { "min": 0.80, "max": 0.90 },
+  "nodes": [
+    { "id": "UC_1", "type": "UC", "label": "UserLogin", "properties": {} },
+    { "id": "UC_2", "type": "UC", "label": "DataEntry", "properties": {} },
+
+    { "id": "REQ_1", "type": "REQ", "label": "REQ_Authentication", "properties": {} },
+    { "id": "REQ_2", "type": "REQ", "label": "REQ_SessionMgmt", "properties": {} },
+    { "id": "REQ_3", "type": "REQ", "label": "REQ_DataValidation", "properties": {} },
+    { "id": "REQ_4", "type": "REQ", "label": "REQ_DataStorage", "properties": {} },
+
+    { "id": "FUNC_1", "type": "FUNC", "label": "ValidateCredentials", "properties": { "volatility": 0.3 } },
+    { "id": "FUNC_2", "type": "FUNC", "label": "CreateSession", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_3", "type": "FUNC", "label": "ManageSession", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_4", "type": "FUNC", "label": "TerminateSession", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_5", "type": "FUNC", "label": "ValidateInput", "properties": { "volatility": 0.4 } },
+    { "id": "FUNC_6", "type": "FUNC", "label": "TransformData", "properties": { "volatility": 0.3 } },
+    { "id": "FUNC_7", "type": "FUNC", "label": "PersistData", "properties": { "volatility": 0.2 } },
+
+    { "id": "MOD_Auth", "type": "MOD", "label": "AuthModule", "properties": {} },
+    { "id": "MOD_Data", "type": "MOD", "label": "DataModule", "properties": {} },
+
+    { "id": "TEST_1", "type": "TEST", "label": "Test_Auth", "properties": {} },
+    { "id": "TEST_2", "type": "TEST", "label": "Test_Session", "properties": {} },
+    { "id": "TEST_3", "type": "TEST", "label": "Test_Data", "properties": {} }
+  ],
+  "edges": [
+    { "id": "e1", "source": "UC_1", "target": "REQ_1", "type": "derive" },
+    { "id": "e2", "source": "UC_1", "target": "REQ_2", "type": "derive" },
+    { "id": "e3", "source": "UC_2", "target": "REQ_3", "type": "derive" },
+    { "id": "e4", "source": "UC_2", "target": "REQ_4", "type": "derive" },
+
+    { "id": "e5", "source": "FUNC_1", "target": "REQ_1", "type": "satisfy" },
+    { "id": "e6", "source": "FUNC_2", "target": "REQ_2", "type": "satisfy" },
+    { "id": "e7", "source": "FUNC_3", "target": "REQ_2", "type": "satisfy" },
+    { "id": "e8", "source": "FUNC_4", "target": "REQ_2", "type": "satisfy" },
+    { "id": "e9", "source": "FUNC_5", "target": "REQ_3", "type": "satisfy" },
+    { "id": "e10", "source": "FUNC_6", "target": "REQ_3", "type": "satisfy" },
+    { "id": "e11", "source": "FUNC_7", "target": "REQ_4", "type": "satisfy" },
+
+    { "id": "e12", "source": "FUNC_1", "target": "MOD_Auth", "type": "allocate" },
+    { "id": "e13", "source": "FUNC_2", "target": "MOD_Auth", "type": "allocate" },
+    { "id": "e14", "source": "FUNC_3", "target": "MOD_Auth", "type": "allocate" },
+    { "id": "e15", "source": "FUNC_4", "target": "MOD_Auth", "type": "allocate" },
+    { "id": "e16", "source": "FUNC_5", "target": "MOD_Data", "type": "allocate" },
+    { "id": "e17", "source": "FUNC_6", "target": "MOD_Data", "type": "allocate" },
+    { "id": "e18", "source": "FUNC_7", "target": "MOD_Data", "type": "allocate" },
+
+    { "id": "e19", "source": "FUNC_1", "target": "FUNC_2", "type": "io" },
+    { "id": "e20", "source": "FUNC_2", "target": "FUNC_3", "type": "io" },
+    { "id": "e21", "source": "FUNC_3", "target": "FUNC_4", "type": "io" },
+    { "id": "e22", "source": "FUNC_5", "target": "FUNC_6", "type": "io" },
+    { "id": "e23", "source": "FUNC_6", "target": "FUNC_7", "type": "io" },
+    { "id": "e24", "source": "FUNC_2", "target": "FUNC_5", "type": "io" },
+
+    { "id": "e25", "source": "REQ_1", "target": "TEST_1", "type": "verify" },
+    { "id": "e26", "source": "REQ_2", "target": "TEST_2", "type": "verify" },
+    { "id": "e27", "source": "REQ_3", "target": "TEST_3", "type": "verify" },
+    { "id": "e28", "source": "REQ_4", "target": "TEST_3", "type": "verify" }
+  ]
+}

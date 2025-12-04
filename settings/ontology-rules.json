@@ -1,18 +1,19 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "id": "graphengine-ontology-rules",
-  "version": "3.0.7",
+  "version": "3.1.1",
+  "commit": "3ce1c19",
   "description": "Consolidated ontology: node/edge types, validation rules, decision trees, optimization goals. Single source of truth for LLM context and self-learning reward calculation.",
 
   "meta": {
     "sources": [
       "docs/System Decomposition Rules.md",
       "docs/AGENTEN-BASIERTES SYSTEMS ENGINEERING.md",
-      "settings/ontology.json",
       "docs/ontology_schema.json"
     ],
-    "standards": ["INCOSE SE Handbook v5", "ISO/IEC/IEEE 15288:2023", "A-SPICE", "SysML 2.0"],
+    "standards": ["INCOSE SE Handbook v5", "INCOSE GtWR v4", "ISO/IEC/IEEE 15288:2023", "ISO/IEC/IEEE 29148:2018", "A-SPICE", "SysML 2.0"],
     "created": "2025-11-27",
+    "updated": "2025-12-01",
     "author": "andreas@siglochconsulting"
   },
 
@@ -21,10 +22,12 @@
       "name": "System",
       "description": "Top-level system boundary. Root of all decomposition.",
       "abbreviation": "SY",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#FF00FF",
+      "ansiColor": "35",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" }
       },
       "allowedOutgoingEdges": ["compose"],
       "allowedTargets": { "compose": ["UC", "MOD", "FUNC", "SYS"] },
@@ -34,10 +37,12 @@
       "name": "Use Case",
       "description": "User-facing functionality. Außensicht: was wird gefordert.",
       "abbreviation": "UC",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#FFFF00",
+      "ansiColor": "33",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" }
       },
       "allowedOutgoingEdges": ["compose", "satisfy"],
       "allowedTargets": { "compose": ["UC", "FCHAIN"], "satisfy": ["REQ"] }
@@ -46,10 +51,12 @@
       "name": "Requirement",
       "description": "Functional or non-functional requirement.",
       "abbreviation": "RQ",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#FF0000",
+      "ansiColor": "31",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" }
       },
       "allowedOutgoingEdges": ["satisfy", "verify"],
       "allowedTargets": { "satisfy": ["REQ"], "verify": ["TEST"] }
@@ -58,10 +65,21 @@
       "name": "Function",
       "description": "Specific capability or processing step. Innensicht: Verhalten, Transformation.",
       "abbreviation": "FN",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#00FF00",
+      "ansiColor": "32",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
+      "optionalProperties": {
+        "volatility": {
+          "type": "enum",
+          "values": ["low", "medium", "high"],
+          "default": "medium",
+          "description": "Expected rate of change. HIGH = external APIs, AI models, integrations. LOW = core logic, persistence, stable algorithms."
+        }
+      },
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" },
+        "volatility": { "type": "enum", "values": ["low", "medium", "high"] }
       },
       "allowedOutgoingEdges": ["compose", "satisfy", "io"],
       "allowedTargets": { "compose": ["FUNC"], "satisfy": ["REQ"], "io": ["FLOW"] }
@@ -70,22 +88,26 @@
       "name": "Function Chain",
       "description": "Sequence of functions implementing a use case. Activity diagram.",
       "abbreviation": "FC",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#00FFFF",
+      "ansiColor": "36",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" }
       },
       "allowedOutgoingEdges": ["compose"],
       "allowedTargets": { "compose": ["ACTOR", "FUNC", "FLOW"] }
     },
     "FLOW": {
       "name": "Data Flow",
-      "description": "3-Layer interface: Layer 1 (Semantik) in Descr, Layer 2 (Datenformat) via relation to SCHEMA, Layer 3 (Protokoll) via relation to SCHEMA.",
+      "description": "3-Layer interface: Layer 1 (Semantik) in descr, Layer 2 (Datenformat) via relation to SCHEMA, Layer 3 (Protokoll) via relation to SCHEMA.",
       "abbreviation": "FL",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#808080",
+      "ansiColor": "90",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" }
       },
       "allowedOutgoingEdges": ["io", "relation"],
       "allowedTargets": { "io": ["FUNC", "ACTOR"], "relation": ["SCHEMA"] },
@@ -96,10 +118,12 @@
       "name": "Actor",
       "description": "External entity. Alles außerhalb deiner Spezifikationshoheit.",
       "abbreviation": "AC",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#FFFF00",
+      "ansiColor": "33",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" }
       },
       "allowedOutgoingEdges": ["io"],
       "allowedTargets": { "io": ["FLOW"] },
@@ -109,10 +133,12 @@
       "name": "Module",
       "description": "Physical or software component. Physische Realisierung.",
       "abbreviation": "MD",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#0000FF",
+      "ansiColor": "34",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" }
       },
       "allowedOutgoingEdges": ["compose", "allocate"],
       "allowedTargets": { "compose": ["MOD"], "allocate": ["FUNC"] }
@@ -121,10 +147,12 @@
       "name": "Test Case",
       "description": "Verification test case.",
       "abbreviation": "TC",
-      "requiredProperties": ["uuid", "type", "Name", "Descr"],
+      "color": "#00FF00",
+      "ansiColor": "32",
+      "requiredProperties": ["uuid", "type", "name", "descr"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" }
       },
       "allowedOutgoingEdges": ["verify"],
       "allowedTargets": { "verify": ["TEST"] }
@@ -133,11 +161,13 @@
       "name": "Schema",
       "description": "Global definition. Categories: DataSchema, ProtocolSchema, TypeSchema.",
       "abbreviation": "SC",
-      "requiredProperties": ["uuid", "type", "Name", "Descr", "Struct"],
+      "color": "#FFFFFF",
+      "ansiColor": "37",
+      "requiredProperties": ["uuid", "type", "name", "descr", "struct"],
       "propertyConstraints": {
-        "Name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
-        "Descr": { "type": "string" },
-        "Struct": { "type": "string", "format": "json" }
+        "name": { "type": "string", "maxLength": 25, "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "descr": { "type": "string" },
+        "struct": { "type": "string", "format": "json" }
       },
       "allowedOutgoingEdges": ["relation"],
       "allowedTargets": { "relation": ["FUNC", "FLOW"] },
@@ -154,11 +184,19 @@
       "name": "Composition",
       "description": "Hierarchical parent-child nesting",
       "isNesting": true,
+      "visualStyle": "implicit",
       "validConnections": [
-        ["SYS", "SYS"], ["SYS", "UC"], ["SYS", "MOD"], ["SYS", "FUNC"],
-        ["UC", "UC"], ["UC", "FCHAIN"],
-        ["FCHAIN", "ACTOR"], ["FCHAIN", "FUNC"], ["FCHAIN", "FLOW"],
-        ["MOD", "MOD"], ["FUNC", "FUNC"]
+        { "source": "SYS", "target": "SYS" },
+        { "source": "SYS", "target": "UC" },
+        { "source": "SYS", "target": "MOD" },
+        { "source": "SYS", "target": "FUNC" },
+        { "source": "UC", "target": "UC" },
+        { "source": "UC", "target": "FCHAIN" },
+        { "source": "FCHAIN", "target": "ACTOR" },
+        { "source": "FCHAIN", "target": "FUNC" },
+        { "source": "FCHAIN", "target": "FLOW" },
+        { "source": "MOD", "target": "MOD" },
+        { "source": "FUNC", "target": "FUNC" }
       ]
     },
     "io": {
@@ -166,44 +204,60 @@
       "description": "Input/Output connection via FLOW nodes",
       "isNesting": false,
       "isChain": true,
+      "visualStyle": "solid-arrow",
       "validConnections": [
-        ["FUNC", "FLOW"], ["FLOW", "FUNC"],
-        ["ACTOR", "FLOW"], ["FLOW", "ACTOR"]
+        { "source": "FUNC", "target": "FLOW" },
+        { "source": "FLOW", "target": "FUNC" },
+        { "source": "ACTOR", "target": "FLOW" },
+        { "source": "FLOW", "target": "ACTOR" }
       ]
     },
     "satisfy": {
       "name": "Satisfaction",
       "description": "Requirement satisfaction traceability",
       "isNesting": true,
+      "visualStyle": "dashed-arrow",
       "validConnections": [
-        ["SYS", "REQ"], ["REQ", "REQ"], ["UC", "REQ"], ["FUNC", "REQ"]
+        { "source": "SYS", "target": "REQ" },
+        { "source": "REQ", "target": "REQ" },
+        { "source": "UC", "target": "REQ" },
+        { "source": "FUNC", "target": "REQ" }
       ]
     },
     "verify": {
       "name": "Verification",
       "description": "Test verification of requirements",
       "isNesting": false,
+      "visualStyle": "dashed-arrow",
       "validConnections": [
-        ["TEST", "TEST"], ["REQ", "TEST"]
+        { "source": "TEST", "target": "TEST" },
+        { "source": "REQ", "target": "TEST" }
       ]
     },
     "allocate": {
       "name": "Allocation",
       "description": "Function allocation to module",
       "isNesting": true,
+      "visualStyle": "solid-arrow-diamond",
       "validConnections": [
-        ["MOD", "FUNC"]
+        { "source": "MOD", "target": "FUNC" }
       ]
     },
     "relation": {
       "name": "Relation",
       "description": "Generic relationship (FLOW→SCHEMA for interface contracts)",
       "isNesting": false,
+      "visualStyle": "gray-line",
       "validConnections": [
-        ["FLOW", "SCHEMA"], ["SCHEMA", "FUNC"], ["*", "*"]
+        { "source": "FLOW", "target": "SCHEMA" },
+        { "source": "SCHEMA", "target": "FUNC" },
+        { "source": "*", "target": "*" }
       ]
     }
   },
+
+  "zoomLevels": ["L0", "L1", "L2", "L3", "L4"],
+  "nestingEdgeTypes": ["compose", "satisfy", "allocate"],
 
   "phases": {
     "phase1_requirements": {
@@ -216,13 +270,13 @@
       "name": "Logical Architecture",
       "description": "Top-Level FUNC blocks, FLOW interfaces, FCHAIN activity diagrams",
       "deliverables": ["5-9 top-level FUNC", "FLOW with SCHEMA", "FCHAIN per leaf UC"],
-      "gateRules": ["millers_law_func", "function_requirements", "function_io", "flow_connectivity", "fchain_actor_boundary"]
+      "gateRules": ["millers_law", "function_requirements", "function_io", "flow_connectivity", "fchain_actor_boundary"]
     },
     "phase3_physical": {
       "name": "Physical Architecture",
       "description": "MOD hierarchy, function allocation",
       "deliverables": ["5-9 top-level MOD", "MOD→FUNC allocation"],
-      "gateRules": ["millers_law_mod", "function_allocation", "no_orphan_mod"]
+      "gateRules": ["millers_law", "function_allocation", "no_orphan_mod"]
     },
     "phase4_verification": {
       "name": "Integration & Verification",
@@ -232,24 +286,42 @@
     }
   },
 
-  "validationRules": {
+  "integrityRules": {
+    "no_duplicate_nodes": {
+      "id": "no_duplicate_nodes",
+      "description": "No nodes with identical (type, name, parent)",
+      "phase": "all",
+      "severity": "error",
+      "type": "hard",
+      "cypher": "MATCH (p)-[:compose]->(n1), (p)-[:compose]->(n2) WHERE n1.type = n2.type AND n1.name = n2.name AND id(n1) < id(n2) RETURN n1.semanticId + ' / ' + n2.semanticId AS violation, 'Duplicate node in same parent' AS reason"
+    },
+    "no_duplicate_edges": {
+      "id": "no_duplicate_edges",
+      "description": "No edges with identical (source, target, edgeType)",
+      "phase": "all",
+      "severity": "error",
+      "type": "hard",
+      "cypher": "MATCH (a)-[r1]->(b), (a)-[r2]->(b) WHERE type(r1) = type(r2) AND id(r1) < id(r2) RETURN a.semanticId + ' -[' + type(r1) + ']-> ' + b.semanticId AS violation, 'Duplicate edge' AS reason"
+    },
     "naming": {
       "id": "naming",
       "description": "All names PascalCase, max 25 characters",
       "phase": "all",
       "severity": "error",
-      "weight": 0.05,
-      "cypher": "MATCH (n) WHERE n.Name IS NOT NULL AND (NOT n.Name =~ '^[A-Z][a-zA-Z0-9]{0,24}$') RETURN n.semanticId AS violation, 'Invalid name format' AS reason"
+      "type": "hard",
+      "cypher": "MATCH (n) WHERE n.name IS NOT NULL AND (NOT n.name =~ '^[A-Z][a-zA-Z0-9]{0,24}$') RETURN n.semanticId AS violation, 'Invalid name format' AS reason"
     },
     "required_properties": {
       "id": "required_properties",
-      "description": "All nodes must have uuid, type, Name, Descr",
+      "description": "All nodes must have uuid, type, name (non-empty), descr (non-empty)",
       "phase": "all",
       "severity": "error",
-      "weight": 0.10,
       "type": "hard",
-      "cypher": "MATCH (n) WHERE n.uuid IS NULL OR n.type IS NULL OR n.Name IS NULL OR n.Descr IS NULL RETURN n.semanticId AS violation, 'Missing required properties' AS reason"
-    },
+      "cypher": "MATCH (n) WHERE n.uuid IS NULL OR n.type IS NULL OR n.name IS NULL OR n.name = '' OR n.descr IS NULL OR n.descr = '' RETURN n.semanticId AS violation, 'Missing or empty required properties' AS reason"
+    }
+  },
+
+  "validationRules": {
     "isolation": {
       "id": "isolation",
       "description": "All nodes must have at least one edge",
@@ -258,21 +330,15 @@
       "weight": 0.05,
       "cypher": "MATCH (n) WHERE NOT (n)--() RETURN n.semanticId AS violation, 'Orphan node' AS reason"
     },
-    "millers_law_func": {
-      "id": "millers_law_func",
-      "description": "5-9 top-level FUNC nodes under SYS (Miller's Law)",
-      "phase": "phase2_logical",
+    "millers_law": {
+      "id": "millers_law",
+      "description": "5-9 children per parent node (Miller's Law applies universally to all nesting)",
+      "phase": "all",
       "severity": "warning",
       "weight": 0.10,
-      "cypher": "MATCH (s:SYS)-[:compose]->(f:FUNC) WITH s, count(f) AS func_count WHERE func_count < 5 OR func_count > 9 RETURN s.semanticId AS violation, 'FUNC count: ' + func_count + ' (should be 5-9)' AS reason"
-    },
-    "millers_law_mod": {
-      "id": "millers_law_mod",
-      "description": "5-9 top-level MOD nodes under SYS (Miller's Law)",
-      "phase": "phase3_physical",
-      "severity": "warning",
-      "weight": 0.10,
-      "cypher": "MATCH (s:SYS)-[:compose]->(m:MOD) WITH s, count(m) AS mod_count WHERE mod_count < 5 OR mod_count > 9 RETURN s.semanticId AS violation, 'MOD count: ' + mod_count + ' (should be 5-9)' AS reason"
+      "cypher": "MATCH (parent)-[:compose|allocate]->(child) WITH parent, count(child) AS child_count WHERE child_count < 5 OR child_count > 9 RETURN parent.semanticId AS violation, parent.type + ' has ' + child_count + ' children (should be 5-9)' AS reason",
+      "appliesTo": ["SYS→FUNC", "SYS→MOD", "FUNC→FUNC", "MOD→MOD", "UC→UC", "MOD→FUNC (allocate)"],
+      "rationale": "Cognitive load principle: humans can manage 7±2 items effectively"
     },
     "function_requirements": {
       "id": "function_requirements",
@@ -332,11 +398,11 @@
     },
     "schema_struct_property": {
       "id": "schema_struct_property",
-      "description": "Every SCHEMA must have Struct property with JSON",
+      "description": "Every SCHEMA must have struct property with JSON",
       "phase": "all",
       "severity": "error",
       "weight": 0.05,
-      "cypher": "MATCH (s:SCHEMA) WHERE s.Struct IS NULL OR s.Struct = '' RETURN s.semanticId AS violation, 'Missing Struct property' AS reason"
+      "cypher": "MATCH (s:SCHEMA) WHERE s.struct IS NULL OR s.struct = '' RETURN s.semanticId AS violation, 'Missing struct property' AS reason"
     },
     "uc_satisfy_req": {
       "id": "uc_satisfy_req",
@@ -361,6 +427,137 @@
       "forbiddenPatterns": [
         "NestedFunc(ParentA) -io-> Flow -io-> NestedFunc(ParentB)"
       ]
+    },
+    "volatile_func_isolation": {
+      "id": "volatile_func_isolation",
+      "description": "High-volatility FUNC should have low fan-in (≤2 dependents) to isolate change impact. Wrap behind adapter/facade.",
+      "phase": "phase2_logical",
+      "severity": "warning",
+      "weight": 0.10,
+      "cypher": "MATCH (f:FUNC {volatility: 'high'})<-[:io]-(:FLOW)<-[:io]-(dependent:FUNC) WITH f, count(DISTINCT dependent) as fanIn WHERE fanIn > 2 RETURN f.semanticId AS violation, 'High-volatility FUNC has ' + fanIn + ' dependents (should be ≤2). Isolate behind adapter/facade.' AS reason",
+      "rationale": "Design for Change: High-volatility functions (external APIs, AI models, integrations) should be isolated to minimize ripple effects when they change.",
+      "architecturalGuidance": "Wrap high-volatility FUNC behind stable interface (Adapter/Facade pattern)"
+    },
+    "func_description_quality": {
+      "id": "func_description_quality",
+      "description": "FUNC description should contain Action + Input + Output pattern",
+      "phase": "phase2_logical",
+      "severity": "warning",
+      "weight": 0.05,
+      "pattern": "[Verb] [Input-Objekt] und [liefert/gibt zurück] [Output-Objekt]",
+      "cypher": "MATCH (f:FUNC) WHERE f.descr IS NOT NULL AND NOT (f.descr =~ '.*(und|and).*(gibt|liefert|returns|produces).*') RETURN f.semanticId AS violation, 'Description should describe Action + Input + Output' AS reason"
+    },
+    "func_near_duplicate": {
+      "id": "func_near_duplicate",
+      "description": "No FUNC pairs with similarity >= 0.85 (near-duplicates)",
+      "phase": "phase2_logical",
+      "severity": "error",
+      "type": "hard",
+      "weight": 0.15,
+      "threshold": 0.85,
+      "note": "Requires semantic similarity calculation - not pure Cypher"
+    },
+    "func_merge_candidate": {
+      "id": "func_merge_candidate",
+      "description": "Flag FUNC pairs with similarity >= 0.70 as merge candidates",
+      "phase": "phase2_logical",
+      "severity": "warning",
+      "weight": 0.10,
+      "threshold": 0.70,
+      "note": "Requires semantic similarity calculation - not pure Cypher"
+    },
+    "schema_near_duplicate": {
+      "id": "schema_near_duplicate",
+      "description": "No SCHEMA pairs with similarity >= 0.85 (near-duplicates)",
+      "phase": "phase2_logical",
+      "severity": "error",
+      "type": "hard",
+      "weight": 0.10,
+      "threshold": 0.85,
+      "note": "Requires Struct JSON similarity calculation - not pure Cypher"
+    },
+    "schema_merge_candidate": {
+      "id": "schema_merge_candidate",
+      "description": "Flag SCHEMA pairs with similarity >= 0.70 as merge candidates",
+      "phase": "phase2_logical",
+      "severity": "warning",
+      "weight": 0.05,
+      "threshold": 0.70,
+      "note": "Requires Struct JSON similarity calculation - not pure Cypher"
+    }
+  },
+
+  "funcSimilarity": {
+    "description": "FUNC similarity detection for merge/abstraction candidates",
+    "criteria": {
+      "descriptionSemantic": {
+        "weight": 0.35,
+        "description": "Semantic similarity of description texts"
+      },
+      "actionVerb": {
+        "weight": 0.25,
+        "description": "Same function core from name (Validate, Create, Transform, ...)"
+      },
+      "flowStructure": {
+        "weight": 0.25,
+        "description": "Isomorphic io topology (same in/out count, similar SCHEMA types)"
+      },
+      "reqOverlap": {
+        "weight": 0.10,
+        "description": "Jaccard index on satisfy→REQ edges"
+      },
+      "hierarchyPosition": {
+        "weight": 0.05,
+        "description": "Same depth in compose tree"
+      }
+    },
+    "thresholds": {
+      "nearDuplicate": 0.85,
+      "mergeCandidate": 0.70,
+      "review": 0.50
+    },
+    "canonicalVerbs": {
+      "Validate": ["Check", "Verify", "Ensure", "Assert", "Prüfen", "Validieren"],
+      "Create": ["Generate", "Build", "Produce", "Make", "Erstellen", "Erzeugen"],
+      "Transform": ["Convert", "Map", "Translate", "Parse", "Transformieren", "Konvertieren"],
+      "Send": ["Emit", "Publish", "Dispatch", "Notify", "Senden", "Versenden"],
+      "Receive": ["Accept", "Consume", "Listen", "Subscribe", "Empfangen"],
+      "Store": ["Save", "Persist", "Write", "Cache", "Speichern"],
+      "Retrieve": ["Load", "Fetch", "Read", "Get", "Laden", "Abrufen"],
+      "Calculate": ["Compute", "Evaluate", "Derive", "Berechnen"]
+    },
+    "schemaAbstraction": {
+      "EntitySchema": ["OrderSchema", "PaymentSchema", "ShipmentSchema", "CustomerSchema"],
+      "StatusSchema": ["OrderStatus", "PaymentStatus", "ShipmentStatus"],
+      "ResultSchema": ["ValidationResult", "CalculationResult", "ProcessResult"]
+    }
+  },
+
+  "schemaSimilarity": {
+    "description": "SCHEMA similarity detection for merge/consolidation candidates",
+    "criteria": {
+      "structSimilarity": {
+        "weight": 0.50,
+        "description": "JSON structure similarity (field names, types, nesting depth)"
+      },
+      "nameSimilarity": {
+        "weight": 0.25,
+        "description": "Name similarity (OrderSchema vs PaymentSchema)"
+      },
+      "usagePattern": {
+        "weight": 0.25,
+        "description": "Similar FLOW connections (same FUNCs use them)"
+      }
+    },
+    "thresholds": {
+      "nearDuplicate": 0.85,
+      "mergeCandidate": 0.70,
+      "review": 0.50
+    },
+    "mergeGuidance": {
+      "identicalStruct": "Merge into single SCHEMA, update all FLOW relations",
+      "similarStruct": "Create abstract base SCHEMA, derive specific variants",
+      "differentCategory": "Keep separate (DataSchema vs ProtocolSchema)"
     }
   },
 
@@ -509,6 +706,35 @@
         "lowCohesion": "LCOM4 > 1 (mehrere Verantwortlichkeiten)",
         "highFanOut": "Fan-out > 7 (zu viele Abhängigkeiten)"
       }
+    },
+    "volatilityClassification": {
+      "question": "What is the expected rate of change for this FUNC?",
+      "description": "Determine volatility level to enforce Design for Change principle",
+      "criteria": {
+        "high": [
+          "Depends on external APIs (social media, payment, weather, etc.)",
+          "Uses AI/ML models (prompts, inference, embeddings)",
+          "Integrates with third-party systems",
+          "Subject to frequent regulatory changes",
+          "User-configurable behavior"
+        ],
+        "medium": [
+          "Internal transformation/calculation",
+          "Business rules with occasional updates",
+          "Internal service communication"
+        ],
+        "low": [
+          "Core business logic with stable rules",
+          "Data persistence/retrieval (database operations)",
+          "Stable algorithms (sorting, validation, formatting)",
+          "Infrastructure utilities (logging, monitoring)"
+        ]
+      },
+      "architecturalGuidance": {
+        "high": "Isolate behind stable interface (Adapter/Facade). Max 2 dependents.",
+        "medium": "Standard coupling rules apply. Fan-out ≤7.",
+        "low": "Can be widely used. High fan-in acceptable."
+      }
     }
   },
 
@@ -524,29 +750,67 @@
 
   "rewardCalculation": {
     "description": "Aggregate reward from validation rule compliance for AgentDB episodes",
-    "formula": "reward = 1.0 - sum(weight * violation_count / total_nodes)",
-    "hardRuleFailure": "If any hard rule fails, reward = 0.0",
+    "formula": "reward_total = w1 * reward_ontology + w2 * req_quality_score + w3 * uc_quality_score + w4 * func_distinctness_score",
+    "hardRuleFailure": "If any hard rule fails, reward_ontology = 0.0",
     "successThreshold": 0.7,
-    "weights": {
-      "required_properties": 0.10,
-      "naming": 0.05,
+    "componentWeights": {
+      "reward_ontology": 0.40,
+      "req_quality_score": 0.25,
+      "uc_quality_score": 0.15,
+      "func_distinctness_score": 0.20
+    },
+    "structuralRuleWeights": {
       "function_requirements": 0.20,
       "function_io": 0.15,
       "flow_connectivity": 0.15,
       "function_allocation": 0.15,
-      "millers_law_func": 0.10,
-      "millers_law_mod": 0.10,
+      "millers_law": 0.10,
       "requirements_verification": 0.10,
-      "isolation": 0.05,
       "fchain_actor_boundary": 0.10,
+      "volatile_func_isolation": 0.10,
+      "func_merge_candidate": 0.10,
+      "func_description_quality": 0.05,
+      "isolation": 0.05,
       "flow_data_schema": 0.05,
-      "schema_struct_property": 0.05,
-      "nested_func_isolation": 0.15
+      "schema_struct_property": 0.05
+    },
+    "reqQualityWeights": {
+      "req_verifiable": 0.25,
+      "req_necessary": 0.20,
+      "req_singular": 0.15,
+      "req_unambiguous": 0.15,
+      "req_conforming": 0.15,
+      "req_complete": 0.10
+    },
+    "ucQualityWeights": {
+      "uc_has_requirements": 0.25,
+      "uc_has_actor": 0.25,
+      "uc_has_scenario": 0.20,
+      "uc_goal_defined": 0.15,
+      "uc_postcondition": 0.10,
+      "uc_precondition": 0.05
+    },
+    "funcDistinctnessFormula": "1.0 - (merge_candidate_pairs / total_func_pairs)",
+    "phaseThresholds": {
+      "phase1to2": {
+        "req_quality_score": 0.7,
+        "uc_quality_score": 0.7
+      },
+      "phase2to3": {
+        "reward_ontology": 0.7,
+        "func_distinctness_score": 0.8
+      },
+      "phase3to4": {
+        "reward_ontology": 0.7
+      },
+      "phase4toHandoff": {
+        "reward_total": 0.7
+      }
     }
   },
 
   "llmContext": {
-    "systemPromptSection": "You are working with a Systems Engineering ontology based on INCOSE/SysML 2.0. Key rules: (1) Functional view is primary - FUNC nodes for behavior, (2) Physical view is secondary - MOD nodes for realization, (3) Miller's Law: 5-9 top-level blocks, (4) Every FUNC needs satisfy→REQ and io↔FLOW, (5) Every REQ needs verify→TEST.",
+    "systemPromptSection": "You are working with a Systems Engineering ontology based on INCOSE/SysML 2.0. Key rules: (1) Functional view is primary - FUNC nodes for behavior, (2) Physical view is secondary - MOD nodes for realization, (3) Miller's Law: 5-9 top-level blocks, (4) Every FUNC needs satisfy→REQ and io↔FLOW, (5) Every REQ needs verify→TEST, (6) No near-duplicate FUNCs (similarity ≥0.85).",
     "critiqueTemplate": "Validation failed:\n{violations}\n\nTo fix: {suggestions}",
     "suggestionMap": {
       "function_requirements": "Add satisfy→REQ edge to link function to requirement",
@@ -555,7 +819,12 @@
       "requirements_verification": "Add verify→TEST edge to link requirement to test case",
       "flow_connectivity": "Ensure FLOW has both incoming and outgoing io edges",
       "naming": "Rename to PascalCase, max 25 characters",
-      "nested_func_isolation": "Nested functions can only connect within their parent whitebox or to parent-level FLOWs. Route cross-whitebox communication through top-level FUNC boundaries."
+      "nested_func_isolation": "Nested functions can only connect within their parent whitebox or to parent-level FLOWs. Route cross-whitebox communication through top-level FUNC boundaries.",
+      "volatile_func_isolation": "High-volatility FUNC has too many dependents. Wrap behind stable interface (Adapter/Facade pattern) to isolate change impact.",
+      "func_near_duplicate": "Near-duplicate FUNCs detected. Merge into single abstract function or differentiate clearly.",
+      "func_merge_candidate": "Similar FUNCs detected. Consider merging or creating common abstraction.",
+      "no_duplicate_nodes": "Duplicate node detected. Each (type, name, parent) combination must be unique.",
+      "no_duplicate_edges": "Duplicate edge detected. Each (source, target, edgeType) combination must be unique."
     }
   },
 

@@ -31,6 +31,15 @@ export class EmbeddingService {
   }
 
   /**
+   * Alias for embedText - required by agentdb ReflexionMemory
+   * ReflexionMemory expects embedder.embed(text) -> Float32Array interface
+   */
+  async embed(text: string): Promise<Float32Array> {
+    const embedding = await this.embedText(text);
+    return new Float32Array(embedding);
+  }
+
+  /**
    * Generate embedding vectors for multiple texts
    */
   async embedTexts(texts: string[]): Promise<number[][]> {

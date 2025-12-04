@@ -1,0 +1,51 @@
+{
+  "id": "high-volatility",
+  "description": "High-volatility FUNCs mixed with low-volatility in same MOD. Scores well except volatility isolation.",
+  "expectedScore": { "min": 0.85, "max": 0.95 },
+  "expectedViolations": ["volatile_func_isolation"],
+  "nodes": [
+    { "id": "UC_1", "type": "UC", "label": "DataProcessing", "properties": {} },
+
+    { "id": "REQ_1", "type": "REQ", "label": "REQ_Core", "properties": {} },
+    { "id": "REQ_2", "type": "REQ", "label": "REQ_UI", "properties": {} },
+
+    { "id": "FUNC_Core1", "type": "FUNC", "label": "CoreLogic1", "properties": { "volatility": 0.1 } },
+    { "id": "FUNC_Core2", "type": "FUNC", "label": "CoreLogic2", "properties": { "volatility": 0.1 } },
+    { "id": "FUNC_Core3", "type": "FUNC", "label": "CoreLogic3", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_UI1", "type": "FUNC", "label": "UIRender", "properties": { "volatility": 0.9 } },
+    { "id": "FUNC_UI2", "type": "FUNC", "label": "UIFormat", "properties": { "volatility": 0.85 } },
+    { "id": "FUNC_UI3", "type": "FUNC", "label": "UIValidate", "properties": { "volatility": 0.8 } },
+
+    { "id": "MOD_Mixed", "type": "MOD", "label": "MixedModule", "properties": {} },
+
+    { "id": "TEST_1", "type": "TEST", "label": "Test_Core", "properties": {} },
+    { "id": "TEST_2", "type": "TEST", "label": "Test_UI", "properties": {} }
+  ],
+  "edges": [
+    { "id": "e1", "source": "UC_1", "target": "REQ_1", "type": "derive" },
+    { "id": "e2", "source": "UC_1", "target": "REQ_2", "type": "derive" },
+
+    { "id": "e3", "source": "FUNC_Core1", "target": "REQ_1", "type": "satisfy" },
+    { "id": "e4", "source": "FUNC_Core2", "target": "REQ_1", "type": "satisfy" },
+    { "id": "e5", "source": "FUNC_Core3", "target": "REQ_1", "type": "satisfy" },
+    { "id": "e6", "source": "FUNC_UI1", "target": "REQ_2", "type": "satisfy" },
+    { "id": "e7", "source": "FUNC_UI2", "target": "REQ_2", "type": "satisfy" },
+    { "id": "e8", "source": "FUNC_UI3", "target": "REQ_2", "type": "satisfy" },
+
+    { "id": "e10", "source": "FUNC_Core1", "target": "MOD_Mixed", "type": "allocate" },
+    { "id": "e11", "source": "FUNC_Core2", "target": "MOD_Mixed", "type": "allocate" },
+    { "id": "e12", "source": "FUNC_Core3", "target": "MOD_Mixed", "type": "allocate" },
+    { "id": "e13", "source": "FUNC_UI1", "target": "MOD_Mixed", "type": "allocate" },
+    { "id": "e14", "source": "FUNC_UI2", "target": "MOD_Mixed", "type": "allocate" },
+    { "id": "e15", "source": "FUNC_UI3", "target": "MOD_Mixed", "type": "allocate" },
+
+    { "id": "e20", "source": "FUNC_Core1", "target": "FUNC_Core2", "type": "io" },
+    { "id": "e21", "source": "FUNC_Core2", "target": "FUNC_Core3", "type": "io" },
+    { "id": "e22", "source": "FUNC_Core3", "target": "FUNC_UI1", "type": "io" },
+    { "id": "e23", "source": "FUNC_UI1", "target": "FUNC_UI2", "type": "io" },
+    { "id": "e24", "source": "FUNC_UI2", "target": "FUNC_UI3", "type": "io" },
+
+    { "id": "e30", "source": "REQ_1", "target": "TEST_1", "type": "verify" },
+    { "id": "e31", "source": "REQ_2", "target": "TEST_2", "type": "verify" }
+  ]
+}

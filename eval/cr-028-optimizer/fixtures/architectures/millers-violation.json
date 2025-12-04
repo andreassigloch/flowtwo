@@ -1,0 +1,62 @@
+{
+  "id": "millers-violation",
+  "description": "MOD with 12 FUNCs (violates 7±2 rule). Low cohesion score due to oversized MOD.",
+  "expectedScore": { "min": 0.75, "max": 0.90 },
+  "expectedViolations": ["millers_law_func"],
+  "nodes": [
+    { "id": "UC_1", "type": "UC", "label": "ComplexProcess", "properties": {} },
+
+    { "id": "REQ_1", "type": "REQ", "label": "REQ_Process", "properties": {} },
+
+    { "id": "FUNC_1", "type": "FUNC", "label": "Step1", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_2", "type": "FUNC", "label": "Step2", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_3", "type": "FUNC", "label": "Step3", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_4", "type": "FUNC", "label": "Step4", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_5", "type": "FUNC", "label": "Step5", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_6", "type": "FUNC", "label": "Step6", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_7", "type": "FUNC", "label": "Step7", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_8", "type": "FUNC", "label": "Step8", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_9", "type": "FUNC", "label": "Step9", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_10", "type": "FUNC", "label": "Step10", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_11", "type": "FUNC", "label": "Step11", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_12", "type": "FUNC", "label": "Step12", "properties": { "volatility": 0.2 } },
+
+    { "id": "MOD_Big", "type": "MOD", "label": "OversizedModule", "properties": {} },
+
+    { "id": "TEST_1", "type": "TEST", "label": "Test_Process", "properties": {} }
+  ],
+  "edges": [
+    { "id": "e1", "source": "UC_1", "target": "REQ_1", "type": "derive" },
+
+    { "id": "e2", "source": "FUNC_1", "target": "REQ_1", "type": "satisfy" },
+    { "id": "e3", "source": "FUNC_6", "target": "REQ_1", "type": "satisfy" },
+    { "id": "e4", "source": "FUNC_12", "target": "REQ_1", "type": "satisfy" },
+
+    { "id": "e10", "source": "FUNC_1", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e11", "source": "FUNC_2", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e12", "source": "FUNC_3", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e13", "source": "FUNC_4", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e14", "source": "FUNC_5", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e15", "source": "FUNC_6", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e16", "source": "FUNC_7", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e17", "source": "FUNC_8", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e18", "source": "FUNC_9", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e19", "source": "FUNC_10", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e20", "source": "FUNC_11", "target": "MOD_Big", "type": "allocate" },
+    { "id": "e21", "source": "FUNC_12", "target": "MOD_Big", "type": "allocate" },
+
+    { "id": "e30", "source": "FUNC_1", "target": "FUNC_2", "type": "io" },
+    { "id": "e31", "source": "FUNC_2", "target": "FUNC_3", "type": "io" },
+    { "id": "e32", "source": "FUNC_3", "target": "FUNC_4", "type": "io" },
+    { "id": "e33", "source": "FUNC_4", "target": "FUNC_5", "type": "io" },
+    { "id": "e34", "source": "FUNC_5", "target": "FUNC_6", "type": "io" },
+    { "id": "e35", "source": "FUNC_6", "target": "FUNC_7", "type": "io" },
+    { "id": "e36", "source": "FUNC_7", "target": "FUNC_8", "type": "io" },
+    { "id": "e37", "source": "FUNC_8", "target": "FUNC_9", "type": "io" },
+    { "id": "e38", "source": "FUNC_9", "target": "FUNC_10", "type": "io" },
+    { "id": "e39", "source": "FUNC_10", "target": "FUNC_11", "type": "io" },
+    { "id": "e40", "source": "FUNC_11", "target": "FUNC_12", "type": "io" },
+
+    { "id": "e50", "source": "REQ_1", "target": "TEST_1", "type": "verify" }
+  ]
+}

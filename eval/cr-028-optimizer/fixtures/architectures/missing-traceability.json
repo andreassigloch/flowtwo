@@ -1,0 +1,50 @@
+{
+  "id": "missing-traceability",
+  "description": "REQs without TEST coverage, FUNCs without REQ links. Expected score ~0.5",
+  "expectedScore": { "min": 0.4, "max": 0.6 },
+  "expectedViolations": ["function_requirements", "requirements_verification"],
+  "nodes": [
+    { "id": "UC_1", "type": "UC", "label": "FeatureA", "properties": {} },
+    { "id": "UC_2", "type": "UC", "label": "FeatureB", "properties": {} },
+
+    { "id": "REQ_1", "type": "REQ", "label": "REQ_A1", "properties": {} },
+    { "id": "REQ_2", "type": "REQ", "label": "REQ_A2", "properties": {} },
+    { "id": "REQ_3", "type": "REQ", "label": "REQ_B1", "properties": {} },
+    { "id": "REQ_4", "type": "REQ", "label": "REQ_B2", "properties": {} },
+
+    { "id": "FUNC_1", "type": "FUNC", "label": "DoA1", "properties": { "volatility": 0.3 } },
+    { "id": "FUNC_2", "type": "FUNC", "label": "DoA2", "properties": { "volatility": 0.3 } },
+    { "id": "FUNC_3", "type": "FUNC", "label": "DoB1", "properties": { "volatility": 0.3 } },
+    { "id": "FUNC_4", "type": "FUNC", "label": "DoB2", "properties": { "volatility": 0.3 } },
+    { "id": "FUNC_5", "type": "FUNC", "label": "Orphan1", "properties": { "volatility": 0.2 } },
+    { "id": "FUNC_6", "type": "FUNC", "label": "Orphan2", "properties": { "volatility": 0.2 } },
+
+    { "id": "MOD_A", "type": "MOD", "label": "ModuleA", "properties": {} },
+    { "id": "MOD_B", "type": "MOD", "label": "ModuleB", "properties": {} },
+
+    { "id": "TEST_1", "type": "TEST", "label": "Test_A1", "properties": {} }
+  ],
+  "edges": [
+    { "id": "e1", "source": "UC_1", "target": "REQ_1", "type": "derive" },
+    { "id": "e2", "source": "UC_1", "target": "REQ_2", "type": "derive" },
+    { "id": "e3", "source": "UC_2", "target": "REQ_3", "type": "derive" },
+    { "id": "e4", "source": "UC_2", "target": "REQ_4", "type": "derive" },
+
+    { "id": "e5", "source": "FUNC_1", "target": "REQ_1", "type": "satisfy" },
+    { "id": "e6", "source": "FUNC_3", "target": "REQ_3", "type": "satisfy" },
+
+    { "id": "e10", "source": "FUNC_1", "target": "MOD_A", "type": "allocate" },
+    { "id": "e11", "source": "FUNC_2", "target": "MOD_A", "type": "allocate" },
+    { "id": "e12", "source": "FUNC_5", "target": "MOD_A", "type": "allocate" },
+    { "id": "e13", "source": "FUNC_3", "target": "MOD_B", "type": "allocate" },
+    { "id": "e14", "source": "FUNC_4", "target": "MOD_B", "type": "allocate" },
+    { "id": "e15", "source": "FUNC_6", "target": "MOD_B", "type": "allocate" },
+
+    { "id": "e20", "source": "FUNC_1", "target": "FUNC_2", "type": "io" },
+    { "id": "e21", "source": "FUNC_2", "target": "FUNC_3", "type": "io" },
+    { "id": "e22", "source": "FUNC_3", "target": "FUNC_4", "type": "io" },
+    { "id": "e23", "source": "FUNC_5", "target": "FUNC_6", "type": "io" },
+
+    { "id": "e30", "source": "REQ_1", "target": "TEST_1", "type": "verify" }
+  ]
+}

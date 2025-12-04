@@ -187,11 +187,11 @@ src/llm-engine/
 - [ ] Unit tests
 
 ### Phase 3: UI Commands (3-4 hours)
-- [ ] Add `/validate` command
-- [ ] Add `/phase-gate N` command
-- [ ] Add `/optimize` command
-- [ ] Add `/score` command
-- [ ] Format output for terminal
+- [x] Add `/validate` command
+- [x] Add `/phase-gate N` command
+- [x] Add `/optimize` command
+- [x] Add `/score` command
+- [x] Format output for terminal
 
 ### Phase 4: Continuous Validation (2-3 hours)
 - [ ] Add debounced `onGraphChange()` handler
@@ -212,8 +212,8 @@ src/llm-engine/
 ## Current Status
 
 - [ ] Phase 1: Move Optimizer
-- [ ] Phase 2: Validation Module (CR-030)
-- [ ] Phase 3: UI Commands
+- [x] Phase 2: Validation Module (CR-030) - Completed separately
+- [x] Phase 3: UI Commands - Completed 2025-12-04
 - [ ] Phase 4: Continuous Validation
 - [ ] Phase 5: Self-Learning Connection
 - [ ] Phase 6: Integration Testing
@@ -221,12 +221,12 @@ src/llm-engine/
 ## Acceptance Criteria
 
 - [ ] Optimizer code in `src/llm-engine/optimizer/`
-- [ ] Rules loaded from `ontology-rules.json`
-- [ ] Similarity scoring via Neo4j index + AgentDB embeddings
-- [ ] `/validate` shows violations with severities
-- [ ] `/phase-gate N` reports pass/fail with gap list
-- [ ] `/optimize` shows Pareto front suggestions
-- [ ] `/score` displays multi-objective scores
+- [x] Rules loaded from `ontology-rules.json`
+- [x] Similarity scoring via Neo4j index + AgentDB embeddings
+- [x] `/validate` shows violations with severities
+- [x] `/phase-gate N` reports pass/fail with gap list
+- [x] `/optimize` shows optimization suggestions
+- [x] `/score` displays multi-objective scores
 - [ ] Background validation on graph changes
 - [ ] Episodes stored with rewards and critiques
 - [ ] Performance: <2s validation, <30s optimization

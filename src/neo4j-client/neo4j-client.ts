@@ -107,14 +107,14 @@ export class Neo4jClient {
     const startTime = Date.now();
 
     try {
-      // Build batch query
+      // Build batch query - uuid equals semanticId for nodes
       const query = `
         UNWIND $nodes AS nodeData
         MERGE (n:Node {uuid: nodeData.uuid})
         SET n.semanticId = nodeData.semanticId,
             n.type = nodeData.type,
             n.name = nodeData.name,
-            n.description = nodeData.description,
+            n.descr = nodeData.descr,
             n.workspaceId = nodeData.workspaceId,
             n.systemId = nodeData.systemId,
             n.position = nodeData.position,
@@ -131,7 +131,7 @@ export class Neo4jClient {
           semanticId: node.semanticId,
           type: node.type,
           name: node.name,
-          description: node.description || '',
+          descr: node.descr || '',
           workspaceId: node.workspaceId,
           systemId: node.systemId,
           position: node.position ? JSON.stringify(node.position) : null,
@@ -320,7 +320,7 @@ export class Neo4jClient {
           semanticId: n.semanticId,
           type: n.type,
           name: n.name,
-          description: n.description || undefined,
+          descr: n.descr || '',
           workspaceId: n.workspaceId,
           systemId: n.systemId,
           position: n.position ? JSON.parse(n.position) : undefined,
