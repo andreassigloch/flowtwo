@@ -293,7 +293,7 @@
       "phase": "all",
       "severity": "error",
       "type": "hard",
-      "cypher": "MATCH (p)-[e1:EDGE]->(n1), (p)-[e2:EDGE]->(n2) WHERE e1.type = 'compose' AND e2.type = 'compose' AND n1.type = n2.type AND n1.name = n2.name AND id(n1) < id(n2) RETURN n1.semanticId + ' / ' + n2.semanticId AS violation, 'Duplicate node in same parent' AS reason"
+      "cypher": "MATCH (p)-[e1:EDGE]->(n1), (p)-[e2:EDGE]->(n2) WHERE e1.type = 'compose' AND e2.type = 'compose' AND n1.type = n2.type AND n1.name = n2.name AND n1.semanticId < n2.semanticId RETURN n1.semanticId + ' / ' + n2.semanticId AS violation, 'Duplicate node in same parent' AS reason"
     },
     "no_duplicate_edges": {
       "id": "no_duplicate_edges",
@@ -301,7 +301,7 @@
       "phase": "all",
       "severity": "error",
       "type": "hard",
-      "cypher": "MATCH (a)-[r1:EDGE]->(b), (a)-[r2:EDGE]->(b) WHERE r1.type = r2.type AND id(r1) < id(r2) RETURN a.semanticId + ' -[' + r1.type + ']-> ' + b.semanticId AS violation, 'Duplicate edge' AS reason"
+      "cypher": "MATCH (a)-[r1:EDGE]->(b), (a)-[r2:EDGE]->(b) WHERE r1.type = r2.type AND r1.uuid < r2.uuid RETURN a.semanticId + ' -[' + r1.type + ']-> ' + b.semanticId AS violation, 'Duplicate edge' AS reason"
     },
     "naming": {
       "id": "naming",

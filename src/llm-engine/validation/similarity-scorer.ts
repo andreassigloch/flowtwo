@@ -160,6 +160,8 @@ export class SimilarityScorer {
 
   /**
    * Find all similarity matches above threshold in a node set
+   *
+   * Optimized: Batch embeddings upfront + parallel comparisons
    */
   async findAllSimilarityMatches(
     nodes: NodeData[],
@@ -169,7 +171,17 @@ export class SimilarityScorer {
     const funcThresholds = loader.getFuncSimilarityThresholds();
     const schemaThresholds = loader.getSchemaSimilarityThresholds();
 
-    const allMatches: SimilarityMatch[] = [];
+    // Step 1: Batch compute all embeddings upfront (single API call)
+    await this.batchComputeEmbeddings(nodes);
+
+    // Step 2: Build comparison pairs (same type only)
+    interface ComparisonPair {
+      nodeA: NodeData;
+      nodeB: NodeData;
+      thresholds: SimilarityThresholds;
+      effectiveThreshold: number;
+    }
+    const pairs: ComparisonPair[] = [];
     const checked = new Set<string>();
 
     for (let i = 0; i < nodes.length; i++) {
@@ -188,15 +200,96 @@ export class SimilarityScorer {
         if (checked.has(pairKey)) continue;
         checked.add(pairKey);
 
-        const score = await this.getSimilarityScore(nodeA, nodeB);
-        if (score >= effectiveThreshold) {
-          const matchType = this.getMatchType(nodeA, nodeB, score);
-          allMatches.push(this.createMatch(nodeA, nodeB, score, matchType, thresholds));
-        }
+        pairs.push({ nodeA, nodeB, thresholds, effectiveThreshold });
       }
     }
 
+    // Step 3: Compare all pairs in parallel (embeddings already cached)
+    const results = await Promise.all(
+      pairs.map(async ({ nodeA, nodeB, thresholds, effectiveThreshold }) => {
+        const score = await this.getSimilarityScoreCached(nodeA, nodeB);
+        if (score >= effectiveThreshold) {
+          const matchType = this.getMatchType(nodeA, nodeB, score);
+          return this.createMatch(nodeA, nodeB, score, matchType, thresholds);
+        }
+        return null;
+      })
+    );
+
+    // Filter out nulls and sort
+    const allMatches = results.filter((m): m is SimilarityMatch => m !== null);
     return allMatches.sort((a, b) => b.score - a.score);
+  }
+
+  /**
+   * Batch compute embeddings for all nodes (single API call)
+   * Populates cache for subsequent lookups
+   */
+  private async batchComputeEmbeddings(nodes: NodeData[]): Promise<void> {
+    // Find nodes that need embeddings (not in cache or stale)
+    const nodesToEmbed: NodeData[] = [];
+    const textContents: string[] = [];
+
+    for (const node of nodes) {
+      const textContent = this.getEmbeddingText(node);
+      const cached = this.embeddingCache.get(node.uuid);
+
+      if (!cached || cached.textContent !== textContent) {
+        nodesToEmbed.push(node);
+        textContents.push(textContent);
+      }
+    }
+
+    if (nodesToEmbed.length === 0) {
+      return; // All embeddings already cached
+    }
+
+    // Batch API call for all texts
+    const embeddings = await this.embeddingService.embedTexts(textContents);
+
+    // Populate cache
+    const now = Date.now();
+    for (let i = 0; i < nodesToEmbed.length; i++) {
+      const node = nodesToEmbed[i];
+      this.embeddingCache.set(node.uuid, {
+        nodeUuid: node.uuid,
+        textContent: textContents[i],
+        embedding: embeddings[i],
+        createdAt: now,
+      });
+    }
+  }
+
+  /**
+   * Get similarity score using cached embeddings (no API calls)
+   */
+  private async getSimilarityScoreCached(nodeA: NodeData, nodeB: NodeData): Promise<number> {
+    // Only compare nodes of same type
+    if (nodeA.type !== nodeB.type) {
+      return 0;
+    }
+
+    // Tier 1: Exact name match
+    if (nodeA.name.toLowerCase() === nodeB.name.toLowerCase()) {
+      return 1.0;
+    }
+
+    // Tier 1.5: Prefix match (shared prefix >= 4 chars)
+    const prefixScore = this.getPrefixMatchScore(nodeA.name, nodeB.name);
+    if (prefixScore >= 0.9) {
+      return prefixScore;
+    }
+
+    // Tier 2: Embedding similarity (from cache - no API call)
+    const embeddingA = this.embeddingCache.get(nodeA.uuid)?.embedding;
+    const embeddingB = this.embeddingCache.get(nodeB.uuid)?.embedding;
+
+    if (!embeddingA || !embeddingB) {
+      // Fallback to API call if cache miss (shouldn't happen after batch)
+      return this.getEmbeddingSimilarity(nodeA, nodeB);
+    }
+
+    return this.embeddingService.cosineSimilarity(embeddingA, embeddingB);
   }
 
   /**

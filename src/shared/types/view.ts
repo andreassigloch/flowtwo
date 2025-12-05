@@ -15,6 +15,7 @@ import { NodeType, EdgeType } from './ontology.js';
 export type ViewType =
   | 'hierarchy'
   | 'functional-flow'
+  | 'functional-network'
   | 'requirements'
   | 'allocation'
   | 'use-case'
@@ -165,6 +166,37 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
     renderConfig: {
       showNodes: ['FUNC'], // FLOW hidden, converted to ports
       hideNodes: ['FLOW'],
+      showEdges: ['io'],
+    },
+  },
+
+  /**
+   * Functional Network View
+   *
+   * Circuit diagram showing all FUNC and ACTOR nodes connected via FLOW nodes.
+   * FLOW nodes are rendered as edge labels, not separate nodes.
+   * Layout: left-to-right with input actors on left, output actors on right.
+   * Connections traced via: Source -io-> FLOW -io-> Target
+   */
+  'functional-network': {
+    viewId: 'functional-network',
+    name: 'Functional Network View',
+    description: 'Circuit diagram of functions and actors connected via data flows',
+    layoutConfig: {
+      includeNodeTypes: ['FUNC', 'ACTOR', 'FLOW'],
+      includeEdgeTypes: ['io'],
+      algorithm: 'sugiyama',
+      parameters: {
+        orientation: 'left-right',
+        layerSpacing: 150,
+        nodeSpacing: 80,
+        groupActors: true,
+        showFlowLabels: true,
+      },
+    },
+    renderConfig: {
+      showNodes: ['FUNC', 'ACTOR'],
+      hideNodes: ['FLOW'], // FLOW becomes edge labels
       showEdges: ['io'],
     },
   },

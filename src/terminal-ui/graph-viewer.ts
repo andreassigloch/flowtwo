@@ -124,6 +124,9 @@ async function generateAsciiGraph(): Promise<string> {
       lines.push('\x1b[33m⚠️  Functional-flow view not yet implemented in ASCII\x1b[0m');
       lines.push('\x1b[90m(This view requires graphical rendering - use Web-UI)\x1b[0m');
       break;
+    case 'functional-network':
+      lines.push(...await renderFunctionalNetworkView(state, viewConfig));
+      break;
     default:
       lines.push(`\x1b[33m⚠️  View "${currentView}" not implemented in ASCII renderer\x1b[0m`);
   }

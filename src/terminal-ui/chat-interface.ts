@@ -1029,13 +1029,13 @@ async function handleScoreCommand(): Promise<void> {
 }
 
 /**
- * Handle /optimize command - trigger architecture optimization
- * CR-031: Learning System Integration (placeholder - full optimizer in future)
+ * Handle /analyze command - analyze violations and suggest fixes
+ * CR-031: Learning System Integration
  */
-async function handleOptimizeCommand(): Promise<void> {
+async function handleAnalyzeCommand(): Promise<void> {
   console.log('');
-  console.log('\x1b[1;36m⚡ Architecture Optimization\x1b[0m');
-  log('⚡ Running optimization');
+  console.log('\x1b[1;36m🔍 Architecture Analysis\x1b[0m');
+  log('🔍 Running analysis');
 
   try {
     // First run validation to identify issues
@@ -1049,12 +1049,12 @@ async function handleOptimizeCommand(): Promise<void> {
       console.log('\x1b[32m✅ No violations found - architecture is clean!\x1b[0m');
       console.log(`\x1b[90m   Score: ${(result.rewardScore * 100).toFixed(0)}%\x1b[0m`);
       console.log('');
-      log('✅ Optimization: no violations');
+      log('✅ Analysis: no violations');
       return;
     }
 
     console.log('');
-    console.log('\x1b[1mOptimization Suggestions:\x1b[0m');
+    console.log('\x1b[1mSuggested Fixes:\x1b[0m');
     console.log('');
 
     // Group violations by type and suggest fixes
@@ -1092,10 +1092,108 @@ async function handleOptimizeCommand(): Promise<void> {
     }
 
     console.log('');
-    console.log(`\x1b[90mTip: Use natural language to apply suggestions, e.g.:\x1b[0m`);
+    console.log(`\x1b[90mTip: Use /optimize to auto-apply fixes, or use natural language:\x1b[0m`);
     console.log(`\x1b[90m  "Add satisfy edge from ProcessData to REQ-001"\x1b[0m`);
 
-    log(`✅ Optimization suggestions: ${suggestionGroups.size} items`);
+    log(`✅ Analysis complete: ${suggestionGroups.size} suggestions`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Analysis error: ${errorMsg}\x1b[0m`);
+    log(`❌ Analysis error: ${errorMsg}`);
+  }
+  console.log('');
+}
+
+/**
+ * Handle /optimize command - run multi-objective optimization
+ * CR-031: Learning System Integration with CR-028 optimizer
+ */
+async function handleOptimizeCommand(args: string): Promise<void> {
+  const maxIterations = args ? parseInt(args, 10) : 30;
+
+  console.log('');
+  console.log('\x1b[1;36m⚡ Multi-Objective Optimization\x1b[0m');
+  console.log(`\x1b[90m   Max iterations: ${maxIterations}\x1b[0m`);
+  log(`⚡ Running optimization (${maxIterations} iterations)`);
+
+  try {
+    // Import optimizer dynamically to avoid circular deps
+    const { violationGuidedSearch, formatScore } = await import('../llm-engine/optimizer/index.js');
+
+    // Convert current graph to optimizer Architecture format
+    const currentState = graphCanvas.getState();
+    const arch = {
+      id: config.systemId,
+      nodes: Array.from(currentState.nodes.values()).map(n => ({
+        id: n.uuid,
+        type: n.type as 'SYS' | 'UC' | 'REQ' | 'FUNC' | 'FLOW' | 'SCHEMA' | 'MOD' | 'TEST',
+        label: n.name || n.uuid,
+        properties: { ...n }
+      })),
+      edges: Array.from(currentState.edges.values()).map(e => ({
+        id: e.uuid,
+        source: e.sourceId,
+        target: e.targetId,
+        type: e.type
+      })),
+      metadata: { systemId: config.systemId }
+    };
+
+    if (arch.nodes.length === 0) {
+      console.log('\x1b[33m⚠️  No nodes in graph - nothing to optimize\x1b[0m');
+      console.log('');
+      return;
+    }
+
+    console.log(`\x1b[90m   Nodes: ${arch.nodes.length}, Edges: ${arch.edges.length}\x1b[0m`);
+    console.log('');
+
+    // Run optimization
+    const result = violationGuidedSearch(arch, {
+      maxIterations,
+      randomSeed: Date.now()
+    }, {
+      verbose: false,
+      onIteration: (state) => {
+        if (state.iteration % 5 === 0) {
+          process.stdout.write(`\r\x1b[90m   Iteration ${state.iteration}/${maxIterations}...\x1b[0m`);
+        }
+      }
+    });
+
+    console.log('\r\x1b[K'); // Clear progress line
+
+    // Display results
+    console.log('\x1b[1mOptimization Results:\x1b[0m');
+    console.log(`  Iterations: ${result.iterations}`);
+    console.log(`  Convergence: ${result.convergenceReason}`);
+    console.log(`  Success: ${result.success ? '\x1b[32mYes\x1b[0m' : '\x1b[33mPartial\x1b[0m'}`);
+    console.log('');
+
+    console.log('\x1b[1mBest Variant:\x1b[0m');
+    console.log(`  Score: ${formatScore(result.bestVariant.score)}`);
+    console.log(`  Applied operators: ${result.bestVariant.appliedOperator || 'none'}`);
+    console.log('');
+
+    if (result.paretoFront.length > 1) {
+      console.log('\x1b[1mPareto Front:\x1b[0m');
+      for (const variant of result.paretoFront) {
+        console.log(`  [${variant.id}] w=${variant.score.weighted.toFixed(3)} op=${variant.appliedOperator || '-'}`);
+      }
+      console.log('');
+    }
+
+    // Show operator usage
+    const opUsage = Object.entries(result.stats.operatorUsage)
+      .filter(([_, count]) => count > 0)
+      .map(([op, count]) => `${op}:${count}`)
+      .join(', ');
+    if (opUsage) {
+      console.log(`\x1b[90m   Operators: ${opUsage}\x1b[0m`);
+    }
+    console.log(`\x1b[90m   Variants: ${result.stats.totalVariantsGenerated} generated, ${result.stats.variantsRejected} rejected\x1b[0m`);
+
+    log(`✅ Optimization complete: score=${result.bestVariant.score.weighted.toFixed(3)}`);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.log(`\x1b[31m❌ Optimization error: ${errorMsg}\x1b[0m`);
@@ -1210,7 +1308,8 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('  /validate [N]   - Run validation report (phase 1-4, default: 2)');
       console.log('  /phase-gate [N] - Check phase gate readiness (1-4)');
       console.log('  /score          - Show multi-objective scorecard');
-      console.log('  /optimize       - Get optimization suggestions');
+      console.log('  /analyze        - Analyze violations and suggest fixes');
+      console.log('  /optimize [N]   - Run multi-objective optimization (N iterations, default: 30)');
       console.log('');
       break;
 
@@ -1441,8 +1540,12 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       await handleScoreCommand();
       break;
 
+    case '/analyze':
+      await handleAnalyzeCommand();
+      break;
+
     case '/optimize':
-      await handleOptimizeCommand();
+      await handleOptimizeCommand(args[0] || '');
       break;
 
     default:

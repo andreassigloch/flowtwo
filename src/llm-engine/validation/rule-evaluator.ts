@@ -255,16 +255,36 @@ export class RuleEvaluator {
    * Add workspace/system filter to Cypher query
    */
   private addWorkspaceFilter(cypher: string, workspaceId: string, systemId: string): string {
-    // Replace MATCH (n) with MATCH (n {workspaceId: '...', systemId: '...'})
-    // This is a simplified approach - full implementation would parse Cypher AST
+    // Approach: Add WHERE clause with workspace/system filter after the MATCH
+    // This works for complex patterns like MATCH (p)-[e]->(n), (q)-[f]->(m)
 
-    // For queries with MATCH (n:TYPE) pattern
-    const matchPattern = /MATCH\s*\((\w+)(?::(\w+))?\)/gi;
+    // Find all node variables in MATCH patterns
+    const nodeVars = new Set<string>();
+    const matchSection = cypher.match(/MATCH\s+([^W]+?)(?=\s+WHERE|\s+RETURN|$)/i)?.[1] || '';
 
-    return cypher.replace(matchPattern, (_match, varName, label) => {
-      const labelPart = label ? `:${label}` : '';
-      return `MATCH (${varName}${labelPart} {workspaceId: '${workspaceId}', systemId: '${systemId}'})`;
-    });
+    // Extract node variables (letters in parentheses, optionally with :Label)
+    const nodePattern = /\((\w+)(?::\w+)?\)/g;
+    let match;
+    while ((match = nodePattern.exec(matchSection)) !== null) {
+      nodeVars.add(match[1]);
+    }
+
+    if (nodeVars.size === 0) {
+      return cypher;
+    }
+
+    // Pick first node variable for filter (they all belong to same workspace/system)
+    const firstVar = Array.from(nodeVars)[0];
+    const filter = `${firstVar}.workspaceId = '${workspaceId}' AND ${firstVar}.systemId = '${systemId}'`;
+
+    // Check if there's already a WHERE clause
+    if (/\sWHERE\s/i.test(cypher)) {
+      // Insert our filter at the start of existing WHERE conditions
+      return cypher.replace(/\sWHERE\s/i, ` WHERE ${filter} AND `);
+    } else {
+      // Insert WHERE before RETURN
+      return cypher.replace(/\sRETURN\s/i, ` WHERE ${filter} RETURN `);
+    }
   }
 
   /**

@@ -174,22 +174,23 @@ src/llm-engine/
 ## Implementation Plan
 
 ### Phase 1: Move Optimizer (2-3 hours)
-- [ ] Move `eval/cr-028-optimizer/src/*.ts` to `src/llm-engine/optimizer/`
-- [ ] Update imports to use main app types
-- [ ] Verify tests pass
+- [x] Move `eval/cr-028-optimizer/src/*.ts` to `src/llm-engine/optimizer/`
+- [x] Update imports to use main app types
+- [x] Verify tests pass
 
 ### Phase 2: Validation Module (CR-030) (8-11 hours)
-- [ ] Implement rule-loader.ts
-- [ ] Add Neo4j index on (type, Name)
-- [ ] Implement similarity-scorer.ts with tiered approach
-- [ ] Add node_embeddings table to AgentDB
-- [ ] Implement rule-evaluator.ts
-- [ ] Unit tests
+- [x] Implement rule-loader.ts
+- [x] Add Neo4j index on (type, Name)
+- [x] Implement similarity-scorer.ts with tiered approach
+- [x] Add node_embeddings table to AgentDB
+- [x] Implement rule-evaluator.ts
+- [x] Unit tests
 
 ### Phase 3: UI Commands (3-4 hours)
 - [x] Add `/validate` command
 - [x] Add `/phase-gate N` command
-- [x] Add `/optimize` command
+- [x] Add `/analyze` command (was /optimize, renamed)
+- [x] Add `/optimize` command (real multi-objective optimizer)
 - [x] Add `/score` command
 - [x] Format output for terminal
 
@@ -211,7 +212,7 @@ src/llm-engine/
 
 ## Current Status
 
-- [ ] Phase 1: Move Optimizer
+- [x] Phase 1: Move Optimizer - Completed 2025-12-04
 - [x] Phase 2: Validation Module (CR-030) - Completed separately
 - [x] Phase 3: UI Commands - Completed 2025-12-04
 - [ ] Phase 4: Continuous Validation
@@ -220,12 +221,13 @@ src/llm-engine/
 
 ## Acceptance Criteria
 
-- [ ] Optimizer code in `src/llm-engine/optimizer/`
+- [x] Optimizer code in `src/llm-engine/optimizer/`
 - [x] Rules loaded from `ontology-rules.json`
 - [x] Similarity scoring via Neo4j index + AgentDB embeddings
 - [x] `/validate` shows violations with severities
 - [x] `/phase-gate N` reports pass/fail with gap list
-- [x] `/optimize` shows optimization suggestions
+- [x] `/analyze` shows fix suggestions (was /optimize)
+- [x] `/optimize` runs multi-objective optimizer with Pareto front
 - [x] `/score` displays multi-objective scores
 - [ ] Background validation on graph changes
 - [ ] Episodes stored with rewards and critiques

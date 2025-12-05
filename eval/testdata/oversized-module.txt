@@ -1,0 +1,50 @@
+# GraphEngine System Export
+# Generated: 2025-12-05T00:00:00.000Z
+# System ID: BigModule.SY.001
+# Workspace ID: test-workspace
+# Nodes: 15
+# Edges: 16
+#
+# Format: Format E (Token-Efficient Serialization)
+# File Extension: .txt (universal editor compatibility)
+#
+# Purpose: Test Miller's Law violation (7+-2 rule) - expected score ~80%
+# Violations:
+#   - OversizedMod.MD.001: 10 functions allocated (exceeds 9 max)
+#
+
+## Nodes
+BigModule|SYS|BigModule.SY.001|System with oversized module
+Process|UC|Process.UC.001|Main processing use case
+MainReq|REQ|MainReq.RQ.001|Processing requirement
+Step1|FUNC|Step1.FN.001|Processing step 1
+Step2|FUNC|Step2.FN.002|Processing step 2
+Step3|FUNC|Step3.FN.003|Processing step 3
+Step4|FUNC|Step4.FN.004|Processing step 4
+Step5|FUNC|Step5.FN.005|Processing step 5
+Step6|FUNC|Step6.FN.006|Processing step 6
+Step7|FUNC|Step7.FN.007|Processing step 7
+Step8|FUNC|Step8.FN.008|Processing step 8
+Step9|FUNC|Step9.FN.009|Processing step 9
+Step10|FUNC|Step10.FN.010|Processing step 10
+OversizedMod|MOD|OversizedMod.MD.001|Module with 10 functions - violates 7+-2 rule
+TestProcess|TEST|TestProcess.TS.001|Process test
+
+## Edges
+BigModule.SY.001 -cp-> Process.UC.001
+Process.UC.001 -cp-> Step1.FN.001, Step2.FN.002, Step3.FN.003, Step4.FN.004, Step5.FN.005, Step6.FN.006, Step7.FN.007, Step8.FN.008, Step9.FN.009, Step10.FN.010
+Step1.FN.001 -sat-> MainReq.RQ.001
+Step1.FN.001 -alc-> OversizedMod.MD.001
+Step2.FN.002 -alc-> OversizedMod.MD.001
+Step3.FN.003 -alc-> OversizedMod.MD.001
+Step4.FN.004 -alc-> OversizedMod.MD.001
+Step5.FN.005 -alc-> OversizedMod.MD.001
+Step6.FN.006 -alc-> OversizedMod.MD.001
+Step7.FN.007 -alc-> OversizedMod.MD.001
+Step8.FN.008 -alc-> OversizedMod.MD.001
+Step9.FN.009 -alc-> OversizedMod.MD.001
+Step10.FN.010 -alc-> OversizedMod.MD.001
+MainReq.RQ.001 -ver-> TestProcess.TS.001
+Step1.FN.001 -io-> Step2.FN.002
+Step2.FN.002 -io-> Step3.FN.003
+Step3.FN.003 -io-> Step4.FN.004
