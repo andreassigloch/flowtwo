@@ -995,6 +995,298 @@ async function renderArchitectureMermaid(
 }
 
 /**
+ * Render functional network view (circuit diagram of FUNC/ACTOR connected via FLOW)
+ *
+ * Shows all FUNC and ACTOR nodes connected via data flows.
+ * FLOW nodes become edge labels. Input actors on left, output actors on right.
+ * Uses Mermaid flowchart with text fallback.
+ */
+async function renderFunctionalNetworkView(state: any, _viewConfig: any): Promise<string[]> {
+  // Step 1: Collect ALL FUNC and ACTOR nodes
+  const funcNodes: Array<{ id: string; name: string; type: 'FUNC' }> = [];
+  const actorNodes: Array<{ id: string; name: string; type: 'ACTOR' }> = [];
+
+  for (const node of state.nodes.values()) {
+    if (node.type === 'FUNC') {
+      funcNodes.push({ id: node.semanticId, name: node.name, type: 'FUNC' });
+    } else if (node.type === 'ACTOR') {
+      actorNodes.push({ id: node.semanticId, name: node.name, type: 'ACTOR' });
+    }
+  }
+
+  if (funcNodes.length === 0 && actorNodes.length === 0) {
+    return ['\x1b[90m(No FUNC or ACTOR nodes found)\x1b[0m'];
+  }
+
+  // Step 2: Trace connections through FLOW nodes
+  // Pattern: Source -io-> FLOW -io-> Target
+  const flowNodes = Array.from(state.nodes.values()).filter((n: any) => n.type === 'FLOW');
+  const connections: Array<{ sourceId: string; targetId: string; flowName: string }> = [];
+
+  for (const flowNode of flowNodes as any[]) {
+    // Find sources: nodes with source -io-> FLOW
+    const incomingEdges = Array.from(state.edges.values()).filter(
+      (e: any) => e.type === 'io' && e.targetId === flowNode.semanticId
+    );
+    // Find targets: nodes with FLOW -io-> target
+    const outgoingEdges = Array.from(state.edges.values()).filter(
+      (e: any) => e.type === 'io' && e.sourceId === flowNode.semanticId
+    );
+
+    // Create connection for each source-target pair through this FLOW
+    for (const inEdge of incomingEdges as any[]) {
+      for (const outEdge of outgoingEdges as any[]) {
+        const sourceNode = state.nodes.get(inEdge.sourceId);
+        const targetNode = state.nodes.get(outEdge.targetId);
+
+        // Only include FUNC and ACTOR nodes
+        if (sourceNode && targetNode &&
+            ['FUNC', 'ACTOR'].includes(sourceNode.type) &&
+            ['FUNC', 'ACTOR'].includes(targetNode.type)) {
+          connections.push({
+            sourceId: inEdge.sourceId,
+            targetId: outEdge.targetId,
+            flowName: flowNode.name,
+          });
+        }
+      }
+    }
+  }
+
+  // Step 3: Classify actors as input or output
+  const inputActors: typeof actorNodes = [];
+  const outputActors: typeof actorNodes = [];
+
+  for (const actor of actorNodes) {
+    const hasOutgoing = connections.some(c => c.sourceId === actor.id);
+    const hasIncoming = connections.some(c => c.targetId === actor.id);
+
+    if (hasOutgoing && !hasIncoming) {
+      inputActors.push(actor);
+    } else if (hasIncoming && !hasOutgoing) {
+      outputActors.push(actor);
+    } else if (hasOutgoing) {
+      // Both or only outgoing - treat as input
+      inputActors.push(actor);
+    } else {
+      // Neither or only incoming - treat as output
+      outputActors.push(actor);
+    }
+  }
+
+  // Step 4: Topological sort of FUNC nodes for left-to-right ordering
+  const sortedFuncs = topologicalSortFuncs(funcNodes, connections);
+
+  // Build lookup maps
+  const allNodes = new Map<string, { id: string; name: string; type: string }>();
+  for (const f of funcNodes) allNodes.set(f.id, f);
+  for (const a of actorNodes) allNodes.set(a.id, a);
+
+  // Render
+  return renderFunctionalNetworkMermaid(
+    inputActors,
+    outputActors,
+    sortedFuncs,
+    connections,
+    allNodes
+  );
+}
+
+/**
+ * Topological sort of FUNC nodes based on connections
+ */
+function topologicalSortFuncs(
+  funcs: Array<{ id: string; name: string; type: 'FUNC' }>,
+  connections: Array<{ sourceId: string; targetId: string; flowName: string }>
+): Array<{ id: string; name: string; type: 'FUNC' }> {
+  if (funcs.length <= 1) return funcs;
+
+  const funcIds = new Set(funcs.map(f => f.id));
+  const inDegree = new Map<string, number>();
+  const outEdges = new Map<string, string[]>();
+
+  // Initialize
+  for (const func of funcs) {
+    inDegree.set(func.id, 0);
+    outEdges.set(func.id, []);
+  }
+
+  // Count edges between FUNC nodes only
+  for (const conn of connections) {
+    if (funcIds.has(conn.sourceId) && funcIds.has(conn.targetId)) {
+      inDegree.set(conn.targetId, (inDegree.get(conn.targetId) || 0) + 1);
+      outEdges.get(conn.sourceId)?.push(conn.targetId);
+    }
+  }
+
+  // Kahn's algorithm
+  const queue: typeof funcs = [];
+  const result: typeof funcs = [];
+  const funcMap = new Map(funcs.map(f => [f.id, f]));
+
+  for (const func of funcs) {
+    if ((inDegree.get(func.id) || 0) === 0) {
+      queue.push(func);
+    }
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    result.push(current);
+
+    for (const targetId of outEdges.get(current.id) || []) {
+      const newDegree = (inDegree.get(targetId) || 1) - 1;
+      inDegree.set(targetId, newDegree);
+      if (newDegree === 0) {
+        const target = funcMap.get(targetId);
+        if (target) queue.push(target);
+      }
+    }
+  }
+
+  // Add any remaining (cycle or disconnected)
+  for (const func of funcs) {
+    if (!result.includes(func)) {
+      result.push(func);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Render functional network as Mermaid flowchart + text fallback
+ */
+async function renderFunctionalNetworkMermaid(
+  inputActors: Array<{ id: string; name: string; type: string }>,
+  outputActors: Array<{ id: string; name: string; type: string }>,
+  funcs: Array<{ id: string; name: string; type: string }>,
+  connections: Array<{ sourceId: string; targetId: string; flowName: string }>,
+  allNodes: Map<string, { id: string; name: string; type: string }>
+): Promise<string[]> {
+  const lines: string[] = [];
+
+  // Header
+  lines.push('\x1b[1;36m┌─ FUNCTIONAL NETWORK ───────────────────────────┐\x1b[0m');
+  lines.push(`\x1b[1;36m│\x1b[0m  Functions: ${funcs.length} | Actors: ${inputActors.length + outputActors.length} | Flows: ${connections.length}`);
+
+  const capabilities = detectTerminalCapabilities();
+  if (capabilities.supportsImages) {
+    lines.push(`\x1b[1;36m│\x1b[0m  Terminal: \x1b[32m${capabilities.termProgram} (graphics: ${capabilities.protocol})\x1b[0m`);
+  }
+
+  lines.push('\x1b[1;36m└────────────────────────────────────────────────┘\x1b[0m');
+  lines.push('');
+
+  // Build Mermaid code
+  const mermaidLines: string[] = [];
+  mermaidLines.push('flowchart LR');
+
+  // Create short IDs for Mermaid
+  const idMap = new Map<string, string>();
+  let idCounter = 1;
+
+  // Input actors subgraph
+  if (inputActors.length > 0) {
+    mermaidLines.push('    subgraph Inputs');
+    for (const actor of inputActors) {
+      const shortId = `A${idCounter++}`;
+      idMap.set(actor.id, shortId);
+      mermaidLines.push(`        ${shortId}([${actor.name}])`);
+    }
+    mermaidLines.push('    end');
+  }
+
+  // FUNC nodes
+  for (const func of funcs) {
+    const shortId = `F${idCounter++}`;
+    idMap.set(func.id, shortId);
+    mermaidLines.push(`    ${shortId}[${func.name}]`);
+  }
+
+  // Output actors subgraph
+  if (outputActors.length > 0) {
+    mermaidLines.push('    subgraph Outputs');
+    for (const actor of outputActors) {
+      const shortId = `A${idCounter++}`;
+      idMap.set(actor.id, shortId);
+      mermaidLines.push(`        ${shortId}([${actor.name}])`);
+    }
+    mermaidLines.push('    end');
+  }
+
+  // Connections with FLOW labels
+  if (connections.length > 0) {
+    mermaidLines.push('');
+    for (const conn of connections) {
+      const srcId = idMap.get(conn.sourceId);
+      const tgtId = idMap.get(conn.targetId);
+      if (srcId && tgtId) {
+        mermaidLines.push(`    ${srcId} -->|${conn.flowName}| ${tgtId}`);
+      }
+    }
+  }
+
+  const mermaidCode = mermaidLines.join('\n');
+
+  // Try to render as image
+  try {
+    const imageOutput = await renderMermaidAsImage(mermaidCode);
+    if (imageOutput) {
+      lines.push('\x1b[90m[Rendered as inline image]\x1b[0m');
+      lines.push('');
+      lines.push(imageOutput);
+      lines.push('\x1b[90m─── Text View ───\x1b[0m');
+    }
+  } catch {
+    // Image rendering failed - fall back to text
+  }
+
+  // Mermaid code block
+  lines.push('\x1b[90m```mermaid\x1b[0m');
+  lines.push(mermaidCode);
+  lines.push('\x1b[90m```\x1b[0m');
+  lines.push('');
+
+  // Text view
+  lines.push('\x1b[90m─── Data Flows ───\x1b[0m');
+  if (connections.length === 0) {
+    lines.push('  \x1b[90m(No connections found)\x1b[0m');
+  } else {
+    for (const conn of connections) {
+      const srcNode = allNodes.get(conn.sourceId);
+      const tgtNode = allNodes.get(conn.targetId);
+      const srcName = srcNode?.name || '?';
+      const tgtName = tgtNode?.name || '?';
+      const srcColor = srcNode?.type === 'ACTOR' ? '\x1b[36m' : '\x1b[32m';
+      const tgtColor = tgtNode?.type === 'ACTOR' ? '\x1b[36m' : '\x1b[32m';
+      lines.push(`  ${srcColor}${srcName}\x1b[0m \x1b[33m──${conn.flowName}──▶\x1b[0m ${tgtColor}${tgtName}\x1b[0m`);
+    }
+  }
+
+  // Show isolated nodes
+  const connectedIds = new Set([
+    ...connections.map(c => c.sourceId),
+    ...connections.map(c => c.targetId),
+  ]);
+  const isolatedFuncs = funcs.filter(f => !connectedIds.has(f.id));
+  const isolatedActors = [...inputActors, ...outputActors].filter(a => !connectedIds.has(a.id));
+
+  if (isolatedFuncs.length > 0 || isolatedActors.length > 0) {
+    lines.push('');
+    lines.push('\x1b[90m─── Isolated (No Connections) ───\x1b[0m');
+    for (const func of isolatedFuncs) {
+      lines.push(`  \x1b[32m[FUNC] ${func.name}\x1b[0m`);
+    }
+    for (const actor of isolatedActors) {
+      lines.push(`  \x1b[36m[ACTOR] ${actor.name}\x1b[0m`);
+    }
+  }
+
+  return lines;
+}
+
+/**
  * Render graph to console
  */
 async function render(): Promise<void> {
