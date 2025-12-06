@@ -1270,6 +1270,128 @@ function createProgressBar(value: number, width: number): string {
 }
 
 /**
+ * Handle /cleanup command - remove orphaned/incomplete nodes from Neo4j
+ * Cleans nodes that:
+ * - Have missing required properties (uuid, type, name, descr)
+ * - Are not in the current workspace (if 'all' arg is passed)
+ */
+async function handleCleanupCommand(args: string[]): Promise<void> {
+  console.log('');
+  console.log('\x1b[1;36m🧹 Database Cleanup\x1b[0m');
+  log('🧹 Running database cleanup');
+
+  if (!neo4jClient) {
+    console.log('\x1b[33m⚠️  Neo4j not configured\x1b[0m');
+    console.log('');
+    return;
+  }
+
+  try {
+    const session = neo4jClient['getSession']();
+    const cleanAll = args[0]?.toLowerCase() === 'all';
+
+    try {
+      // Step 1: Find orphaned/incomplete nodes
+      let findQuery: string;
+      if (cleanAll) {
+        // Clean all nodes not in current workspace
+        findQuery = `
+          MATCH (n:Node)
+          WHERE n.workspaceId <> $workspaceId
+             OR n.uuid IS NULL
+             OR n.type IS NULL
+             OR n.name IS NULL OR n.name = ''
+             OR n.descr IS NULL OR n.descr = ''
+          RETURN count(n) as count,
+                 collect(DISTINCT n.workspaceId)[0..5] as workspaces,
+                 collect(coalesce(n.semanticId, n.name, 'unknown'))[0..5] as samples
+        `;
+      } else {
+        // Clean only incomplete nodes in current workspace
+        findQuery = `
+          MATCH (n:Node)
+          WHERE n.workspaceId = $workspaceId
+            AND (n.uuid IS NULL
+                 OR n.type IS NULL
+                 OR n.name IS NULL OR n.name = ''
+                 OR n.descr IS NULL OR n.descr = '')
+          RETURN count(n) as count,
+                 collect(coalesce(n.semanticId, n.name, 'unknown'))[0..10] as samples
+        `;
+      }
+
+      const findResult = await session.run(findQuery, {
+        workspaceId: config.workspaceId,
+      });
+
+      const record = findResult.records[0];
+      const count = record?.get('count')?.toNumber?.() ?? record?.get('count') ?? 0;
+      const samples = record?.get('samples') ?? [];
+
+      if (count === 0) {
+        console.log('\x1b[32m✅ No orphaned or incomplete nodes found\x1b[0m');
+        console.log('');
+        return;
+      }
+
+      console.log(`\x1b[33m⚠️  Found ${count} nodes to clean:\x1b[0m`);
+      if (samples.length > 0) {
+        console.log(`\x1b[90m   Samples: ${samples.slice(0, 5).join(', ')}${samples.length > 5 ? '...' : ''}\x1b[0m`);
+      }
+      if (cleanAll && record?.get('workspaces')) {
+        const workspaces = record.get('workspaces');
+        console.log(`\x1b[90m   From workspaces: ${workspaces.join(', ')}\x1b[0m`);
+      }
+      console.log('');
+
+      // Step 2: Delete the nodes (and their edges)
+      let deleteQuery: string;
+      if (cleanAll) {
+        deleteQuery = `
+          MATCH (n:Node)
+          WHERE n.workspaceId <> $workspaceId
+             OR n.uuid IS NULL
+             OR n.type IS NULL
+             OR n.name IS NULL OR n.name = ''
+             OR n.descr IS NULL OR n.descr = ''
+          DETACH DELETE n
+          RETURN count(*) as deleted
+        `;
+      } else {
+        deleteQuery = `
+          MATCH (n:Node)
+          WHERE n.workspaceId = $workspaceId
+            AND (n.uuid IS NULL
+                 OR n.type IS NULL
+                 OR n.name IS NULL OR n.name = ''
+                 OR n.descr IS NULL OR n.descr = '')
+          DETACH DELETE n
+          RETURN count(*) as deleted
+        `;
+      }
+
+      const deleteResult = await session.run(deleteQuery, {
+        workspaceId: config.workspaceId,
+      });
+
+      const deleted = deleteResult.records[0]?.get('deleted')?.toNumber?.() ??
+                      deleteResult.records[0]?.get('deleted') ?? 0;
+
+      console.log(`\x1b[32m✅ Cleaned ${deleted} nodes from Neo4j\x1b[0m`);
+      log(`✅ Cleaned ${deleted} nodes from Neo4j`);
+
+    } finally {
+      await session.close();
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(`\x1b[31m❌ Cleanup error: ${errorMsg}\x1b[0m`);
+    log(`❌ Cleanup error: ${errorMsg}`);
+  }
+  console.log('');
+}
+
+/**
  * Handle command
  */
 async function handleCommand(cmd: string, rl: readline.Interface): Promise<void> {
@@ -1310,6 +1432,10 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('  /score          - Show multi-objective scorecard');
       console.log('  /analyze        - Analyze violations and suggest fixes');
       console.log('  /optimize [N]   - Run multi-objective optimization (N iterations, default: 30)');
+      console.log('');
+      console.log('\x1b[1mMaintenance:\x1b[0m');
+      console.log('  /cleanup        - Clean orphaned/incomplete nodes from Neo4j');
+      console.log('  /cleanup all    - Clean ALL nodes not in current workspace');
       console.log('');
       break;
 
@@ -1546,6 +1672,10 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
 
     case '/optimize':
       await handleOptimizeCommand(args[0] || '');
+      break;
+
+    case '/cleanup':
+      await handleCleanupCommand(args);
       break;
 
     default:

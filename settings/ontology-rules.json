@@ -309,7 +309,7 @@
       "phase": "all",
       "severity": "error",
       "type": "hard",
-      "cypher": "MATCH (n) WHERE n.name IS NOT NULL AND (NOT n.name =~ '^[A-Z][a-zA-Z0-9]{0,24}$') RETURN n.semanticId AS violation, 'Invalid name format' AS reason"
+      "cypher": "MATCH (n:Node) WHERE n.name IS NOT NULL AND (NOT n.name =~ '^[A-Z][a-zA-Z0-9]{0,24}$') RETURN n.semanticId AS violation, 'Invalid name format' AS reason"
     },
     "required_properties": {
       "id": "required_properties",
@@ -317,7 +317,7 @@
       "phase": "all",
       "severity": "error",
       "type": "hard",
-      "cypher": "MATCH (n) WHERE n.uuid IS NULL OR n.type IS NULL OR n.name IS NULL OR n.name = '' OR n.descr IS NULL OR n.descr = '' RETURN n.semanticId AS violation, 'Missing or empty required properties' AS reason"
+      "cypher": "MATCH (n:Node) WHERE n.uuid IS NULL OR n.type IS NULL OR n.name IS NULL OR n.name = '' OR n.descr IS NULL OR n.descr = '' RETURN coalesce(n.semanticId, n.name, 'unknown') AS violation, 'Missing or empty required properties' AS reason"
     },
     "no_self_loops": {
       "id": "no_self_loops",
@@ -336,7 +336,7 @@
       "phase": "phase4_verification",
       "severity": "warning",
       "weight": 0.05,
-      "cypher": "MATCH (n) WHERE NOT (n)--() RETURN n.semanticId AS violation, 'Orphan node' AS reason"
+      "cypher": "MATCH (n:Node) WHERE NOT (n)--() RETURN n.semanticId AS violation, 'Orphan node' AS reason"
     },
     "millers_law": {
       "id": "millers_law",
