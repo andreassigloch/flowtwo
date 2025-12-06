@@ -71,12 +71,12 @@ async function cleanup() {
       return;
     }
 
-    // Delete nodes not belonging to target system
-    const targetSystem = keepSystem || 'GraphEngine';
-    console.log(`\n=== Cleaning (keeping ${targetSystem}*) ===`);
+    // Delete nodes not belonging to target system (semantic ID format: Name.SY.NNN)
+    const targetSystem = keepSystem || 'GraphEngine.SY.001';
+    console.log(`\n=== Cleaning (keeping systemId = ${targetSystem}) ===`);
     const deleteResult = await session.run(`
       MATCH (n:Node)
-      WHERE NOT n.systemId STARTS WITH $targetSystem
+      WHERE n.systemId <> $targetSystem
          OR n.systemId IS NULL
          OR n.uuid IS NULL
          OR n.type IS NULL
