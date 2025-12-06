@@ -1270,14 +1270,16 @@ function createProgressBar(value: number, width: number): string {
 }
 
 /**
- * Handle /cleanup command - remove orphaned/incomplete nodes from Neo4j
- * Cleans nodes that:
- * - Have missing required properties (uuid, type, name, descr)
- * - Are not in the current workspace (if 'all' arg is passed)
+ * Handle /cleanup command - remove nodes from Neo4j not belonging to current system
+ * Options:
+ * - (no args): Clean nodes NOT in current system (keeps only loaded system's nodes)
+ * - all: Clean ALL nodes not in current workspace (across all systems)
  */
 async function handleCleanupCommand(args: string[]): Promise<void> {
   console.log('');
   console.log('\x1b[1;36m🧹 Database Cleanup\x1b[0m');
+  console.log(`\x1b[90m   Current system: ${config.systemId}\x1b[0m`);
+  console.log(`\x1b[90m   Current workspace: ${config.workspaceId}\x1b[0m`);
   log('🧹 Running database cleanup');
 
   if (!neo4jClient) {
@@ -1291,56 +1293,70 @@ async function handleCleanupCommand(args: string[]): Promise<void> {
     const cleanAll = args[0]?.toLowerCase() === 'all';
 
     try {
-      // Step 1: Find orphaned/incomplete nodes
+      // Step 1: Find nodes to clean
       let findQuery: string;
+      let description: string;
+
       if (cleanAll) {
         // Clean all nodes not in current workspace
+        description = 'nodes not in current workspace';
         findQuery = `
           MATCH (n:Node)
           WHERE n.workspaceId <> $workspaceId
+             OR n.workspaceId IS NULL
              OR n.uuid IS NULL
              OR n.type IS NULL
              OR n.name IS NULL OR n.name = ''
              OR n.descr IS NULL OR n.descr = ''
           RETURN count(n) as count,
                  collect(DISTINCT n.workspaceId)[0..5] as workspaces,
+                 collect(DISTINCT n.systemId)[0..5] as systems,
                  collect(coalesce(n.semanticId, n.name, 'unknown'))[0..5] as samples
         `;
       } else {
-        // Clean only incomplete nodes in current workspace
+        // Default: Clean nodes not in current SYSTEM (within workspace)
+        description = 'nodes not in current system';
         findQuery = `
           MATCH (n:Node)
           WHERE n.workspaceId = $workspaceId
-            AND (n.uuid IS NULL
+            AND (n.systemId <> $systemId
+                 OR n.systemId IS NULL
+                 OR n.uuid IS NULL
                  OR n.type IS NULL
                  OR n.name IS NULL OR n.name = ''
                  OR n.descr IS NULL OR n.descr = '')
           RETURN count(n) as count,
+                 collect(DISTINCT n.systemId)[0..10] as systems,
                  collect(coalesce(n.semanticId, n.name, 'unknown'))[0..10] as samples
         `;
       }
 
       const findResult = await session.run(findQuery, {
         workspaceId: config.workspaceId,
+        systemId: config.systemId,
       });
 
       const record = findResult.records[0];
       const count = record?.get('count')?.toNumber?.() ?? record?.get('count') ?? 0;
       const samples = record?.get('samples') ?? [];
+      const systems = record?.get('systems') ?? [];
 
       if (count === 0) {
-        console.log('\x1b[32m✅ No orphaned or incomplete nodes found\x1b[0m');
+        console.log(`\x1b[32m✅ No ${description} found\x1b[0m`);
         console.log('');
         return;
       }
 
-      console.log(`\x1b[33m⚠️  Found ${count} nodes to clean:\x1b[0m`);
+      console.log(`\x1b[33m⚠️  Found ${count} ${description}:\x1b[0m`);
+      if (systems.length > 0) {
+        console.log(`\x1b[90m   Systems: ${systems.slice(0, 5).join(', ')}${systems.length > 5 ? '...' : ''}\x1b[0m`);
+      }
       if (samples.length > 0) {
         console.log(`\x1b[90m   Samples: ${samples.slice(0, 5).join(', ')}${samples.length > 5 ? '...' : ''}\x1b[0m`);
       }
       if (cleanAll && record?.get('workspaces')) {
         const workspaces = record.get('workspaces');
-        console.log(`\x1b[90m   From workspaces: ${workspaces.join(', ')}\x1b[0m`);
+        console.log(`\x1b[90m   Workspaces: ${workspaces.join(', ')}\x1b[0m`);
       }
       console.log('');
 
@@ -1350,6 +1366,7 @@ async function handleCleanupCommand(args: string[]): Promise<void> {
         deleteQuery = `
           MATCH (n:Node)
           WHERE n.workspaceId <> $workspaceId
+             OR n.workspaceId IS NULL
              OR n.uuid IS NULL
              OR n.type IS NULL
              OR n.name IS NULL OR n.name = ''
@@ -1361,7 +1378,9 @@ async function handleCleanupCommand(args: string[]): Promise<void> {
         deleteQuery = `
           MATCH (n:Node)
           WHERE n.workspaceId = $workspaceId
-            AND (n.uuid IS NULL
+            AND (n.systemId <> $systemId
+                 OR n.systemId IS NULL
+                 OR n.uuid IS NULL
                  OR n.type IS NULL
                  OR n.name IS NULL OR n.name = ''
                  OR n.descr IS NULL OR n.descr = '')
@@ -1372,6 +1391,7 @@ async function handleCleanupCommand(args: string[]): Promise<void> {
 
       const deleteResult = await session.run(deleteQuery, {
         workspaceId: config.workspaceId,
+        systemId: config.systemId,
       });
 
       const deleted = deleteResult.records[0]?.get('deleted')?.toNumber?.() ??
@@ -1434,7 +1454,7 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('  /optimize [N]   - Run multi-objective optimization (N iterations, default: 30)');
       console.log('');
       console.log('\x1b[1mMaintenance:\x1b[0m');
-      console.log('  /cleanup        - Clean orphaned/incomplete nodes from Neo4j');
+      console.log('  /cleanup        - Clean nodes not in current system (removes other systems)');
       console.log('  /cleanup all    - Clean ALL nodes not in current workspace');
       console.log('');
       break;
