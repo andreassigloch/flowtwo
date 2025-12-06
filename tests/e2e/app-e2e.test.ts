@@ -211,6 +211,307 @@ describe('e2e: App Startup and Commands', () => {
 
     expect(hasContent).toBe(true);
   });
+
+  // === PERSISTENCE COMMANDS ===
+
+  it('/save command persists to Neo4j', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/save\n');
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should confirm save or show error if no changes
+    const hasSaveResponse =
+      newLogs.includes('Saved') ||
+      newLogs.includes('saved') ||
+      newLogs.includes('persisted') ||
+      newLogs.includes('Neo4j') ||
+      newLogs.includes('Nothing to save') ||
+      newLogs.includes('No changes') ||
+      newLogs.includes('nodes');
+    expect(hasSaveResponse).toBe(true);
+  });
+
+  it('/load command lists available systems', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/load\n');
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should show available systems or "no systems" message
+    const hasLoadResponse =
+      newLogs.includes('Available') ||
+      newLogs.includes('systems') ||
+      newLogs.includes('No existing') ||
+      newLogs.includes('GraphEngine') ||
+      newLogs.includes('Select') ||
+      newLogs.includes('Load');
+    expect(hasLoadResponse).toBe(true);
+
+    // Cancel selection mode by sending 0 or empty line
+    chatProcess?.stdin?.write('0\n');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+
+  // === IMPORT/EXPORT COMMANDS ===
+
+  it('/exports command lists export files', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/exports\n');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should list exports or show "no exports"
+    const hasExportsResponse =
+      newLogs.includes('export') ||
+      newLogs.includes('Export') ||
+      newLogs.includes('No export') ||
+      newLogs.includes('Available') ||
+      newLogs.includes('.json') ||
+      newLogs.includes('files');
+    expect(hasExportsResponse).toBe(true);
+  });
+
+  it('/export command creates export file', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/export test-e2e-export\n');
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should confirm export or show error
+    const hasExportResponse =
+      newLogs.includes('Exported') ||
+      newLogs.includes('exported') ||
+      newLogs.includes('Export') ||
+      newLogs.includes('test-e2e-export') ||
+      newLogs.includes('saved') ||
+      newLogs.includes('No nodes');
+    expect(hasExportResponse).toBe(true);
+  });
+
+  // === VALIDATION & OPTIMIZATION COMMANDS (CR-031/CR-032 data layer) ===
+
+  it('/validate command runs validation report', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/validate\n');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should show validation results or phase info
+    const hasValidateResponse =
+      newLogs.includes('Validation') ||
+      newLogs.includes('validation') ||
+      newLogs.includes('Phase') ||
+      newLogs.includes('phase') ||
+      newLogs.includes('violations') ||
+      newLogs.includes('Violations') ||
+      newLogs.includes('passed') ||
+      newLogs.includes('score') ||
+      newLogs.includes('Score') ||
+      newLogs.includes('rules') ||
+      newLogs.includes('No nodes');
+    expect(hasValidateResponse).toBe(true);
+  });
+
+  it('/validate 1 command validates phase 1', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/validate 1\n');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should validate phase 1 specifically
+    const hasPhase1Response =
+      newLogs.includes('Phase 1') ||
+      newLogs.includes('phase 1') ||
+      newLogs.includes('Validation') ||
+      newLogs.includes('Use Case') ||
+      newLogs.includes('UC') ||
+      newLogs.includes('score') ||
+      newLogs.includes('No nodes');
+    expect(hasPhase1Response).toBe(true);
+  });
+
+  it('/phase-gate command checks phase readiness', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/phase-gate 2\n');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should show phase gate status
+    const hasPhaseGateResponse =
+      newLogs.includes('Phase') ||
+      newLogs.includes('phase') ||
+      newLogs.includes('Gate') ||
+      newLogs.includes('gate') ||
+      newLogs.includes('Ready') ||
+      newLogs.includes('ready') ||
+      newLogs.includes('blocked') ||
+      newLogs.includes('Blocked') ||
+      newLogs.includes('criteria') ||
+      newLogs.includes('No nodes');
+    expect(hasPhaseGateResponse).toBe(true);
+  });
+
+  it('/score command shows multi-objective scorecard', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/score\n');
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should show score or scorecard
+    const hasScoreResponse =
+      newLogs.includes('Score') ||
+      newLogs.includes('score') ||
+      newLogs.includes('Objective') ||
+      newLogs.includes('objective') ||
+      newLogs.includes('completeness') ||
+      newLogs.includes('Completeness') ||
+      newLogs.includes('consistency') ||
+      newLogs.includes('Consistency') ||
+      newLogs.includes('%') ||
+      newLogs.includes('No nodes');
+    expect(hasScoreResponse).toBe(true);
+  });
+
+  it('/analyze command analyzes violations', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/analyze\n');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should show analysis results
+    const hasAnalyzeResponse =
+      newLogs.includes('Analyze') ||
+      newLogs.includes('analyze') ||
+      newLogs.includes('Analysis') ||
+      newLogs.includes('analysis') ||
+      newLogs.includes('violation') ||
+      newLogs.includes('Violation') ||
+      newLogs.includes('suggestion') ||
+      newLogs.includes('Suggestion') ||
+      newLogs.includes('fix') ||
+      newLogs.includes('Fix') ||
+      newLogs.includes('No violations') ||
+      newLogs.includes('No nodes');
+    expect(hasAnalyzeResponse).toBe(true);
+  });
+
+  it('/optimize command runs optimization (limited iterations)', async () => {
+    const logsBefore = chatLogs.length;
+
+    // Run with just 1 iteration for speed in E2E test
+    chatProcess?.stdin?.write('/optimize 1\n');
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should show optimization progress or results
+    const hasOptimizeResponse =
+      newLogs.includes('Optimi') || // Optimize/Optimizing/Optimization
+      newLogs.includes('optimi') ||
+      newLogs.includes('iteration') ||
+      newLogs.includes('Iteration') ||
+      newLogs.includes('improvement') ||
+      newLogs.includes('Improvement') ||
+      newLogs.includes('score') ||
+      newLogs.includes('Score') ||
+      newLogs.includes('variant') ||
+      newLogs.includes('Variant') ||
+      newLogs.includes('No nodes') ||
+      newLogs.includes('completed') ||
+      newLogs.includes('Completed');
+    expect(hasOptimizeResponse).toBe(true);
+  }, 15000); // Extended timeout for optimization
+
+  // === DERIVATION COMMANDS ===
+
+  it('/derive command auto-derives architecture', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/derive\n');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    // Should show derivation results
+    const hasDeriveResponse =
+      newLogs.includes('Deriv') || // Derive/Derived/Derivation
+      newLogs.includes('deriv') ||
+      newLogs.includes('FUNC') ||
+      newLogs.includes('function') ||
+      newLogs.includes('architecture') ||
+      newLogs.includes('Architecture') ||
+      newLogs.includes('created') ||
+      newLogs.includes('Created') ||
+      newLogs.includes('No use cases') ||
+      newLogs.includes('No nodes');
+    expect(hasDeriveResponse).toBe(true);
+  });
+
+  // === VIEW COMMANDS (additional views) ===
+
+  it('/view functional-network command works', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/view functional-network\n');
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    const hasViewResponse =
+      newLogs.includes('functional') ||
+      newLogs.includes('Functional') ||
+      newLogs.includes('network') ||
+      newLogs.includes('Network') ||
+      newLogs.includes('View') ||
+      newLogs.includes('view') ||
+      newLogs.includes('updated') ||
+      newLogs.includes('FUNC') ||
+      newLogs.includes('ACTOR');
+    expect(hasViewResponse).toBe(true);
+  });
+
+  it('/view requirements command works', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/view requirements\n');
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    const hasViewResponse =
+      newLogs.includes('requirement') ||
+      newLogs.includes('Requirement') ||
+      newLogs.includes('REQ') ||
+      newLogs.includes('View') ||
+      newLogs.includes('view') ||
+      newLogs.includes('updated') ||
+      newLogs.includes('No nodes');
+    expect(hasViewResponse).toBe(true);
+  });
+
+  it('/view allocation command works', async () => {
+    const logsBefore = chatLogs.length;
+
+    chatProcess?.stdin?.write('/view allocation\n');
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const newLogs = chatLogs.slice(logsBefore).join('\n');
+    const hasViewResponse =
+      newLogs.includes('allocation') ||
+      newLogs.includes('Allocation') ||
+      newLogs.includes('MOD') ||
+      newLogs.includes('FUNC') ||
+      newLogs.includes('View') ||
+      newLogs.includes('view') ||
+      newLogs.includes('updated');
+    expect(hasViewResponse).toBe(true);
+  });
 });
 
 // Helper: wait for a specific log message

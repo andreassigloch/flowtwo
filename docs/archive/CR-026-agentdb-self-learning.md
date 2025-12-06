@@ -1,7 +1,8 @@
 # CR-026: AgentDB Self-Learning with Ontology Rules
 
 **Type:** Feature
-**Status:** Planned
+**Status:** ✅ ARCHIVED - Merged into CR-032 Phase 6
+**Archived:** 2025-12-05
 **Priority:** MEDIUM
 **Target Phase:** Phase 4 (Enhancement)
 **Created:** 2025-11-27
@@ -9,6 +10,26 @@
 
 **Parent CR:** CR-019 (AgentDB Episodic Memory) - Completed
 **Related:** CR-007 (AgentDB Shared Memory)
+**Merged Into:** CR-032 (Unified Data Layer) Phase 6
+
+---
+
+## ⚠️ ARCHIVED - MERGED INTO CR-032
+
+**This CR is now Phase 6 of [CR-032: Unified Data Layer Architecture](../cr/CR-032-unified-data-layer.md).**
+
+CR-032 provides the foundation needed for self-learning:
+- AgentDB as single source of truth (validation reads same data as LLM)
+- Unified cache invalidation (no stale embeddings)
+- Skill Library integrated into AgentDB
+- Enhanced Reflexion Memory
+
+Implementation should wait for CR-032 Phase 1-3 completion to avoid:
+- Validation reading from Neo4j while LLM reads from Canvas (inconsistent rewards)
+- Stale embedding cache causing wrong similarity scores
+- Multiple cache invalidation paths
+
+---
 
 ## Problem / Use Case
 

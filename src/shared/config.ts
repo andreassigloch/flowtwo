@@ -42,6 +42,7 @@ export const LLM_MAX_TOKENS = parseInt(process.env.LLM_MAX_TOKENS || '8000', 10)
 export const NEO4J_URI = process.env.NEO4J_URI || 'bolt://localhost:7687';
 export const NEO4J_USER = process.env.NEO4J_USER || 'neo4j';
 export const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || 'password';
+export const NEO4J_DATABASE = process.env.NEO4J_DATABASE || 'neo4j';
 
 /**
  * Application Configuration

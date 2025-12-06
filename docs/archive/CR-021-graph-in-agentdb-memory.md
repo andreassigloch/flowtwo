@@ -1,10 +1,30 @@
 # CR-021: Graph State in AgentDB Shared Memory
 
 **Type:** Architecture / Performance
-**Status:** Phase 1 Completed
+**Status:** ✅ ARCHIVED - Phase 1 Complete, Phase 2-3 Superseded by CR-032
+**Archived:** 2025-12-05
 **Priority:** HIGH
 **Created:** 2025-11-20
 **Completed:** 2025-11-20 (Phase 1)
+
+---
+
+## ⚠️ ARCHIVED
+
+**Phase 1 (Graph Snapshot Caching) is COMPLETE and remains valid.**
+
+**Phase 2-3 are SUPERSEDED by [CR-032: Unified Data Layer Architecture](../cr/CR-032-unified-data-layer.md).**
+
+CR-032 takes the architecture further:
+- AgentDB becomes single source of truth (not just cache)
+- Full CRUD operations (not just snapshots)
+- Canvas becomes stateless
+- Variant support for optimization
+- Integrates CR-026 self-learning
+
+Phase 1 implementation (snapshot caching) serves as foundation for CR-032.
+
+---
 
 ## Problem Statement
 

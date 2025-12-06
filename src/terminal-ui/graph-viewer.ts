@@ -945,7 +945,7 @@ async function renderArchitectureMermaid(
 
   // Try to render as image in terminal (always attempt, regardless of detection)
   try {
-    const imageOutput = await renderMermaidAsImage(mermaidCode);
+    const imageOutput = await renderMermaidAsImage(mermaidCode, 'architecture');
     if (imageOutput) {
       lines.push('\x1b[90m[Rendered as inline image]\x1b[0m');
       lines.push('');
@@ -1231,7 +1231,7 @@ async function renderFunctionalNetworkMermaid(
 
   // Try to render as image
   try {
-    const imageOutput = await renderMermaidAsImage(mermaidCode);
+    const imageOutput = await renderMermaidAsImage(mermaidCode, 'functional-network');
     if (imageOutput) {
       lines.push('\x1b[90m[Rendered as inline image]\x1b[0m');
       lines.push('');

@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "functional-network",
+  "name": "Functional Network View",
+  "description": "Circuit diagram showing all FUNC and ACTOR nodes connected via FLOW nodes. FLOW nodes are rendered as edge labels. Input actors appear on the left, output actors on the right. Uses topological sorting for left-to-right ordering.",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "sugiyama",
+    "orientation": "left-to-right",
+    "includeNodeTypes": ["FUNC", "ACTOR", "FLOW"],
+    "includeRelTypes": ["io"],
+    "nodeSpacing": {
+      "horizontal": 150,
+      "vertical": 80
+    },
+    "layoutProperties": {
+      "groupActors": true,
+      "inputActorsPosition": "left",
+      "outputActorsPosition": "right",
+      "topologicalSort": true,
+      "minimizeCrossings": true
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["FUNC", "ACTOR"],
+    "hideNodes": ["FLOW"],
+    "showEdges": ["io"],
+    "hideEdges": [],
+    "edgeRouting": "orthogonal",
+    "renderingNotes": "FLOW nodes converted to edge labels. Connections traced via Source -io-> FLOW -io-> Target pattern. Actors classified as input (only outgoing) or output (only incoming) based on io edge direction.",
+    "defaultZoomLevel": "L2",
+    "nodeStyles": {
+      "FUNC": {
+        "symbol": "rectangle",
+        "stereotype": "<<function>>",
+        "color": "green",
+        "mermaidShape": "[name]"
+      },
+      "ACTOR": {
+        "symbol": "rounded-rectangle",
+        "stereotype": "<<actor>>",
+        "color": "cyan",
+        "mermaidShape": "([name])"
+      },
+      "FLOW": {
+        "renderAs": "edgeLabel",
+        "description": "FLOW nodes become labels on edges, not rendered as separate nodes"
+      }
+    },
+    "edgeStyles": {
+      "io": {
+        "lineStyle": "solid",
+        "arrow": "filled",
+        "color": "white",
+        "label": "{FLOW.name}",
+        "width": 2
+      }
+    },
+    "subgraphStyles": {
+      "Inputs": {
+        "label": "Inputs",
+        "position": "left",
+        "contains": "inputActors"
+      },
+      "Outputs": {
+        "label": "Outputs",
+        "position": "right",
+        "contains": "outputActors"
+      }
+    }
+  },
+  "useCase": "Visualize the data flow network between all functions and actors in the system. Shows how data moves through the system from input actors through processing functions to output actors.",
+  "primaryRelationships": ["io (traced through FLOW nodes)"],
+  "connectionPattern": {
+    "description": "Source -io-> FLOW -io-> Target",
+    "example": "User -io-> OrderData -io-> ValidateInput",
+    "result": "User --OrderData--> ValidateInput"
+  },
+  "actorClassification": {
+    "inputActor": "Has outgoing io edges but no incoming io edges",
+    "outputActor": "Has incoming io edges but no outgoing io edges",
+    "bidirectionalActor": "Has both - treated as input actor"
+  },
+  "performanceTarget": {
+    "maxNodes": 200,
+    "maxEdges": 500,
+    "maxComputeTime": "2s"
+  },
+  "exampleOutput": {
+    "mermaid": [
+      "flowchart LR",
+      "    subgraph Inputs",
+      "        A1([User])",
+      "        A2([ExternalAPI])",
+      "    end",
+      "    F1[ValidateInput]",
+      "    F2[ProcessOrder]",
+      "    F3[GenerateReport]",
+      "    subgraph Outputs",
+      "        A3([Admin])",
+      "    end",
+      "",
+      "    A1 -->|OrderData| F1",
+      "    A2 -->|APIResponse| F1",
+      "    F1 -->|ValidOrder| F2",
+      "    F2 -->|OrderResult| F3",
+      "    F3 -->|Report| A3"
+    ],
+    "textView": [
+      "--- Data Flows ---",
+      "  User --OrderData--> ValidateInput",
+      "  ExternalAPI --APIResponse--> ValidateInput",
+      "  ValidateInput --ValidOrder--> ProcessOrder",
+      "  ProcessOrder --OrderResult--> GenerateReport",
+      "  GenerateReport --Report--> Admin"
+    ]
+  }
+}

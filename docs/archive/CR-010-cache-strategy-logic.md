@@ -1,12 +1,29 @@
 # CR-010: Implement Cache Strategy Logic
 
-**Status:** Planned
+**Status:** ❌ ARCHIVED - Superseded by CR-032
+**Archived:** 2025-12-05
 **Priority:** MEDIUM
 **Target Phase:** Phase 1 (remaining work)
 **Created:** 2025-11-19
 **Author:** andreas@siglochconsulting
 
-## Problem
+---
+
+## ⚠️ SUPERSEDED
+
+**This CR is superseded by [CR-032: Unified Data Layer Architecture](../cr/CR-032-unified-data-layer.md).**
+
+CR-032 eliminates the Canvas ↔ Neo4j caching problem by making AgentDB the single source of truth:
+- Canvas becomes stateless (no local cache)
+- AgentDB holds graph state during session
+- Neo4j is cold storage only (load/save)
+- No cache strategy needed - just read from AgentDB
+
+The complexity described in this CR (cache vs diff vs Neo4j decision tree) is no longer relevant.
+
+---
+
+## Problem (Original)
 
 Canvas state loading currently lacks optimization logic to decide when to use cache, apply diffs, or fetch from Neo4j. According to [implan.md:100-104](../implan.md#L100-L104), the system needs intelligent cache strategy logic to:
 

@@ -259,4 +259,20 @@ export class AgentDBLogger {
       `❓ REVIEW [${semanticId}] ${question.substring(0, 60)}...`
     );
   }
+
+  /**
+   * Log info message (CR-032)
+   */
+  static info(message: string): void {
+    if (SUPPRESS_TEST_LOGS) return;
+    this.log(AgentDBLogLevel.INFO, message);
+  }
+
+  /**
+   * Log debug message (CR-032)
+   */
+  static debug(message: string): void {
+    if (LOG_LEVEL !== 'DEBUG') return;
+    this.log(AgentDBLogLevel.DEBUG, message);
+  }
 }

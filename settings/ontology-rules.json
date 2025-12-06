@@ -318,6 +318,14 @@
       "severity": "error",
       "type": "hard",
       "cypher": "MATCH (n) WHERE n.uuid IS NULL OR n.type IS NULL OR n.name IS NULL OR n.name = '' OR n.descr IS NULL OR n.descr = '' RETURN n.semanticId AS violation, 'Missing or empty required properties' AS reason"
+    },
+    "no_self_loops": {
+      "id": "no_self_loops",
+      "description": "No self-referencing edges (source = target)",
+      "phase": "all",
+      "severity": "error",
+      "type": "hard",
+      "cypher": "MATCH (n)-[e:EDGE]->(n) RETURN e.uuid AS violation, 'Self-referencing edge' AS reason"
     }
   },
 
@@ -824,7 +832,8 @@
       "func_near_duplicate": "Near-duplicate FUNCs detected. Merge into single abstract function or differentiate clearly.",
       "func_merge_candidate": "Similar FUNCs detected. Consider merging or creating common abstraction.",
       "no_duplicate_nodes": "Duplicate node detected. Each (type, name, parent) combination must be unique.",
-      "no_duplicate_edges": "Duplicate edge detected. Each (source, target, edgeType) combination must be unique."
+      "no_duplicate_edges": "Duplicate edge detected. Each (source, target, edgeType) combination must be unique.",
+      "no_self_loops": "Self-referencing edge detected. An edge cannot have the same source and target node."
     }
   },
 

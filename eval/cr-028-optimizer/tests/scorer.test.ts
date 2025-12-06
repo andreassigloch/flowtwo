@@ -34,12 +34,13 @@ describe('Multi-Objective Scorer', () => {
   it('should return all score components', () => {
     const result = scoreArchitecture(simpleArch, []);
 
-    expect(result.scores).toHaveLength(5);
+    expect(result.scores).toHaveLength(6);
     expect(result.scores.map(s => s.id)).toContain('ontology_conformance');
     expect(result.scores.map(s => s.id)).toContain('cohesion');
     expect(result.scores.map(s => s.id)).toContain('coupling');
     expect(result.scores.map(s => s.id)).toContain('volatility_isolation');
     expect(result.scores.map(s => s.id)).toContain('traceability');
+    expect(result.scores.map(s => s.id)).toContain('connectivity');
   });
 
   it('should return weighted sum', () => {

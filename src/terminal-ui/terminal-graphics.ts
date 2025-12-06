@@ -206,16 +206,21 @@ export async function renderKittyImage(imagePath: string): Promise<string> {
  * Render Mermaid diagram as image in terminal (if supported)
  *
  * @param mermaidCode - Mermaid diagram syntax
+ * @param viewName - Optional view name for persistent file naming
  * @returns ANSI escape sequences for image rendering, or null if unsupported
  */
 export async function renderMermaidAsImage(
-  mermaidCode: string
+  mermaidCode: string,
+  viewName?: string
 ): Promise<string | null> {
   const capabilities = detectTerminalCapabilities();
 
   try {
     // Generate PNG from Mermaid
     const pngPath = await generatePNGFromMermaid(mermaidCode);
+
+    // Save a persistent copy for zooming/preview
+    const persistentPath = await savePersistentDiagram(pngPath, viewName);
 
     // Render using appropriate protocol
     let imageOutput: string;
@@ -230,12 +235,48 @@ export async function renderMermaidAsImage(
       return null;
     }
 
-    // Cleanup PNG file
+    // Cleanup temp PNG file (persistent copy remains)
     await fs.unlink(pngPath);
+
+    // Append path info for manual opening
+    if (persistentPath) {
+      imageOutput += `\x1b[90mZoom: open "${persistentPath}"\x1b[0m\n`;
+    }
 
     return imageOutput;
   } catch (error) {
     console.error('Failed to render Mermaid as image:', error);
+    return null;
+  }
+}
+
+/**
+ * Save a persistent copy of the diagram for zooming/preview
+ *
+ * @param sourcePath - Path to the generated PNG
+ * @param viewName - Optional view name for the filename
+ * @returns Path to the persistent file, or null on failure
+ */
+async function savePersistentDiagram(
+  sourcePath: string,
+  viewName?: string
+): Promise<string | null> {
+  try {
+    const diagramsDir = path.join(process.cwd(), 'docs', 'diagrams');
+    await fs.mkdir(diagramsDir, { recursive: true });
+
+    // Use view name or timestamp for filename
+    const filename = viewName
+      ? `${viewName.replace(/[^a-zA-Z0-9-]/g, '-')}.png`
+      : `diagram-${Date.now()}.png`;
+    const persistentPath = path.join(diagramsDir, filename);
+
+    // Copy to persistent location
+    await fs.copyFile(sourcePath, persistentPath);
+
+    return persistentPath;
+  } catch {
+    // Non-critical - just skip persistent save
     return null;
   }
 }

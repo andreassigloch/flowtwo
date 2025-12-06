@@ -50,7 +50,11 @@
       "Bash(python3:*)",
       "Bash(node --loader ts-node/esm:*)",
       "Bash(node --experimental-vm-modules -e:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh search:*)",
+      "Bash(gh repo list:*)",
+      "Bash(gh auth:*)"
     ],
     "deny": [],
     "ask": []
