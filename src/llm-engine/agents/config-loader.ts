@@ -442,7 +442,7 @@ export class AgentConfigLoader {
         // Check prompt file exists
         try {
           this.loadPrompt(agentId);
-        } catch (e) {
+        } catch {
           errors.push(`Agent ${agentId}: prompt file not found`);
         }
       }

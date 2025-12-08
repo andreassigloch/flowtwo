@@ -319,7 +319,7 @@ describe('CanvasWebSocketServer', { sequential: true }, () => {
             // Wait for cache, then connect second client
             setTimeout(() => {
               const secondClient = new WebSocket(`ws://localhost:${TEST_PORT}`);
-              let receivedCachedBroadcast = false;
+              const _receivedCachedBroadcast = false;
 
               secondClient.on('open', () => {
                 secondClient.on('message', (data) => {

@@ -9,7 +9,7 @@
  * @author andreas@siglochconsulting
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Import all CR-027 modules
 import {
@@ -24,7 +24,6 @@ import {
 import {
   WorkItemManager,
   getWorkItemManager,
-  WorkItem,
 } from '../../../src/llm-engine/agents/work-item-manager.js';
 import {
   AgentExecutor,
@@ -553,7 +552,7 @@ DataFlow|FLOW|DataFlow.FL.001|Data flow
       };
 
       const cleanSuccess = executor.validateSuccess('system-architect', cleanResult);
-      const dirtySuccess = executor.validateSuccess('system-architect', dirtyResult);
+      const _dirtySuccess = executor.validateSuccess('system-architect', dirtyResult);
 
       expect(cleanSuccess).toBe(true);
       // Dirty should fail if millers_law_func is in success criteria

@@ -325,7 +325,7 @@ describe('AgentDB Crash Recovery', () => {
       agentDB.setNode(updatedNode);
 
       // Embedding should be invalidated (return null from cache)
-      const cachedEmbedding = agentDB.getCachedEmbedding(node.semanticId);
+      const _cachedEmbedding = agentDB.getCachedEmbedding(node.semanticId);
       // After update, cached embedding may be invalidated
       // (implementation detail - some systems recompute immediately)
     });

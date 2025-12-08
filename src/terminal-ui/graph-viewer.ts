@@ -964,7 +964,7 @@ async function renderArchitectureMermaid(
       // Still show text fallback below
       lines.push('\x1b[90m─── Text View ───\x1b[0m');
     }
-  } catch (error) {
+  } catch {
     // Image rendering failed - silently fall back to text only
     // (This is expected for terminals without graphics support)
   }

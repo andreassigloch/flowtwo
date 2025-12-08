@@ -10,7 +10,7 @@
  * @author andreas@siglochconsulting
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { spawn, ChildProcess } from 'child_process';
 
 const STARTUP_TIMEOUT = 30000;

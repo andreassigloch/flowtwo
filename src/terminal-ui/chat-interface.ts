@@ -1752,7 +1752,6 @@ async function processMessage(message: string): Promise<void> {
 
     // Track streaming state
     let isFirstChunk = true;
-    let streamedText = '';
 
     // Send to LLM with streaming
     await llmEngine.processRequestStream(request, async (chunk) => {
@@ -1764,7 +1763,6 @@ async function processMessage(message: string): Promise<void> {
           isFirstChunk = false;
         }
         process.stdout.write(chunk.text);
-        streamedText += chunk.text;
       } else if (chunk.type === 'complete' && chunk.response) {
         // Stream complete - process operations
         const response = chunk.response;

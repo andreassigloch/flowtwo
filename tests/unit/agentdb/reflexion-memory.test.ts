@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ReflexionMemory, createReflexionMemory, type EnrichedEpisode, type EpisodeContext, type AgentEffectiveness } from '../../../src/llm-engine/agentdb/reflexion-memory.js';
+import { ReflexionMemory, createReflexionMemory, type EpisodeContext } from '../../../src/llm-engine/agentdb/reflexion-memory.js';
 import { UnifiedAgentDBService } from '../../../src/llm-engine/agentdb/unified-agentdb-service.js';
 import { UnifiedRuleEvaluator } from '../../../src/llm-engine/validation/unified-rule-evaluator.js';
 import type { ValidationResult, RuleViolation } from '../../../src/llm-engine/validation/types.js';

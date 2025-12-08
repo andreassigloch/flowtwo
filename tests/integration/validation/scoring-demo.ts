@@ -34,11 +34,11 @@ function success(text: string): void {
   console.log(`${GREEN}✓${RESET} ${text}`);
 }
 
-function warning(text: string): void {
+function _warning(text: string): void {
   console.log(`${YELLOW}⚠${RESET} ${text}`);
 }
 
-function error(text: string): void {
+function _error(text: string): void {
   console.log(`${RED}✗${RESET} ${text}`);
 }
 

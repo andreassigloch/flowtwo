@@ -86,7 +86,7 @@ function generateTestGraph(nodeCount: number, edgeCount: number, systemId: strin
 async function benchmarkColdStart(
   parser: FormatEParser,
   state: GraphState,
-  systemId: string
+  _systemId: string
 ): Promise<{ serializationMs: number; sizeKB: number }> {
   const start = performance.now();
   const formatEString = parser.serializeGraph(state);

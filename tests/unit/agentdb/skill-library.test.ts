@@ -281,7 +281,7 @@ describe('SkillLibrary', () => {
 
     it('should return top patterns by usage * success rate', () => {
       // Create patterns with different usage counts
-      const id1 = library.recordSuccess('Task 1', 'OP1', createTestContext(), 0.8);
+      const _id1 = library.recordSuccess('Task 1', 'OP1', createTestContext(), 0.8);
       library.recordSuccess('Task 1', 'OP1', createTestContext(), 0.8); // Reuse
       library.recordSuccess('Task 1', 'OP1', createTestContext(), 0.8); // Reuse again
 

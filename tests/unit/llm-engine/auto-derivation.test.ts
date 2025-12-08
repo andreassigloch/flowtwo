@@ -28,7 +28,6 @@ import {
   getFuncToModDerivationRule,
   getAllDerivationRules,
   getDerivationRule,
-  DerivationType,
 } from '../../../src/llm-engine/auto-derivation.js';
 
 describe('ArchitectureDerivationAgent', () => {
