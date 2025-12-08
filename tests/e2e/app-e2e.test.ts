@@ -16,8 +16,8 @@ describe('e2e: App Startup and Commands', () => {
   let wsServerProcess: ChildProcess | null = null;
   let chatProcess: ChildProcess | null = null;
   let graphViewerProcess: ChildProcess | null = null;
-  let chatLogs: string[] = [];
-  let graphViewerLogs: string[] = [];
+  const chatLogs: string[] = [];
+  const graphViewerLogs: string[] = [];
 
   beforeAll(async () => {
     // 1. Start WebSocket server first

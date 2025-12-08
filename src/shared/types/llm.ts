@@ -81,10 +81,10 @@ export interface LLMResponse {
  * Real-time chunk from streaming LLM response
  */
 export interface StreamChunk {
-  /** Chunk type */
-  type: 'text' | 'complete';
+  /** Chunk type: 'text' for display, 'content' for operations blocks, 'complete' for final */
+  type: 'text' | 'content' | 'complete';
 
-  /** Text content (for type='text') */
+  /** Text content (for type='text' or 'content') */
   text?: string;
 
   /** Complete response (for type='complete') */

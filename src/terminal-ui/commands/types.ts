@@ -7,7 +7,7 @@
 import * as readline from 'readline';
 import type { StatelessGraphCanvas } from '../../canvas/stateless-graph-canvas.js';
 import type { ChatCanvas } from '../../canvas/chat-canvas.js';
-import type { LLMEngine } from '../../llm-engine/llm-engine.js';
+import type { ILLMEngine } from '../../llm-engine/engine-factory.js';
 import type { Neo4jClient } from '../../neo4j-client/neo4j-client.js';
 import type { FormatEParser } from '../../shared/parsers/format-e-parser.js';
 import type { CanvasWebSocketClient } from '../../canvas/websocket-client.js';
@@ -29,7 +29,7 @@ export interface SessionConfig {
  */
 export interface CommandContext {
   config: SessionConfig;
-  llmEngine: LLMEngine | undefined;
+  llmEngine: ILLMEngine | undefined;
   neo4jClient: Neo4jClient;
   sessionManager: SessionManager;
   wsClient: CanvasWebSocketClient;

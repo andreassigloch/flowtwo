@@ -231,7 +231,7 @@ export function violationGuidedSearch(
   const paretoFront = new ParetoFrontImpl(cfg.paretoFrontSize);
   paretoFront.add(initialVariant);
 
-  let state: SearchState = {
+  const state: SearchState = {
     iteration: 0,
     currentBest: initialVariant,
     paretoFront: paretoFront.getVariants(),

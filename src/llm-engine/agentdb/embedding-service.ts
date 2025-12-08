@@ -8,17 +8,22 @@
  */
 
 import { OpenAIEmbeddings } from '@langchain/openai';
-import { OPENAI_API_KEY, EMBEDDING_MODEL, EMBEDDING_DIMENSION } from '../../shared/config.js';
+import { OPENAI_EMBEDDING_API_KEY, EMBEDDING_MODEL, EMBEDDING_DIMENSION } from '../../shared/config.js';
 
 export class EmbeddingService {
   private embeddings: OpenAIEmbeddings;
 
   constructor() {
-    // Initialize OpenAI embeddings (same as aise project)
+    // Initialize OpenAI embeddings with explicit baseURL to avoid LM Studio conflict (CR-034)
+    // LangChain reads OPENAI_BASE_URL env var, which may point to LM Studio
+    // We need to explicitly use OpenAI's API for embeddings
     this.embeddings = new OpenAIEmbeddings({
-      openAIApiKey: OPENAI_API_KEY,
+      openAIApiKey: OPENAI_EMBEDDING_API_KEY,
       modelName: EMBEDDING_MODEL,
       dimensions: EMBEDDING_DIMENSION,
+      configuration: {
+        baseURL: 'https://api.openai.com/v1',
+      },
     });
   }
 

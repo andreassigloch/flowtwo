@@ -21,7 +21,7 @@ import { Node, Edge } from '../../../src/shared/types/ontology.js';
 const createMockAgentDB = () => {
   const nodes = new Map<string, Node>();
   const edges = new Map<string, Edge>();
-  let version = 1;
+  const version = 1;
 
   return {
     getNode: vi.fn((id: string) => nodes.get(id) || null),

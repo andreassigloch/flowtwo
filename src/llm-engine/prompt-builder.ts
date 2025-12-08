@@ -13,6 +13,7 @@
  */
 
 import { PromptSection, SystemPromptResult } from '../shared/types/llm.js';
+import { isOpenAIProvider } from './engine-factory.js';
 
 /**
  * System Prompt Builder
@@ -268,6 +269,48 @@ I'll add a payment processing function to your system.
 
 The function is now part of the OrderProcessing chain and accepts PaymentData as input.
 \`\`\`
+${this.getOpenAIProviderWarning()}`;
+  }
+
+  /**
+   * Get additional warning for OpenAI-compatible providers (CR-034)
+   * These models need stricter format instructions
+   */
+  private getOpenAIProviderWarning(): string {
+    if (!isOpenAIProvider()) {
+      return '';
+    }
+    return `
+## CRITICAL FORMAT RULES
+
+**You MUST follow these rules EXACTLY:**
+
+1. **ONE operations block per response** - Never split into multiple blocks
+2. **Always close tags** - Every \`<operations>\` MUST have \`</operations>\`
+3. **All operations in ONE block** - Combine all nodes and edges into a single block
+4. **Complete the block before continuing** - Never leave operations unclosed
+
+**WRONG (multiple blocks):**
+\`\`\`
+<operations>
++ Node1|TYPE|ID1|Desc
+</operations>
+Now let's add more:
+<operations>
++ Node2|TYPE|ID2|Desc
+</operations>
+\`\`\`
+
+**CORRECT (single block):**
+\`\`\`
+<operations>
+## Nodes
++ Node1|TYPE|ID1|Desc
++ Node2|TYPE|ID2|Desc
+</operations>
+\`\`\`
+
+**NEVER start a new \`<operations>\` block if one is already open!**
 `;
   }
 

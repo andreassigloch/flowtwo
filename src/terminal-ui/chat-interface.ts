@@ -15,7 +15,7 @@ import * as readline from 'readline';
 import * as fs from 'fs';
 import { StatelessGraphCanvas } from '../canvas/stateless-graph-canvas.js';
 import { ChatCanvas } from '../canvas/chat-canvas.js';
-import { LLMEngine } from '../llm-engine/llm-engine.js';
+import { createLLMEngine, type ILLMEngine, getCurrentProvider } from '../llm-engine/engine-factory.js';
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
 import { FormatEParser } from '../shared/parsers/format-e-parser.js';
 import { CanvasWebSocketClient } from '../canvas/websocket-client.js';
@@ -65,7 +65,7 @@ const config = {
 const getAgentDB = () => getUnifiedAgentDBService(config.workspaceId, config.systemId);
 
 // Components - initialized in main() after session resolution
-let llmEngine: LLMEngine | undefined;
+let llmEngine: ILLMEngine | undefined;
 let neo4jClient: Neo4jClient;
 let sessionManager: SessionManager;
 let wsClient: CanvasWebSocketClient;
@@ -306,7 +306,7 @@ async function processMessage(message: string): Promise<void> {
 
     let isFirstChunk = true;
 
-    await llmEngine.processRequestStream(request, async (chunk) => {
+    await llmEngine.processRequestStream(request, async (chunk: import('../shared/types/llm.js').StreamChunk) => {
       if (chunk.type === 'text' && chunk.text) {
         if (isFirstChunk) {
           console.log('');
@@ -446,15 +446,20 @@ async function main(): Promise<void> {
     neo4jClient
   );
 
-  // STEP 4: Optional LLM Engine
-  if (process.env.ANTHROPIC_API_KEY) {
-    llmEngine = new LLMEngine({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: 'claude-sonnet-4-5-20250929',
+  // STEP 4: LLM Engine (CR-034: Factory-based provider selection)
+  const provider = getCurrentProvider();
+  try {
+    llmEngine = createLLMEngine({
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
       maxTokens: 4096,
       temperature: LLM_TEMPERATURE,
       enableCache: true,
     });
+    log(`✅ LLM Engine initialized (provider: ${provider})`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    log(`⚠️ LLM Engine not available: ${errorMsg}`);
+    console.log(`\x1b[33m⚠️ LLM Engine not available: ${errorMsg}\x1b[0m`);
   }
 
   // STEP 5: WebSocket Connection

@@ -59,7 +59,13 @@
       "Bash(timeout 60 npx tsc:*)",
       "Bash(gtimeout 60 npx tsc:*)",
       "Bash(lsof:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(wc:*)",
+      "Bash(LLM_PROVIDER=openai OPENAI_BASE_URL=http://192.168.78.202:1234/v1 OPENAI_MODEL=devstral-small-2505-mlx npx tsx -e:*)",
+      "Bash(LLM_PROVIDER=openai OPENAI_BASE_URL=http://192.168.78.202:1234/v1 OPENAI_MODEL=devstral-small-2505-mlx node:*)",
+      "Bash(LLM_PROVIDER=openai OPENAI_BASE_URL=http://192.168.78.202:1234/v1 OPENAI_MODEL=devstral-small-2505-mlx npx tsx:*)",
+      "Bash(timeout 30 npx tsc:*)",
+      "Bash(gtimeout 30 npx tsc:*)"
     ],
     "deny": [],
     "ask": []

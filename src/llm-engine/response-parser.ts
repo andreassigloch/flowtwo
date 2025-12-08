@@ -32,11 +32,25 @@ export class ResponseParser {
     textResponse: string;
     operations: string | null;
   } {
-    // Extract ALL operations blocks
+    // Extract ALL complete operations blocks
     const allOperations = this.extractAllOperationsBlocks(response);
 
-    // Use first operations block (if multiple)
-    const operations = allOperations.length > 0 ? allOperations[0] : null;
+    // Combine ALL operations blocks into one (CR-034: support multi-block LLM responses)
+    // This handles models that generate multiple <operations>...</operations> sections
+    let combinedOperations: string | null = null;
+    if (allOperations.length > 0) {
+      // Extract content from each block and combine
+      const allContent: string[] = [];
+      for (const block of allOperations) {
+        const content = this.extractOperationsContent(block);
+        if (content) {
+          allContent.push(content);
+        }
+      }
+      if (allContent.length > 0) {
+        combinedOperations = `<operations>\n${allContent.join('\n')}\n</operations>`;
+      }
+    }
 
     // Remove ALL operations blocks from text
     let textResponse = response;
@@ -54,8 +68,16 @@ export class ResponseParser {
 
     return {
       textResponse,
-      operations,
+      operations: combinedOperations,
     };
+  }
+
+  /**
+   * Extract ALL complete operations blocks from text (CR-034)
+   * Returns array of complete blocks for incremental processing
+   */
+  extractAllCompleteBlocks(text: string): string[] {
+    return this.extractAllOperationsBlocks(text);
   }
 
   /**
@@ -86,5 +108,19 @@ export class ResponseParser {
     const matches = text.match(regex);
 
     return matches || [];
+  }
+
+  /**
+   * Extract content from an operations block (without the tags)
+   *
+   * @param block - Operations block including tags
+   * @returns Content without tags, or null if invalid
+   */
+  private extractOperationsContent(block: string): string | null {
+    const match = block.match(/<operations>([\s\S]*?)<\/operations>/i);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    return null;
   }
 }

@@ -37,6 +37,14 @@ export const LLM_MODEL = process.env.LLM_MODEL || 'claude-3-5-sonnet-20241022';
 export const LLM_MAX_TOKENS = parseInt(process.env.LLM_MAX_TOKENS || '8000', 10);
 
 /**
+ * LLM Provider Configuration (CR-034)
+ * Supports 'anthropic' (default) or 'openai' (LM Studio, OpenRouter, etc.)
+ */
+export const LLM_PROVIDER = (process.env.LLM_PROVIDER || 'anthropic') as 'anthropic' | 'openai';
+export const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'http://localhost:1234/v1';
+export const OPENAI_MODEL = process.env.OPENAI_MODEL || 'devstral-small-2505-mlx';
+
+/**
  * Neo4j Configuration
  */
 export const NEO4J_URI = process.env.NEO4J_URI || 'bolt://localhost:7687';
@@ -68,9 +76,15 @@ export const AGENTDB_SIMILARITY_THRESHOLD = parseFloat(process.env.AGENTDB_SIMIL
 /**
  * OpenAI Embeddings Configuration (for AgentDB vector search)
  */
-export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+export const OPENAI_EMBEDDING_API_KEY = process.env.OPENAI_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
 export const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'text-embedding-3-small';
 export const EMBEDDING_DIMENSION = parseInt(process.env.EMBEDDING_DIMENSION || '1536', 10);
+
+/**
+ * OpenAI-Compatible LLM API Key (CR-034)
+ * Used for LM Studio (not needed), OpenRouter (required), etc.
+ */
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPEN_ROUTER_API_KEY || 'not-needed';
 
 /**
  * Import/Export Configuration
@@ -84,8 +98,14 @@ export const DEFAULT_EXPORT_FILENAME = process.env.DEFAULT_EXPORT_FILENAME || 's
 export function validateConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    errors.push('ANTHROPIC_API_KEY is required');
+  // CR-034: Only require ANTHROPIC_API_KEY for anthropic provider
+  if (LLM_PROVIDER === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
+    errors.push('ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic');
+  }
+
+  // CR-034: Validate OpenAI provider config
+  if (LLM_PROVIDER === 'openai' && !OPENAI_BASE_URL) {
+    errors.push('OPENAI_BASE_URL is required when LLM_PROVIDER=openai');
   }
 
   if (WS_PORT < 1024 || WS_PORT > 65535) {
