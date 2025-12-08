@@ -216,24 +216,6 @@ export class OpenAIEngine {
   }
 
   /**
-   * Find the end position of the last complete operations block (CR-034)
-   */
-  private findLastBlockEnd(text: string): number {
-    const regex = /<\/operations>/gi;
-    let lastMatch: RegExpExecArray | null = null;
-    let match: RegExpExecArray | null;
-
-    while ((match = regex.exec(text)) !== null) {
-      lastMatch = match;
-    }
-
-    if (lastMatch) {
-      return lastMatch.index + lastMatch[0].length;
-    }
-    return 0;
-  }
-
-  /**
    * Get configuration
    */
   getConfig(): LLMEngineConfig {

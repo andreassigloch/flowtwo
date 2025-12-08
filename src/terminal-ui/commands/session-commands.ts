@@ -36,6 +36,9 @@ export async function handleNewCommand(ctx: CommandContext): Promise<void> {
  * Handle /commit command - save to Neo4j and reset change tracking (CR-033)
  * This is the primary command for persisting changes.
  * Also accessible via /save (alias for backward compatibility).
+ *
+ * CR-032: Persistence is session-level, not canvas-level.
+ * AgentDB is Single Source of Truth → Neo4j is cold storage.
  */
 export async function handleCommitCommand(ctx: CommandContext): Promise<void> {
   if (!ctx.neo4jClient) {
@@ -45,9 +48,25 @@ export async function handleCommitCommand(ctx: CommandContext): Promise<void> {
   console.log('💾 Committing to Neo4j...');
   ctx.log('💾 Committing to Neo4j...');
 
-  const graphResult = await ctx.graphCanvas.persistToNeo4j();
+  // CR-032: Get nodes/edges from AgentDB (Single Source of Truth)
+  const nodes = ctx.agentDB.getNodes();
+  const edges = ctx.agentDB.getEdges();
+
+  // Persist graph data to Neo4j
+  let graphSavedCount = 0;
+  if (nodes.length > 0) {
+    await ctx.neo4jClient.saveNodes(nodes);
+    graphSavedCount += nodes.length;
+  }
+  if (edges.length > 0) {
+    await ctx.neo4jClient.saveEdges(edges);
+    graphSavedCount += edges.length;
+  }
+
+  // Persist chat messages
   const chatResult = await ctx.chatCanvas.persistToNeo4j();
 
+  // Update session metadata
   const saveSession = (ctx.neo4jClient as unknown as { getSession: () => { run: (q: string, p: Record<string, string>) => Promise<unknown>; close: () => Promise<void> } }).getSession();
   try {
     await saveSession.run(
@@ -62,19 +81,13 @@ export async function handleCommitCommand(ctx: CommandContext): Promise<void> {
   // Capture baseline for change tracking (CR-033)
   ctx.agentDB.captureBaseline();
 
-  if (graphResult.skipped && chatResult.skipped) {
-    console.log('\x1b[32m✅ Already committed (no pending changes)\x1b[0m');
-    ctx.log('✅ Already committed');
-  } else {
-    const graphCount = graphResult.savedCount || 0;
-    const chatCount = chatResult.savedCount || 0;
-    const parts: string[] = [];
-    if (graphCount > 0) parts.push(`${graphCount} graph items`);
-    if (chatCount > 0) parts.push(`${chatCount} messages`);
-    const summary = parts.length > 0 ? parts.join(', ') : 'all changes';
-    console.log(`\x1b[32m✅ Committed ${summary}\x1b[0m`);
-    ctx.log(`✅ Committed ${summary}`);
-  }
+  const chatCount = chatResult.savedCount || 0;
+  const parts: string[] = [];
+  if (graphSavedCount > 0) parts.push(`${nodes.length} nodes, ${edges.length} edges`);
+  if (chatCount > 0) parts.push(`${chatCount} messages`);
+  const summary = parts.length > 0 ? parts.join(', ') : 'no changes';
+  console.log(`\x1b[32m✅ Committed ${summary}\x1b[0m`);
+  ctx.log(`✅ Committed ${summary}`);
 }
 
 /**

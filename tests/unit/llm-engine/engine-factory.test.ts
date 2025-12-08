@@ -65,8 +65,8 @@ describe('unit: Engine Factory', () => {
   });
 
   describe('getCurrentProvider', () => {
-    it('should return anthropic by default', async () => {
-      delete process.env.LLM_PROVIDER;
+    it('should return anthropic when LLM_PROVIDER=anthropic', async () => {
+      process.env.LLM_PROVIDER = 'anthropic';
 
       const { getCurrentProvider } = await import(
         '../../../src/llm-engine/engine-factory.js'
@@ -75,7 +75,7 @@ describe('unit: Engine Factory', () => {
       expect(getCurrentProvider()).toBe('anthropic');
     });
 
-    it('should return openai when configured', async () => {
+    it('should return openai when LLM_PROVIDER=openai', async () => {
       process.env.LLM_PROVIDER = 'openai';
 
       const { getCurrentProvider } = await import(

@@ -336,16 +336,22 @@ export class StatelessGraphCanvas extends EventEmitter {
   }
 
   // ============================================================
-  // Persistence (AgentDB handles dirty tracking)
+  // Persistence - DEPRECATED (CR-032)
   // ============================================================
 
   /**
-   * Persist to Neo4j is now handled by AgentDB's persistence layer.
-   * This method exists for API compatibility.
+   * DEPRECATED: Persistence is session-level, not canvas-level.
+   *
+   * CR-032: AgentDB is Single Source of Truth. Neo4j persistence happens
+   * via /commit command in session-commands.ts, which reads from AgentDB
+   * and writes to Neo4j directly.
+   *
+   * This stub exists only for API compatibility with ChatCanvas.
+   * @deprecated Use /commit command instead
    */
   async persistToNeo4j(_force: boolean = false): Promise<PersistResult> {
-    // In the unified data layer, persistence is managed by AgentDB
-    // This stub returns success for compatibility
+    // CR-032: Canvas is stateless UI layer, does not handle persistence
+    // Real persistence: handleCommitCommand() in session-commands.ts
     return {
       success: true,
       savedCount: 0,
