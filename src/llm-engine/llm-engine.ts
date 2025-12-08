@@ -16,7 +16,7 @@ import { LLMRequest, LLMResponse, LLMEngineConfig, StreamChunk } from '../shared
 import { PromptBuilder } from './prompt-builder.js';
 import { ResponseParser } from './response-parser.js';
 import { LOG_PATH, LLM_TEMPERATURE } from '../shared/config.js';
-import { getAgentDBService } from './agentdb/agentdb-service.js';
+import { getUnifiedAgentDBService } from './agentdb/unified-agentdb-service.js';
 
 /**
  * Log to STDOUT file
@@ -70,11 +70,12 @@ export class LLMEngine {
     request: LLMRequest,
     onChunk: (chunk: StreamChunk) => void
   ): Promise<void> {
-    // Check AgentDB cache first (semantic similarity)
+    // Check AgentDB cache first (semantic similarity + graph version)
     let cached = null;
     try {
-      const agentdb = await getAgentDBService();
-      cached = await agentdb.checkCache(request.message);
+      const agentdb = await getUnifiedAgentDBService(request.workspaceId, request.systemId);
+      const graphVersion = agentdb.getGraphVersion();
+      cached = await agentdb.checkCache(request.message, graphVersion);
     } catch (error) {
       log(`⚠️ AgentDB cache check failed: ${error}`);
     }
@@ -204,10 +205,11 @@ export class LLMEngine {
     // Log cache performance
     this.logCachePerformance(llmResponse);
 
-    // Store in AgentDB for future cache hits
+    // Store in AgentDB for future cache hits (version-aware)
     try {
-      const agentdb = await getAgentDBService();
-      await agentdb.cacheResponse(request.message, parsed.textResponse, parsed.operations);
+      const agentdb = await getUnifiedAgentDBService(request.workspaceId, request.systemId);
+      const graphVersion = agentdb.getGraphVersion();
+      await agentdb.cacheResponse(request.message, graphVersion, parsed.textResponse, parsed.operations);
       // AgentDB logger already logged cache store - no duplicate needed
 
       // Store episodic memory (Reflexion)
@@ -263,18 +265,18 @@ export class LLMEngine {
   }
 
   /**
-   * Get AgentDB cache metrics
+   * Get AgentDB cache metrics for a workspace/system
    */
-  async getAgentDBMetrics() {
-    const agentdb = await getAgentDBService();
+  async getAgentDBMetrics(workspaceId: string, systemId: string) {
+    const agentdb = await getUnifiedAgentDBService(workspaceId, systemId);
     return agentdb.getMetrics();
   }
 
   /**
-   * Cleanup expired AgentDB cache entries
+   * Cleanup expired AgentDB cache entries for a workspace/system
    */
-  async cleanupAgentDBCache() {
-    const agentdb = await getAgentDBService();
+  async cleanupAgentDBCache(workspaceId: string, systemId: string) {
+    const agentdb = await getUnifiedAgentDBService(workspaceId, systemId);
     await agentdb.cleanup();
     log('🧹 AgentDB cache cleanup completed');
   }

@@ -1,18 +1,18 @@
 /**
  * Similarity Scorer
  *
- * Tiered similarity detection for nodes:
- * - Tier 1: Neo4j index (exact name, prefix match)
- * - Tier 2: AgentDB vector search (embeddings)
- * - Tier 3: LLM review (for flagged candidates)
+ * Tiered similarity detection for nodes using AgentDB embeddings.
+ * All embeddings are stored in AgentDB (Single Source of Truth).
  *
- * CR-030: Evaluation Criteria Implementation
+ * Tier 1: Exact name match / Prefix match (no API call)
+ * Tier 2: Embedding similarity (from AgentDB cache)
+ *
+ * CR-032: Refactored to use AgentDB EmbeddingStore
  *
  * @author andreas@siglochconsulting
  */
 
-import type { Neo4jClient } from '../../neo4j-client/neo4j-client.js';
-import { EmbeddingService } from '../agentdb/embedding-service.js';
+import type { UnifiedAgentDBService } from '../agentdb/unified-agentdb-service.js';
 import { getRuleLoader } from './rule-loader.js';
 import type { SimilarityMatch, SimilarityThresholds } from './types.js';
 
@@ -28,58 +28,22 @@ export interface NodeData {
 }
 
 /**
- * Embedding cache entry
- */
-interface EmbeddingCacheEntry {
-  nodeUuid: string;
-  textContent: string;
-  embedding: number[];
-  createdAt: number;
-}
-
-/**
  * Similarity Scorer
  *
- * Provides tiered similarity detection for merge/duplicate candidates.
+ * Uses AgentDB for all embedding storage and computation.
  */
 export class SimilarityScorer {
-  private neo4jClient: Neo4jClient | null = null;
-  private embeddingService: EmbeddingService;
-  private embeddingCache: Map<string, EmbeddingCacheEntry> = new Map();
-  private indexEnsured: boolean = false;
+  private agentDB: UnifiedAgentDBService | null = null;
 
-  constructor(neo4jClient?: Neo4jClient) {
-    this.neo4jClient = neo4jClient || null;
-    this.embeddingService = new EmbeddingService();
+  constructor(agentDB?: UnifiedAgentDBService) {
+    this.agentDB = agentDB || null;
   }
 
   /**
-   * Set Neo4j client (for lazy initialization)
+   * Set AgentDB service (for lazy initialization)
    */
-  setNeo4jClient(client: Neo4jClient): void {
-    this.neo4jClient = client;
-    this.indexEnsured = false;
-  }
-
-  /**
-   * Ensure Neo4j index exists for (type, Name)
-   */
-  async ensureIndex(): Promise<void> {
-    if (this.indexEnsured || !this.neo4jClient) {
-      return;
-    }
-
-    try {
-      await this.neo4jClient.query(`
-        CREATE INDEX node_type_name IF NOT EXISTS
-        FOR (n:Node) ON (n.type, n.name)
-      `);
-      this.indexEnsured = true;
-    } catch (error) {
-      // Index might already exist or Neo4j version doesn't support IF NOT EXISTS
-      console.warn('Could not create index:', error);
-      this.indexEnsured = true;
-    }
+  setAgentDB(agentDB: UnifiedAgentDBService): void {
+    this.agentDB = agentDB;
   }
 
   /**
@@ -107,7 +71,7 @@ export class SimilarityScorer {
       return prefixScore;
     }
 
-    // Tier 2: Embedding similarity
+    // Tier 2: Embedding similarity (via AgentDB)
     const embeddingScore = await this.getEmbeddingSimilarity(nodeA, nodeB);
     return embeddingScore;
   }
@@ -135,8 +99,8 @@ export class SimilarityScorer {
       (n) => n.type === node.type && n.uuid !== node.uuid
     );
 
-    // Tier 1: Neo4j prefix query (if available)
-    const prefixMatches = await this.findPrefixMatches(node, candidates);
+    // Tier 1: Prefix matches (no API call)
+    const prefixMatches = this.findPrefixMatches(node, candidates, thresholds);
     for (const match of prefixMatches) {
       if (match.score >= effectiveThreshold) {
         matches.push(match);
@@ -161,7 +125,7 @@ export class SimilarityScorer {
   /**
    * Find all similarity matches above threshold in a node set
    *
-   * Optimized: Batch embeddings upfront + parallel comparisons
+   * Optimized: Batch embeddings upfront via AgentDB + parallel comparisons
    */
   async findAllSimilarityMatches(
     nodes: NodeData[],
@@ -171,8 +135,10 @@ export class SimilarityScorer {
     const funcThresholds = loader.getFuncSimilarityThresholds();
     const schemaThresholds = loader.getSchemaSimilarityThresholds();
 
-    // Step 1: Batch compute all embeddings upfront (single API call)
-    await this.batchComputeEmbeddings(nodes);
+    // Step 1: Batch compute all embeddings via AgentDB (single API call)
+    if (this.agentDB) {
+      await this.agentDB.batchComputeEmbeddings(nodes);
+    }
 
     // Step 2: Build comparison pairs (same type only)
     interface ComparisonPair {
@@ -204,7 +170,7 @@ export class SimilarityScorer {
       }
     }
 
-    // Step 3: Compare all pairs in parallel (embeddings already cached)
+    // Step 3: Compare all pairs in parallel (embeddings already cached in AgentDB)
     const results = await Promise.all(
       pairs.map(async ({ nodeA, nodeB, thresholds, effectiveThreshold }) => {
         const score = await this.getSimilarityScoreCached(nodeA, nodeB);
@@ -222,46 +188,7 @@ export class SimilarityScorer {
   }
 
   /**
-   * Batch compute embeddings for all nodes (single API call)
-   * Populates cache for subsequent lookups
-   */
-  private async batchComputeEmbeddings(nodes: NodeData[]): Promise<void> {
-    // Find nodes that need embeddings (not in cache or stale)
-    const nodesToEmbed: NodeData[] = [];
-    const textContents: string[] = [];
-
-    for (const node of nodes) {
-      const textContent = this.getEmbeddingText(node);
-      const cached = this.embeddingCache.get(node.uuid);
-
-      if (!cached || cached.textContent !== textContent) {
-        nodesToEmbed.push(node);
-        textContents.push(textContent);
-      }
-    }
-
-    if (nodesToEmbed.length === 0) {
-      return; // All embeddings already cached
-    }
-
-    // Batch API call for all texts
-    const embeddings = await this.embeddingService.embedTexts(textContents);
-
-    // Populate cache
-    const now = Date.now();
-    for (let i = 0; i < nodesToEmbed.length; i++) {
-      const node = nodesToEmbed[i];
-      this.embeddingCache.set(node.uuid, {
-        nodeUuid: node.uuid,
-        textContent: textContents[i],
-        embedding: embeddings[i],
-        createdAt: now,
-      });
-    }
-  }
-
-  /**
-   * Get similarity score using cached embeddings (no API calls)
+   * Get similarity score using cached embeddings from AgentDB (no API calls)
    */
   private async getSimilarityScoreCached(nodeA: NodeData, nodeB: NodeData): Promise<number> {
     // Only compare nodes of same type
@@ -280,79 +207,51 @@ export class SimilarityScorer {
       return prefixScore;
     }
 
-    // Tier 2: Embedding similarity (from cache - no API call)
-    const embeddingA = this.embeddingCache.get(nodeA.uuid)?.embedding;
-    const embeddingB = this.embeddingCache.get(nodeB.uuid)?.embedding;
+    // Tier 2: Embedding similarity from AgentDB cache
+    if (!this.agentDB) {
+      return 0;
+    }
+
+    const embeddingA = this.agentDB.getCachedEmbedding(nodeA.uuid);
+    const embeddingB = this.agentDB.getCachedEmbedding(nodeB.uuid);
 
     if (!embeddingA || !embeddingB) {
       // Fallback to API call if cache miss (shouldn't happen after batch)
       return this.getEmbeddingSimilarity(nodeA, nodeB);
     }
 
-    return this.embeddingService.cosineSimilarity(embeddingA, embeddingB);
+    return this.agentDB.cosineSimilarity(embeddingA, embeddingB);
   }
 
   /**
-   * Get embedding for a node (lazy computation, cached)
+   * Get embedding for a node via AgentDB
    */
   async getNodeEmbedding(node: NodeData): Promise<number[]> {
-    // Check cache
-    const cached = this.embeddingCache.get(node.uuid);
-    const textContent = this.getEmbeddingText(node);
-
-    if (cached && cached.textContent === textContent) {
-      return cached.embedding;
+    if (!this.agentDB) {
+      throw new Error('SimilarityScorer: AgentDB not set');
     }
-
-    // Compute embedding
-    const embedding = await this.embeddingService.embedText(textContent);
-
-    // Cache it
-    this.embeddingCache.set(node.uuid, {
-      nodeUuid: node.uuid,
-      textContent,
-      embedding,
-      createdAt: Date.now(),
-    });
-
-    return embedding;
+    return this.agentDB.getEmbedding(node);
   }
 
   /**
    * Invalidate embedding cache for a node (call when description changes)
    */
   invalidateEmbedding(nodeUuid: string): void {
-    this.embeddingCache.delete(nodeUuid);
+    this.agentDB?.invalidateEmbedding(nodeUuid);
   }
 
   /**
    * Clear all cached embeddings
    */
   clearCache(): void {
-    this.embeddingCache.clear();
+    this.agentDB?.clearEmbeddings();
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics from AgentDB
    */
   getCacheStats(): { size: number; oldestMs: number } {
-    let oldest = Date.now();
-    for (const entry of this.embeddingCache.values()) {
-      if (entry.createdAt < oldest) {
-        oldest = entry.createdAt;
-      }
-    }
-    return {
-      size: this.embeddingCache.size,
-      oldestMs: this.embeddingCache.size > 0 ? Date.now() - oldest : 0,
-    };
-  }
-
-  /**
-   * Get text content for embedding
-   */
-  private getEmbeddingText(node: NodeData): string {
-    return `${node.type}: ${node.name} - ${node.descr}`;
+    return this.agentDB?.getEmbeddingStats() ?? { size: 0, oldestMs: 0 };
   }
 
   /**
@@ -381,26 +280,26 @@ export class SimilarityScorer {
   }
 
   /**
-   * Get embedding similarity between two nodes
+   * Get embedding similarity between two nodes via AgentDB
    */
   private async getEmbeddingSimilarity(nodeA: NodeData, nodeB: NodeData): Promise<number> {
-    const embeddingA = await this.getNodeEmbedding(nodeA);
-    const embeddingB = await this.getNodeEmbedding(nodeB);
-    return this.embeddingService.cosineSimilarity(embeddingA, embeddingB);
+    if (!this.agentDB) {
+      return 0;
+    }
+
+    const embeddingA = await this.agentDB.getEmbedding(nodeA);
+    const embeddingB = await this.agentDB.getEmbedding(nodeB);
+    return this.agentDB.cosineSimilarity(embeddingA, embeddingB);
   }
 
   /**
-   * Find prefix matches using Neo4j or in-memory
+   * Find prefix matches (no API call)
    */
-  private async findPrefixMatches(
+  private findPrefixMatches(
     node: NodeData,
-    candidates: NodeData[]
-  ): Promise<SimilarityMatch[]> {
-    const loader = getRuleLoader();
-    const thresholds = node.type === 'SCHEMA'
-      ? loader.getSchemaSimilarityThresholds()
-      : loader.getFuncSimilarityThresholds();
-
+    candidates: NodeData[],
+    thresholds: SimilarityThresholds
+  ): SimilarityMatch[] {
     const matches: SimilarityMatch[] = [];
 
     for (const candidate of candidates) {
@@ -493,8 +392,8 @@ export function getSimilarityScorer(): SimilarityScorer {
 }
 
 /**
- * Create a new SimilarityScorer with Neo4j client
+ * Create a new SimilarityScorer with AgentDB
  */
-export function createSimilarityScorer(neo4jClient?: Neo4jClient): SimilarityScorer {
-  return new SimilarityScorer(neo4jClient);
+export function createSimilarityScorer(agentDB?: UnifiedAgentDBService): SimilarityScorer {
+  return new SimilarityScorer(agentDB);
 }

@@ -18,6 +18,7 @@ import { AGENTDB_CACHE_TTL, AGENTDB_SIMILARITY_THRESHOLD, AGENTDB_BACKEND } from
 import { createBackend } from './backend-factory.js';
 import { GraphStore, type NodeFilter, type EdgeFilter, type SetOptions, type GraphChangeEvent } from './graph-store.js';
 import { VariantPool, type GraphDiff, type VariantInfo, type GraphState as VariantGraphState } from './variant-pool.js';
+import { EmbeddingStore, type EmbeddableNode, type EmbeddingEntry } from './embedding-store.js';
 import type { AgentDBBackend, CachedResponse, Episode, CacheMetrics, UnifiedAgentDBAPI } from './types.js';
 import type { Node, Edge, SemanticId, GraphState } from '../../shared/types/ontology.js';
 import { AgentDBLogger } from './agentdb-logger.js';
@@ -40,6 +41,7 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
   private initialized = false;
   private graphStore: GraphStore | null = null;
   private variantPool: VariantPool | null = null;
+  private embeddingStore: EmbeddingStore | null = null;
 
   // Version-aware cache: Map<cacheKey, CachedResponse>
   private versionedCache: Map<string, CachedResponse> = new Map();
@@ -58,6 +60,7 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
     this.backend = await createBackend();
     this.graphStore = new GraphStore(workspaceId, systemId);
     this.variantPool = new VariantPool();
+    this.embeddingStore = new EmbeddingStore();
 
     // Subscribe to graph changes for cache invalidation
     this.graphStore.onGraphChange((event) => {
@@ -85,6 +88,11 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
         }
         this.cachedVersions.delete(version);
       }
+    }
+
+    // Invalidate embedding for changed nodes
+    if (event.type === 'node_update' || event.type === 'node_delete') {
+      this.embeddingStore?.invalidate(event.id);
     }
 
     // Emit change event for external subscribers (e.g., WebSocket broadcast)
@@ -293,6 +301,82 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
   }
 
   // ============================================================
+  // Embedding Store API (for SimilarityScorer)
+  // ============================================================
+
+  /**
+   * Get embedding for a node (lazy computation, cached)
+   */
+  async getEmbedding(node: EmbeddableNode): Promise<number[]> {
+    this.ensureInitialized();
+    return this.embeddingStore!.getEmbedding(node);
+  }
+
+  /**
+   * Get cached embedding without API call (returns null if not cached)
+   */
+  getCachedEmbedding(nodeId: string): number[] | null {
+    this.ensureInitialized();
+    return this.embeddingStore!.getCachedEmbedding(nodeId);
+  }
+
+  /**
+   * Batch compute embeddings for multiple nodes (single API call)
+   */
+  async batchComputeEmbeddings(nodes: EmbeddableNode[]): Promise<void> {
+    this.ensureInitialized();
+    return this.embeddingStore!.batchCompute(nodes);
+  }
+
+  /**
+   * Calculate cosine similarity between two embeddings
+   */
+  cosineSimilarity(a: number[], b: number[]): number {
+    this.ensureInitialized();
+    return this.embeddingStore!.cosineSimilarity(a, b);
+  }
+
+  /**
+   * Invalidate embedding for a node
+   */
+  invalidateEmbedding(nodeId: string): void {
+    this.ensureInitialized();
+    this.embeddingStore!.invalidate(nodeId);
+  }
+
+  /**
+   * Clear all cached embeddings
+   */
+  clearEmbeddings(): void {
+    this.ensureInitialized();
+    this.embeddingStore!.clear();
+  }
+
+  /**
+   * Load embeddings from external source (e.g., Neo4j)
+   */
+  loadEmbeddings(entries: EmbeddingEntry[]): void {
+    this.ensureInitialized();
+    this.embeddingStore!.loadFromEntries(entries);
+  }
+
+  /**
+   * Export all embeddings for persistence
+   */
+  exportEmbeddings(): EmbeddingEntry[] {
+    this.ensureInitialized();
+    return this.embeddingStore!.exportEntries();
+  }
+
+  /**
+   * Get embedding cache statistics
+   */
+  getEmbeddingStats(): { size: number; oldestMs: number } {
+    this.ensureInitialized();
+    return this.embeddingStore!.getStats();
+  }
+
+  // ============================================================
   // Version-Aware Response Cache
   // ============================================================
 
@@ -445,12 +529,14 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
     await this.backend.shutdown();
     this.graphStore?.removeAllListeners();
     this.variantPool?.clear();
+    this.embeddingStore?.clear();
     this.removeAllListeners();
 
     this.initialized = false;
     this.backend = null;
     this.graphStore = null;
     this.variantPool = null;
+    this.embeddingStore = null;
     this.versionedCache.clear();
     this.cachedVersions.clear();
   }

@@ -15,7 +15,8 @@
 import type { UnifiedAgentDBService } from '../agentdb/unified-agentdb-service.js';
 import type { Node, Edge } from '../../shared/types/ontology.js';
 import { getRuleLoader, type RuleLoader } from './rule-loader.js';
-import { getSimilarityScorer, type SimilarityScorer, type NodeData } from './similarity-scorer.js';
+import { SimilarityScorer, type NodeData } from './similarity-scorer.js';
+import { EmbeddingStore } from '../agentdb/embedding-store.js';
 import type {
   PhaseId,
   RuleViolation,
@@ -38,7 +39,8 @@ export class UnifiedRuleEvaluator {
   constructor(agentDB: UnifiedAgentDBService) {
     this.agentDB = agentDB;
     this.ruleLoader = getRuleLoader();
-    this.similarityScorer = getSimilarityScorer();
+    // SimilarityScorer uses AgentDB for embeddings (CR-032)
+    this.similarityScorer = new SimilarityScorer(agentDB);
   }
 
   /**
@@ -271,10 +273,110 @@ export class UnifiedRuleEvaluator {
         }
         break;
 
+      case 'function_requirements':
+        // Every FUNC must satisfy at least one REQ
+        const funcsSatisfying = new Set(
+          edges.filter(e => e.type === 'satisfy').map(e => e.sourceId)
+        );
+        for (const node of nodes) {
+          if (node.type === 'FUNC' && !funcsSatisfying.has(node.semanticId)) {
+            violations.push(this.createValidationViolation(
+              rule,
+              node.semanticId,
+              'Function has no satisfy→REQ edge'
+            ));
+          }
+        }
+        break;
+
+      case 'requirements_verification':
+        // Every REQ must be verified by at least one TEST
+        const reqsVerified = new Set(
+          edges.filter(e => e.type === 'verify').map(e => e.sourceId)
+        );
+        for (const node of nodes) {
+          if (node.type === 'REQ' && !reqsVerified.has(node.semanticId)) {
+            violations.push(this.createValidationViolation(
+              rule,
+              node.semanticId,
+              'Requirement has no verify→TEST edge'
+            ));
+          }
+        }
+        break;
+
+      case 'function_allocation':
+        // Every FUNC must be allocated to at least one MOD
+        const funcsAllocated = new Set(
+          edges.filter(e => e.type === 'allocate').map(e => e.targetId)
+        );
+        for (const node of nodes) {
+          if (node.type === 'FUNC' && !funcsAllocated.has(node.semanticId)) {
+            violations.push(this.createValidationViolation(
+              rule,
+              node.semanticId,
+              'Function not allocated to any MOD'
+            ));
+          }
+        }
+        break;
+
+      case 'function_io':
+        // Every FUNC should have at least one io edge (input or output)
+        const funcsWithIo = new Set([
+          ...edges.filter(e => e.type === 'io').map(e => e.sourceId),
+          ...edges.filter(e => e.type === 'io').map(e => e.targetId),
+        ]);
+        for (const node of nodes) {
+          if (node.type === 'FUNC' && !funcsWithIo.has(node.semanticId)) {
+            violations.push(this.createValidationViolation(
+              rule,
+              node.semanticId,
+              'Function has no io edges (isolated data flow)'
+            ));
+          }
+        }
+        break;
+
+      case 'flow_connectivity':
+        // Every FLOW must have both incoming and outgoing io edges
+        const flowsIncoming = new Set(
+          edges.filter(e => e.type === 'io').map(e => e.targetId)
+        );
+        const flowsOutgoing = new Set(
+          edges.filter(e => e.type === 'io').map(e => e.sourceId)
+        );
+        for (const node of nodes) {
+          if (node.type === 'FLOW') {
+            const hasIn = flowsIncoming.has(node.semanticId);
+            const hasOut = flowsOutgoing.has(node.semanticId);
+            if (!hasIn && !hasOut) {
+              violations.push(this.createValidationViolation(
+                rule,
+                node.semanticId,
+                'FLOW has no io edges'
+              ));
+            } else if (!hasIn) {
+              violations.push(this.createValidationViolation(
+                rule,
+                node.semanticId,
+                'FLOW has no incoming io edge'
+              ));
+            } else if (!hasOut) {
+              violations.push(this.createValidationViolation(
+                rule,
+                node.semanticId,
+                'FLOW has no outgoing io edge'
+              ));
+            }
+          }
+        }
+        break;
+
       // Similarity rules (near_duplicate, merge_candidate) are handled separately
 
       default:
-        // Skip rules that need Cypher
+        // Skip unknown rules
         break;
     }
 
@@ -442,4 +544,92 @@ export class UnifiedRuleEvaluator {
  */
 export function createUnifiedRuleEvaluator(agentDB: UnifiedAgentDBService): UnifiedRuleEvaluator {
   return new UnifiedRuleEvaluator(agentDB);
+}
+
+// Singleton instances per workspace/system pair
+const evaluatorInstances: Map<string, UnifiedRuleEvaluator> = new Map();
+
+/**
+ * Get or create UnifiedRuleEvaluator for a workspace/system pair
+ * Mirrors the pattern from getUnifiedAgentDBService
+ */
+export async function getUnifiedRuleEvaluator(
+  workspaceId: string,
+  systemId: string
+): Promise<UnifiedRuleEvaluator> {
+  const { getUnifiedAgentDBService } = await import('../agentdb/unified-agentdb-service.js');
+
+  const key = `${workspaceId}::${systemId}`;
+
+  let evaluator = evaluatorInstances.get(key);
+  if (!evaluator) {
+    const agentDB = await getUnifiedAgentDBService(workspaceId, systemId);
+    evaluator = new UnifiedRuleEvaluator(agentDB);
+    evaluatorInstances.set(key, evaluator);
+  }
+
+  return evaluator;
+}
+
+/**
+ * Clear evaluator cache (for testing)
+ */
+export function clearEvaluatorCache(): void {
+  evaluatorInstances.clear();
+}
+
+/**
+ * Minimal interface required by UnifiedRuleEvaluator and SimilarityScorer
+ * Used to create evaluators from raw graph data (e.g., GraphCanvas state)
+ */
+interface GraphDataProvider {
+  getNodes(): Node[];
+  getEdges(): Edge[];
+  getGraphStats(): { nodeCount: number; edgeCount: number; version: number };
+  // Embedding methods for SimilarityScorer
+  getEmbedding(node: { uuid: string; semanticId: string; type: string; name: string; descr: string }): Promise<number[]>;
+  getCachedEmbedding(nodeId: string): number[] | null;
+  batchComputeEmbeddings(nodes: { uuid: string; semanticId: string; type: string; name: string; descr: string }[]): Promise<void>;
+  cosineSimilarity(a: number[], b: number[]): number;
+  invalidateEmbedding(nodeId: string): void;
+  clearEmbeddings(): void;
+  getEmbeddingStats(): { size: number; oldestMs: number };
+}
+
+/**
+ * Create adapter from nodes/edges Maps to GraphDataProvider interface
+ * Includes a local EmbeddingStore for similarity scoring
+ */
+function createGraphDataAdapter(
+  nodes: Map<string, Node>,
+  edges: Map<string, Edge>
+): GraphDataProvider {
+  const embeddingStore = new EmbeddingStore();
+
+  return {
+    getNodes: () => Array.from(nodes.values()),
+    getEdges: () => Array.from(edges.values()),
+    getGraphStats: () => ({ nodeCount: nodes.size, edgeCount: edges.size, version: 1 }),
+    // Delegate embedding operations to local EmbeddingStore
+    getEmbedding: (node) => embeddingStore.getEmbedding(node),
+    getCachedEmbedding: (nodeId) => embeddingStore.getCachedEmbedding(nodeId),
+    batchComputeEmbeddings: (nodes) => embeddingStore.batchCompute(nodes),
+    cosineSimilarity: (a, b) => embeddingStore.cosineSimilarity(a, b),
+    invalidateEmbedding: (nodeId) => embeddingStore.invalidate(nodeId),
+    clearEmbeddings: () => embeddingStore.clear(),
+    getEmbeddingStats: () => embeddingStore.getStats(),
+  };
+}
+
+/**
+ * Create a UnifiedRuleEvaluator from raw graph data (nodes/edges Maps)
+ * Used by /analyze command to evaluate GraphCanvas state directly
+ */
+export function createEvaluatorFromGraph(
+  nodes: Map<string, Node>,
+  edges: Map<string, Edge>
+): UnifiedRuleEvaluator {
+  const adapter = createGraphDataAdapter(nodes, edges);
+  // Cast adapter to UnifiedAgentDBService since evaluator only uses getNodes/getEdges/getGraphStats + embedding methods
+  return new UnifiedRuleEvaluator(adapter as unknown as UnifiedAgentDBService);
 }

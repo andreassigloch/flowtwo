@@ -42,9 +42,11 @@ export {
   createSimilarityScorer,
 } from './similarity-scorer.js';
 
-// Rule Evaluator
+// Rule Evaluator (Unified - reads from AgentDB)
 export {
-  RuleEvaluator,
-  getRuleEvaluator,
-  createRuleEvaluator,
-} from './rule-evaluator.js';
+  UnifiedRuleEvaluator,
+  getUnifiedRuleEvaluator,
+  createUnifiedRuleEvaluator,
+  createEvaluatorFromGraph,
+  clearEvaluatorCache,
+} from './unified-rule-evaluator.js';

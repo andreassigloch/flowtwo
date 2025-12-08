@@ -23,7 +23,7 @@ import type { BroadcastUpdate } from '../canvas/websocket-server.js';
 import { SessionManager } from '../session.js';
 import { WS_URL, LOG_PATH, LLM_TEMPERATURE, AGENTDB_ENABLED } from '../shared/config.js';
 import { DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
-import { getAgentDBService } from '../llm-engine/agentdb/agentdb-service.js';
+import { getUnifiedAgentDBService } from '../llm-engine/agentdb/unified-agentdb-service.js';
 import {
   ArchitectureDerivationAgent,
   ArchitectureDerivationRequest,
@@ -39,7 +39,7 @@ import { getWorkflowRouter, SessionContext } from '../llm-engine/agents/workflow
 import { getAgentExecutor } from '../llm-engine/agents/agent-executor.js';
 import { getAgentConfigLoader } from '../llm-engine/agents/config-loader.js';
 import { initNeo4jClient, resolveSession, updateActiveSystem } from '../shared/session-resolver.js';
-import { getRuleEvaluator, getRuleLoader, type PhaseId, type ValidationResult } from '../llm-engine/validation/index.js';
+import { getUnifiedRuleEvaluator, getRuleLoader, type PhaseId, type ValidationResult } from '../llm-engine/validation/index.js';
 
 // Configuration - will be set by resolveSession() in main()
 const config = {
@@ -48,6 +48,9 @@ const config = {
   chatId: '',
   userId: '',
 };
+
+// Helper to get UnifiedAgentDBService with current session context (CR-032)
+const getAgentDB = () => getUnifiedAgentDBService(config.workspaceId, config.systemId);
 
 // Components - initialized in main() after session resolution
 let llmEngine: LLMEngine | undefined;
@@ -219,7 +222,7 @@ async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
         // Note: persistGraph=false because data comes from Neo4j, no need to write back
         await updateActiveSystem(neo4jClient!, graphCanvas, config, selectedSystem.systemId, {
           persistGraph: false,
-          getAgentDB: getAgentDBService,
+          getAgentDB,
         });
         log(`💾 Session updated: ${config.systemId}`);
 
@@ -462,11 +465,7 @@ async function executeDeriveArchitecture(mainRl: readline.Interface): Promise<vo
           console.log(`   Functions: ${newFuncs}, Flows: ${newFlows}`);
           log(`✅ Architecture derivation complete: ${newFuncs} functions, ${newFlows} flows`);
 
-          // Invalidate cache
-          const agentdb = await getAgentDBService();
-          await agentdb.invalidateGraphSnapshot(config.systemId);
-
-          // Notify graph viewer
+          // Notify graph viewer (cache invalidation is automatic via graph version tracking - CR-032)
           notifyGraphUpdate();
         } else if (chunk.response.operations) {
           // Fallback to response.operations if extraction failed
@@ -476,8 +475,7 @@ async function executeDeriveArchitecture(mainRl: readline.Interface): Promise<vo
           const newState = graphCanvas.getState();
           console.log(`\x1b[32m✅ Architecture applied: ${newState.nodes.size} nodes, ${newState.edges.size} edges\x1b[0m`);
 
-          const agentdb = await getAgentDBService();
-          await agentdb.invalidateGraphSnapshot(config.systemId);
+          // Cache invalidation is automatic via graph version tracking (CR-032)
           notifyGraphUpdate();
         } else {
           console.log('\x1b[33m⚠️  No operations generated\x1b[0m');
@@ -841,8 +839,7 @@ async function executeDerivation(
         console.log(`   ${primaryType} nodes: ${primaryCount}`);
         log(`✅ ${label} derivation complete: ${primaryCount} ${primaryType} nodes`);
 
-        const agentdb = await getAgentDBService();
-        await agentdb.invalidateGraphSnapshot(config.systemId);
+        // Cache invalidation is automatic via graph version tracking (CR-032)
         notifyGraphUpdate();
       } else if (chunk.response.operations) {
         const diff = parser.parseDiff(chunk.response.operations, config.workspaceId, config.systemId);
@@ -851,8 +848,7 @@ async function executeDerivation(
         const newState = graphCanvas.getState();
         console.log(`\x1b[32m✅ ${label} applied: ${newState.nodes.size} nodes, ${newState.edges.size} edges\x1b[0m`);
 
-        const agentdb = await getAgentDBService();
-        await agentdb.invalidateGraphSnapshot(config.systemId);
+        // Cache invalidation is automatic via graph version tracking (CR-032)
         notifyGraphUpdate();
       } else {
         console.log('\x1b[33m⚠️  No operations generated\x1b[0m');
@@ -882,10 +878,8 @@ async function handleValidateCommand(args: string[]): Promise<void> {
     else if (phaseArg === '3' || phaseArg === 'physical') phase = 'phase3_physical';
     else if (phaseArg === '4' || phaseArg === 'verification') phase = 'phase4_verification';
 
-    const evaluator = getRuleEvaluator();
-    evaluator.setNeo4jClient(neo4jClient);
-
-    const result = await evaluator.evaluate(phase, config.workspaceId, config.systemId);
+    const evaluator = await getUnifiedRuleEvaluator(config.workspaceId, config.systemId);
+    const result = await evaluator.evaluate(phase);
     displayValidationResult(result);
 
     log(`✅ Validation complete: score=${result.rewardScore.toFixed(2)}, violations=${result.totalViolations}`);
@@ -915,11 +909,10 @@ async function handlePhaseGateCommand(args: string[]): Promise<void> {
     else if (phaseArg === '3') phase = 'phase3_physical';
     else if (phaseArg === '4') phase = 'phase4_verification';
 
-    const evaluator = getRuleEvaluator();
-    evaluator.setNeo4jClient(neo4jClient);
+    const evaluator = await getUnifiedRuleEvaluator(config.workspaceId, config.systemId);
     const ruleLoader = getRuleLoader();
 
-    const gateResult = await evaluator.checkPhaseGate(phase, config.workspaceId, config.systemId);
+    const gateResult = await evaluator.checkPhaseGate(phase);
     const phaseDef = ruleLoader.getPhaseDefinition(phase);
 
     console.log('');
@@ -967,12 +960,11 @@ async function handleScoreCommand(): Promise<void> {
   log('📊 Computing scores');
 
   try {
-    const evaluator = getRuleEvaluator();
-    evaluator.setNeo4jClient(neo4jClient);
+    const evaluator = await getUnifiedRuleEvaluator(config.workspaceId, config.systemId);
     const ruleLoader = getRuleLoader();
 
     // Run validation for all phases to get comprehensive score
-    const result = await evaluator.evaluate('phase2_logical', config.workspaceId, config.systemId);
+    const result = await evaluator.evaluate('phase2_logical');
     const rewardConfig = ruleLoader.getRewardConfig();
 
     const state = graphCanvas.getState();
@@ -1038,11 +1030,9 @@ async function handleAnalyzeCommand(): Promise<void> {
   log('🔍 Running analysis');
 
   try {
-    // First run validation to identify issues
-    const evaluator = getRuleEvaluator();
-    evaluator.setNeo4jClient(neo4jClient);
-
-    const result = await evaluator.evaluate('phase2_logical', config.workspaceId, config.systemId);
+    // First run validation to identify issues (reads from AgentDB)
+    const evaluator = await getUnifiedRuleEvaluator(config.workspaceId, config.systemId);
+    const result = await evaluator.evaluate('phase2_logical');
 
     if (result.totalViolations === 0) {
       console.log('');
@@ -1473,7 +1463,7 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
 
       // Use unified updateActiveSystem for consistent behavior
       await updateActiveSystem(neo4jClient, graphCanvas, config, 'new-system', {
-        getAgentDB: getAgentDBService,
+        getAgentDB,
       });
       log('💾 Session updated: new-system');
 
@@ -1589,7 +1579,7 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
         const newSystemId = importedState.systemId || config.systemId;
         await updateActiveSystem(neo4jClient, graphCanvas, config, newSystemId, {
           persistGraph: true,
-          getAgentDB: getAgentDBService,
+          getAgentDB,
         });
         log(`💾 Imported system persisted to Neo4j: ${config.systemId}`);
 
@@ -1720,20 +1710,9 @@ async function processMessage(message: string): Promise<void> {
     const agentExecutor = getAgentExecutor();
     const configLoader = getAgentConfigLoader();
 
-    // Get graph snapshot from AgentDB cache (or serialize if not cached)
-    const agentdb = await getAgentDBService();
-    let canvasState = await agentdb.getGraphSnapshot(config.systemId);
+    // CR-032: Get graph state directly from GraphCanvas (UnifiedAgentDBService is source of truth)
     const currentState = graphCanvas.getState();
-
-    if (!canvasState) {
-      // Cache miss - serialize and store
-      canvasState = parser.serializeGraph(currentState);
-
-      await agentdb.storeGraphSnapshot(config.systemId, canvasState, {
-        nodeCount: currentState.nodes.size,
-        edgeCount: currentState.edges.size,
-      });
-    }
+    const canvasState = parser.serializeGraph(currentState);
 
     // CR-027: Build session context for routing
     const sessionContext: SessionContext = {
@@ -1826,8 +1805,7 @@ async function processMessage(message: string): Promise<void> {
           const state = graphCanvas.getState();
           log(`📊 Graph updated (${state.nodes.size} nodes, ${state.edges.size} edges)`);
 
-          // Invalidate graph snapshot cache after updates
-          await agentdb.invalidateGraphSnapshot(config.systemId);
+          // CR-032: Cache invalidation is automatic via graph version tracking
 
           // Auto-detect system ID from first SYS node (only if placeholder)
           if (config.systemId === 'new-system') {
@@ -1840,7 +1818,7 @@ async function processMessage(message: string): Promise<void> {
               // Use unified updateActiveSystem for consistent behavior
               await updateActiveSystem(neo4jClient, graphCanvas, config, newSystemId, {
                 persistGraph: true,
-                getAgentDB: getAgentDBService,
+                getAgentDB,
               });
               log(`💾 System persisted to Neo4j: ${newSystemId}`);
             }
@@ -1866,6 +1844,8 @@ async function processMessage(message: string): Promise<void> {
             isComplete: true,
           });
 
+          // CR-032: Use UnifiedAgentDBService via helper
+          const agentdb = await getAgentDB();
           await agentdb.storeEpisode(
             selectedAgent, // Use CR-027 routed agent
             message,
@@ -1886,9 +1866,9 @@ async function processMessage(message: string): Promise<void> {
     console.log(`\x1b[31mError:\x1b[0m ${errorMsg}`);
     log(`❌ Error: ${errorMsg}`);
 
-    // Store failed episode for learning
+    // Store failed episode for learning (CR-032: use UnifiedAgentDBService)
     try {
-      const agentdb = await getAgentDBService();
+      const agentdb = await getAgentDB();
       await agentdb.storeEpisode(
         'system-architect', // Default agent for errors
         message,
@@ -1963,9 +1943,9 @@ async function main(): Promise<void> {
 
   if (AGENTDB_ENABLED && llmEngine) {
     try {
-      log('🔧 Initializing AgentDB...');
-      await getAgentDBService();
-      log('✅ AgentDB initialized');
+      log('🔧 Initializing UnifiedAgentDBService (CR-032)...');
+      await getUnifiedAgentDBService(config.workspaceId, config.systemId);
+      log('✅ UnifiedAgentDBService initialized');
     } catch (error) {
       log(`⚠️ AgentDB initialization failed: ${error}`);
       console.log('\x1b[33m⚠️  AgentDB initialization failed (LLM will work without caching)\x1b[0m');
@@ -2012,7 +1992,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // NOW load graph from Neo4j and broadcast initial state
+  // NOW load graph from Neo4j into UnifiedAgentDBService (Single Source of Truth - CR-032)
+  // Canvas also gets a copy for view purposes
   if (neo4jClient) {
     try {
       const { nodes, edges } = await neo4jClient.loadGraph({
@@ -2021,11 +2002,21 @@ async function main(): Promise<void> {
       });
 
       if (nodes.length > 0) {
-        console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes from Neo4j\x1b[0m`);
-        log(`📥 Loaded ${nodes.length} nodes from Neo4j`);
+        console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges from Neo4j\x1b[0m`);
+        log(`📥 Loaded ${nodes.length} nodes, ${edges.length} edges from Neo4j`);
 
-        // Nodes: keyed by semanticId
-        // Edges: keyed by composite key (sourceId-type-targetId)
+        // CR-032: Load into UnifiedAgentDBService (Single Source of Truth)
+        // This is where /analyze, /validate, /optimize read from
+        const unifiedAgentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
+        for (const node of nodes) {
+          unifiedAgentDB.setNode(node);
+        }
+        for (const edge of edges) {
+          unifiedAgentDB.setEdge(edge);
+        }
+        log(`📦 Loaded ${nodes.length} nodes into UnifiedAgentDBService`);
+
+        // Also load into Canvas for view/broadcast purposes
         const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
         const edgesMap = new Map(edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]));
 
@@ -2038,8 +2029,10 @@ async function main(): Promise<void> {
         // Broadcast initial state to graph viewer (WebSocket now connected)
         notifyGraphUpdate();
       }
-    } catch {
-      console.log('\x1b[33m⚠️  Could not load from Neo4j (starting fresh)\x1b[0m');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log(`\x1b[33m⚠️  Could not load from Neo4j: ${errorMsg}\x1b[0m`);
+      log(`⚠️ Neo4j load error: ${errorMsg}`);
     }
   }
 

@@ -54,7 +54,12 @@
       "Bash(gh repo view:*)",
       "Bash(gh search:*)",
       "Bash(gh repo list:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(ls:*)",
+      "Bash(timeout 60 npx tsc:*)",
+      "Bash(gtimeout 60 npx tsc:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)"
     ],
     "deny": [],
     "ask": []

@@ -431,12 +431,58 @@ With unified data layer in place, CR-026 becomes straightforward:
 
 ## Current Status
 
-- [ ] Phase 1: AgentDB Graph Store
-- [ ] Phase 2: Canvas Stateless Refactor
-- [ ] Phase 3: Validation Integration
+- [x] Phase 1: AgentDB Graph Store
+- [x] Phase 2: Canvas Stateless Refactor
+- [x] Phase 3: Validation Integration (2025-12-06: Added full rule evaluation in UnifiedRuleEvaluator)
+- [x] Phase 3.5: Embedding Store Consolidation (2025-12-07)
 - [ ] Phase 4: Variant Pool
-- [ ] Phase 5: Neo4j Persistence Layer
+- [x] Phase 5: Neo4j Persistence Layer
 - [ ] Phase 6: CR-026 Integration
+
+### Phase 3.5 Completion (2025-12-07)
+
+**Issue found:** SimilarityScorer had its own embedding cache, separate from AgentDB.
+
+**Fixes applied:**
+1. Created `EmbeddingStore` in AgentDB as unified embedding cache
+2. Added embedding API to `UnifiedAgentDBService`:
+   - `getEmbedding()`, `getCachedEmbedding()`, `batchComputeEmbeddings()`
+   - `cosineSimilarity()`, `invalidateEmbedding()`, `clearEmbeddings()`
+   - `loadEmbeddings()`, `exportEmbeddings()` for Neo4j persistence
+3. Refactored `SimilarityScorer` to use AgentDB embeddings (no own cache)
+4. Removed Neo4j index code from SimilarityScorer (was unused)
+5. Auto-invalidation of embeddings on node update/delete via graph change events
+
+**Files changed:**
+- `src/llm-engine/agentdb/embedding-store.ts` (new)
+- `src/llm-engine/agentdb/unified-agentdb-service.ts` (embedding API added)
+- `src/llm-engine/validation/similarity-scorer.ts` (refactored)
+- `src/llm-engine/validation/unified-rule-evaluator.ts` (inject AgentDB into SimilarityScorer)
+
+### Phase 3 Completion (2025-12-06)
+
+**Issue found:** `/analyze` was reading from Neo4j via old `RuleEvaluator`, not AgentDB.
+
+**Fixes applied:**
+1. Deleted old `rule-evaluator.ts` (Neo4j-based)
+2. Updated `/analyze`, `/validate`, `/score`, `/phase-gate` to use `UnifiedRuleEvaluator`
+3. Added missing rule implementations to `UnifiedRuleEvaluator`:
+   - `function_requirements` - FUNC must satisfy REQ
+   - `requirements_verification` - REQ must be verified by TEST
+   - `function_allocation` - FUNC must be allocated to MOD
+   - `function_io` - FUNC must have io edges
+   - `flow_connectivity` - FLOW must have incoming and outgoing io edges
+4. Removed auto-save from canvas operations (AgentDB is source of truth, Neo4j on explicit /save)
+5. Added testdata evaluation test: `tests/integration/validation/testdata-evaluator.test.ts`
+
+**Test results with eval/testdata:**
+| File | Score | Violations |
+|------|-------|------------|
+| clean-system.txt | 90% | 1 |
+| combined-violations.txt | 0% | 38 |
+| missing-traceability.txt | 55% | 3 |
+| orphan-nodes.txt | 0% | 6 |
+| oversized-module.txt | 0% | 61 |
 
 ## Acceptance Criteria
 

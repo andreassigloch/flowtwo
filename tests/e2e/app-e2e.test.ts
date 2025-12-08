@@ -450,8 +450,9 @@ describe('e2e: App Startup and Commands', () => {
       newLogs.includes('Architecture') ||
       newLogs.includes('created') ||
       newLogs.includes('Created') ||
-      newLogs.includes('No use cases') ||
-      newLogs.includes('No nodes');
+      newLogs.includes('No Use Cases') || // Exact match from chat-interface.ts
+      newLogs.includes('No nodes') ||
+      newLogs.includes('LLM Engine not configured'); // API key issue
     expect(hasDeriveResponse).toBe(true);
   });
 

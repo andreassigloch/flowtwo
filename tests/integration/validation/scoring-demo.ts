@@ -9,7 +9,7 @@
 
 import { getRuleLoader } from '../../../src/llm-engine/validation/rule-loader.js';
 import { createSimilarityScorer, type NodeData } from '../../../src/llm-engine/validation/similarity-scorer.js';
-import { createRuleEvaluator } from '../../../src/llm-engine/validation/rule-evaluator.js';
+// Note: UnifiedRuleEvaluator requires AgentDB, so demo only shows static structure
 
 // ANSI colors for terminal output
 const RESET = '\x1b[0m';
@@ -202,26 +202,20 @@ async function main() {
   console.log(`  └─ Cached embeddings: ${cacheStats.size}`);
 
   // ============================================================
-  // 3. Rule Evaluator Demo (without Neo4j)
+  // 3. Rule Evaluator Demo (requires AgentDB)
   // ============================================================
   section('3. Rule Evaluator - Phase Gate Validation');
 
-  const evaluator = createRuleEvaluator();
-
-  // Simulate evaluation for each phase
-  console.log(`  ${BOLD}Phase Gate Evaluation (no Neo4j - shows structure):${RESET}\n`);
+  // UnifiedRuleEvaluator requires AgentDB, so we show the available phases
+  console.log(`  ${BOLD}Phase Gate Evaluation (requires AgentDB):${RESET}\n`);
+  console.log(`  ${DIM}To run actual validation, use the /validate command in the app.${RESET}\n`);
 
   for (const phase of ['phase1_requirements', 'phase2_logical', 'phase3_physical', 'phase4_verification'] as const) {
-    const result = await evaluator.evaluate(phase, 'demo-workspace', 'demo-system');
-
-    const statusIcon = result.phaseGateReady ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
-    const scoreColor = result.rewardScore >= 0.7 ? GREEN : result.rewardScore >= 0.5 ? YELLOW : RED;
-
-    console.log(`  ${statusIcon} ${BOLD}${phase}${RESET}`);
-    console.log(`    ├─ Reward Score: ${scoreColor}${result.rewardScore.toFixed(2)}${RESET}`);
-    console.log(`    ├─ Hard Rules Passed: ${result.hardRulesPassed ? 'Yes' : 'No'}`);
-    console.log(`    ├─ Violations: ${result.totalViolations} (${result.errorCount} errors, ${result.warningCount} warnings)`);
-    console.log(`    └─ Phase Gate Ready: ${result.phaseGateReady ? 'Yes' : 'No'}`);
+    const phaseDef = loader.getPhaseDefinition(phase);
+    console.log(`  ${BOLD}${phase}${RESET}`);
+    console.log(`    ├─ Name: ${phaseDef?.name || 'N/A'}`);
+    console.log(`    ├─ Description: ${phaseDef?.description || 'N/A'}`);
+    console.log(`    └─ Gate threshold: ${phaseDef?.minRewardForGate || 'N/A'}`);
     console.log();
   }
 

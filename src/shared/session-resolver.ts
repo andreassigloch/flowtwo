@@ -187,10 +187,11 @@ export interface SystemIdUpdatable {
 }
 
 /**
- * Interface for AgentDB service
+ * Interface for AgentDB service (compatible with both old and new services)
+ * CR-032: UnifiedAgentDBService doesn't need invalidateGraphSnapshot (uses version-aware caching)
  */
 interface AgentDBService {
-  invalidateGraphSnapshot(systemId: string): Promise<void>;
+  invalidateGraphSnapshot?(systemId: string): Promise<void>;
 }
 
 /**
@@ -214,7 +215,8 @@ export async function updateActiveSystem(
   newSystemId: string,
   options: {
     persistGraph?: boolean;
-    getAgentDB?: () => Promise<AgentDBService>;
+    // CR-032: Accept any AgentDB-like service (old or new)
+    getAgentDB?: () => Promise<AgentDBService | unknown>;
   } = {}
 ): Promise<void> {
   const oldSystemId = config.systemId;
@@ -242,10 +244,19 @@ export async function updateActiveSystem(
     await session.close();
   }
 
-  // 5. Invalidate AgentDB cache (if getAgentDB provided)
+  // 5. Cache invalidation
+  // Note: With CR-032 UnifiedAgentDBService, cache invalidation is automatic via graph version tracking.
+  // Old AgentDB snapshot invalidation is no longer needed - the version-aware cache handles this.
+  // If getAgentDB is provided (legacy), call invalidateGraphSnapshot for backward compatibility.
   if (options.getAgentDB) {
-    const agentdb = await options.getAgentDB();
-    await agentdb.invalidateGraphSnapshot(oldSystemId);
-    await agentdb.invalidateGraphSnapshot(newSystemId);
+    try {
+      const agentdb = await options.getAgentDB() as AgentDBService;
+      if (agentdb.invalidateGraphSnapshot) {
+        await agentdb.invalidateGraphSnapshot(oldSystemId);
+        await agentdb.invalidateGraphSnapshot(newSystemId);
+      }
+    } catch {
+      // Ignore - using new UnifiedAgentDBService which doesn't need this
+    }
   }
 }
