@@ -1,10 +1,11 @@
 # CR-032: Unified Data Layer Architecture
 
 **Type:** Architecture / Refactoring
-**Status:** Planned
+**Status:** Completed
 **Priority:** CRITICAL
 **Target Phase:** Foundation for all future CRs
 **Created:** 2025-12-05
+**Completed:** 2025-12-08
 **Author:** andreas@siglochconsulting
 
 **Supersedes:** CR-021 (Graph in AgentDB - Phase 1 complete, Phase 2-3 replaced by this CR)
@@ -515,36 +516,36 @@ With unified data layer in place, CR-026 becomes straightforward:
 ## Acceptance Criteria
 
 ### Data Consistency
-- [ ] All components read from AgentDB (no Neo4j bypass)
-- [ ] Validation sees same data as LLM
-- [ ] Response cache includes graph version
-- [ ] Graph changes invalidate dependent caches
+- [x] All components read from AgentDB (no Neo4j bypass)
+- [x] Validation sees same data as LLM
+- [x] Response cache includes graph version
+- [x] Graph changes invalidate dependent caches
 
 ### Data Integrity (Deduplication)
-- [ ] `setNode()` rejects duplicate semanticId with different uuid
-- [ ] `setEdge()` rejects duplicate (source, target, type) with different uuid
-- [ ] Import operations use `{ upsert: true }` for intentional overwrites
-- [ ] No duplicate nodes/edges can enter the system
+- [x] `setNode()` rejects duplicate semanticId with different uuid
+- [x] `setEdge()` rejects duplicate (source, target, type) with different uuid
+- [x] Import operations use `{ upsert: true }` for intentional overwrites
+- [x] No duplicate nodes/edges can enter the system
 
 ### Canvas Stateless
-- [ ] Canvas has no private node/edge Maps
-- [ ] Canvas delegates all writes to AgentDB
-- [ ] Views still work correctly
+- [x] Canvas has no private node/edge Maps (StatelessGraphCanvas)
+- [x] Canvas delegates all writes to AgentDB
+- [x] Views still work correctly
 
 ### Variant Support
-- [ ] Can create isolated variants
-- [ ] Optimizer can compare variants
-- [ ] Variants don't affect main graph
+- [ ] Can create isolated variants (deferred - not needed)
+- [ ] Optimizer can compare variants (deferred - not needed)
+- [ ] Variants don't affect main graph (deferred - not needed)
 
 ### Persistence
-- [ ] Session loads from Neo4j on start
-- [ ] Session persists to Neo4j on shutdown
-- [ ] No data loss on graceful shutdown
+- [x] Session loads from Neo4j on start
+- [x] Session persists to Neo4j on shutdown
+- [x] No data loss on graceful shutdown
 
 ### Self-Learning (CR-026)
-- [ ] Skill Library stores successful patterns
-- [ ] Reflexion Memory has automatic reward
-- [ ] Agents learn from past episodes
+- [x] Skill Library stores successful patterns
+- [x] Reflexion Memory has automatic reward
+- [x] Agents learn from past episodes
 
 ## Dependencies
 
