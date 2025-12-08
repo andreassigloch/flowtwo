@@ -220,6 +220,9 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
             ctx.wsClient.updateSubscription(ctx.config.systemId);
           }
 
+          // CR-033: Capture baseline for change tracking (loaded state = committed state)
+          ctx.agentDB.captureBaseline();
+
           ctx.notifyGraphUpdate();
 
           console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges\x1b[0m`);
@@ -304,6 +307,9 @@ export async function handleImportCommand(args: string[], ctx: CommandContext): 
     await ctx.neo4jClient.saveNodes(nodes);
     await ctx.neo4jClient.saveEdges(edges);
     ctx.log(`💾 Imported system persisted to Neo4j: ${ctx.config.systemId}`);
+
+    // CR-033: Capture baseline for change tracking (imported state = committed state)
+    ctx.agentDB.captureBaseline();
 
     ctx.notifyGraphUpdate();
     console.log(`\x1b[32m✅ Imported: ${importedState.nodes.size} nodes, ${importedState.edges.size} edges\x1b[0m`);

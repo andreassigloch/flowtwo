@@ -518,6 +518,9 @@ async function main(): Promise<void> {
         }
         log(`📦 Loaded ${nodes.length} nodes into AgentDB`);
 
+        // CR-033: Capture baseline for change tracking (loaded state = committed state)
+        agentDB.captureBaseline();
+
         notifyGraphUpdate();
       }
     } catch (error) {
