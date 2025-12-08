@@ -13,7 +13,7 @@
 import 'dotenv/config';
 import * as readline from 'readline';
 import * as fs from 'fs';
-import { GraphCanvas } from '../canvas/graph-canvas.js';
+import { StatelessGraphCanvas } from '../canvas/stateless-graph-canvas.js';
 import { ChatCanvas } from '../canvas/chat-canvas.js';
 import { LLMEngine } from '../llm-engine/llm-engine.js';
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
@@ -21,9 +21,9 @@ import { FormatEParser } from '../shared/parsers/format-e-parser.js';
 import { CanvasWebSocketClient } from '../canvas/websocket-client.js';
 import type { BroadcastUpdate } from '../canvas/websocket-server.js';
 import { SessionManager } from '../session.js';
-import { WS_URL, LOG_PATH, LLM_TEMPERATURE, AGENTDB_ENABLED } from '../shared/config.js';
+import { WS_URL, LOG_PATH, LLM_TEMPERATURE } from '../shared/config.js';
 import { DEFAULT_VIEW_CONFIGS } from '../shared/types/view.js';
-import { getUnifiedAgentDBService } from '../llm-engine/agentdb/unified-agentdb-service.js';
+import { getUnifiedAgentDBService, UnifiedAgentDBService } from '../llm-engine/agentdb/unified-agentdb-service.js';
 import {
   ArchitectureDerivationAgent,
   ArchitectureDerivationRequest,
@@ -57,8 +57,9 @@ let llmEngine: LLMEngine | undefined;
 let neo4jClient: Neo4jClient;
 let sessionManager: SessionManager;
 let wsClient: CanvasWebSocketClient;
-let graphCanvas: GraphCanvas;
+let graphCanvas: StatelessGraphCanvas;
 let chatCanvas: ChatCanvas;
+let agentDB: UnifiedAgentDBService;
 const parser = new FormatEParser();
 
 /**
@@ -73,10 +74,10 @@ function log(message: string): void {
 /**
  * Notify graph viewer of update via WebSocket
  * Uses same JSON format as file-based polling
+ *
+ * CR-032: Reads from AgentDB (Single Source of Truth)
  */
 function notifyGraphUpdate(): void {
-  const state = graphCanvas.getState();
-
   if (!wsClient || !wsClient.isConnected()) {
     const error = 'WebSocket not connected - cannot notify graph viewer';
     log(`❌ ${error}`);
@@ -84,12 +85,16 @@ function notifyGraphUpdate(): void {
     return;
   }
 
+  // CR-032: Read from AgentDB (Single Source of Truth)
+  const nodes = agentDB.getNodes();
+  const edges = agentDB.getEdges();
+
   // Serialize graph state as JSON (same format as file-based polling)
   const stateData = {
-    nodes: Array.from(state.nodes.entries()),
-    edges: Array.from(state.edges.entries()),
-    ports: Array.from(state.ports.entries()),
-    currentView: state.currentView,
+    nodes: nodes.map((n) => [n.semanticId, n]),
+    edges: edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]),
+    ports: [],
+    currentView: graphCanvas.getCurrentView(),
     timestamp: Date.now(),
   };
 
@@ -206,24 +211,14 @@ async function handleLoadCommand(mainRl: readline.Interface): Promise<void> {
           return;
         }
 
-        // Load into graph canvas
-        // Nodes: keyed by semanticId
-        // Edges: keyed by composite key (sourceId-type-targetId) - matches canvas convention
-        const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
-        const edgesMap = new Map(edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]));
+        // CR-032: Load into AgentDB (Single Source of Truth)
+        // clearForSystemLoad() preserves episodes/variants but clears graph/embeddings/cache
+        const agentDB = await getAgentDB();
+        agentDB.clearForSystemLoad();
+        agentDB.loadFromState({ nodes, edges });
 
-        await graphCanvas.loadGraph({
-          nodes: nodesMap,
-          edges: edgesMap,
-          ports: new Map(),
-        });
-
-        // Use unified updateActiveSystem for consistent behavior
-        // Note: persistGraph=false because data comes from Neo4j, no need to write back
-        await updateActiveSystem(neo4jClient!, graphCanvas, config, selectedSystem.systemId, {
-          persistGraph: false,
-          getAgentDB,
-        });
+        // CR-032: Update AppSession in Neo4j
+        await updateActiveSystem(neo4jClient!, config, selectedSystem.systemId);
         log(`💾 Session updated: ${config.systemId}`);
 
         console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges\x1b[0m`);
@@ -1454,17 +1449,11 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       console.log('🗑️  Starting new system...');
       log('🗑️  Starting new system');
 
-      // Clear graph state
-      await graphCanvas.loadGraph({
-        nodes: new Map(),
-        edges: new Map(),
-        ports: new Map(),
-      });
+      // CR-032: Clear AgentDB (Single Source of Truth)
+      agentDB.clearForSystemLoad();
 
-      // Use unified updateActiveSystem for consistent behavior
-      await updateActiveSystem(neo4jClient, graphCanvas, config, 'new-system', {
-        getAgentDB,
-      });
+      // Update AppSession in Neo4j
+      await updateActiveSystem(neo4jClient, config, 'new-system');
       log('💾 Session updated: new-system');
 
       // Notify graph viewer
@@ -1566,21 +1555,19 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       try {
         const importedState = await importSystem(importFilename);
 
-        await graphCanvas.loadGraph({
-          nodes: importedState.nodes,
-          edges: importedState.edges,
-          ports: importedState.ports,
-        });
+        // CR-032: Load into AgentDB (Single Source of Truth)
+        agentDB.clearForSystemLoad();
+        const nodes = Array.from(importedState.nodes.values());
+        const edges = Array.from(importedState.edges.values());
+        agentDB.loadFromState({ nodes, edges });
 
-        // Mark all imported items as dirty for Neo4j persistence
-        graphCanvas.markAllDirty();
-
-        // Use unified updateActiveSystem for consistent behavior
+        // Update session and persist to Neo4j
         const newSystemId = importedState.systemId || config.systemId;
-        await updateActiveSystem(neo4jClient, graphCanvas, config, newSystemId, {
-          persistGraph: true,
-          getAgentDB,
-        });
+        await updateActiveSystem(neo4jClient, config, newSystemId);
+
+        // Persist imported data to Neo4j
+        await neo4jClient.saveNodes(nodes);
+        await neo4jClient.saveEdges(edges);
         log(`💾 Imported system persisted to Neo4j: ${config.systemId}`);
 
         notifyGraphUpdate();
@@ -1800,26 +1787,24 @@ async function processMessage(message: string): Promise<void> {
             console.log('\x1b[90m   Check LOG for details. Expected format: + Name|TYPE|ID|Description\x1b[0m');
           }
 
+          // CR-032: Apply diff to StatelessGraphCanvas (delegates to AgentDB)
           await graphCanvas.applyDiff(diff);
 
-          const state = graphCanvas.getState();
-          log(`📊 Graph updated (${state.nodes.size} nodes, ${state.edges.size} edges)`);
-
-          // CR-032: Cache invalidation is automatic via graph version tracking
+          const stats = agentDB.getGraphStats();
+          log(`📊 Graph updated (${stats.nodeCount} nodes, ${stats.edgeCount} edges)`);
 
           // Auto-detect system ID from first SYS node (only if placeholder)
           if (config.systemId === 'new-system') {
-            const sysNodes = Array.from(state.nodes.values()).filter(n => n.type === 'SYS');
+            const sysNodes = agentDB.getNodes({ type: 'SYS' });
             if (sysNodes.length > 0) {
               const newSystemId = sysNodes[0].semanticId;
               console.log(`\x1b[90m✓ Detected new system: ${newSystemId}\x1b[0m`);
               log(`📌 System ID detected: ${newSystemId}`);
 
-              // Use unified updateActiveSystem for consistent behavior
-              await updateActiveSystem(neo4jClient, graphCanvas, config, newSystemId, {
-                persistGraph: true,
-                getAgentDB,
-              });
+              // Update session and persist to Neo4j
+              await updateActiveSystem(neo4jClient, config, newSystemId);
+              await neo4jClient.saveNodes(agentDB.getNodes());
+              await neo4jClient.saveEdges(agentDB.getEdges());
               log(`💾 System persisted to Neo4j: ${newSystemId}`);
             }
           }
@@ -1828,7 +1813,7 @@ async function processMessage(message: string): Promise<void> {
           notifyGraphUpdate();
 
           // Show brief status
-          console.log(`\x1b[90m✓ Graph updated: ${state.nodes.size} nodes, ${state.edges.size} edges (see GRAPH terminal)\x1b[0m`);
+          console.log(`\x1b[90m✓ Graph updated: ${stats.nodeCount} nodes, ${stats.edgeCount} edges (see GRAPH terminal)\x1b[0m`);
           console.log('');
         }
 
@@ -1908,15 +1893,22 @@ async function main(): Promise<void> {
   log(`📋 Session: ${resolved.systemId} (source: ${resolved.source})`);
 
   // ============================================
-  // STEP 2: Initialize Canvases (after session)
+  // STEP 2: Initialize AgentDB (CR-032: Single Source of Truth)
   // ============================================
-  graphCanvas = new GraphCanvas(
+  log('🔧 Initializing UnifiedAgentDBService (CR-032)...');
+  agentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
+  log('✅ UnifiedAgentDBService initialized');
+
+  // ============================================
+  // STEP 3: Initialize Canvases (delegate to AgentDB)
+  // ============================================
+  graphCanvas = new StatelessGraphCanvas(
+    agentDB,
     config.workspaceId,
     config.systemId,
     config.chatId,
     config.userId,
-    'hierarchy',
-    neo4jClient
+    'hierarchy'
   );
 
   chatCanvas = new ChatCanvas(
@@ -1929,7 +1921,7 @@ async function main(): Promise<void> {
   );
 
   // ============================================
-  // STEP 3: Optional Components (LLM, AgentDB)
+  // STEP 4: Optional LLM Engine
   // ============================================
   if (process.env.ANTHROPIC_API_KEY) {
     llmEngine = new LLMEngine({
@@ -1939,17 +1931,6 @@ async function main(): Promise<void> {
       temperature: LLM_TEMPERATURE,
       enableCache: true,
     });
-  }
-
-  if (AGENTDB_ENABLED && llmEngine) {
-    try {
-      log('🔧 Initializing UnifiedAgentDBService (CR-032)...');
-      await getUnifiedAgentDBService(config.workspaceId, config.systemId);
-      log('✅ UnifiedAgentDBService initialized');
-    } catch (error) {
-      log(`⚠️ AgentDB initialization failed: ${error}`);
-      console.log('\x1b[33m⚠️  AgentDB initialization failed (LLM will work without caching)\x1b[0m');
-    }
   }
 
   // ============================================
@@ -1992,8 +1973,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // NOW load graph from Neo4j into UnifiedAgentDBService (Single Source of Truth - CR-032)
-  // Canvas also gets a copy for view purposes
+  // CR-032: Load graph from Neo4j into AgentDB (Single Source of Truth)
+  // StatelessGraphCanvas reads from AgentDB - no separate loading needed
   if (neo4jClient) {
     try {
       const { nodes, edges } = await neo4jClient.loadGraph({
@@ -2005,26 +1986,15 @@ async function main(): Promise<void> {
         console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges from Neo4j\x1b[0m`);
         log(`📥 Loaded ${nodes.length} nodes, ${edges.length} edges from Neo4j`);
 
-        // CR-032: Load into UnifiedAgentDBService (Single Source of Truth)
-        // This is where /analyze, /validate, /optimize read from
-        const unifiedAgentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
+        // CR-032: Load into AgentDB (Single Source of Truth)
+        // StatelessGraphCanvas reads from here automatically
         for (const node of nodes) {
-          unifiedAgentDB.setNode(node);
+          agentDB.setNode(node, { upsert: true });
         }
         for (const edge of edges) {
-          unifiedAgentDB.setEdge(edge);
+          agentDB.setEdge(edge, { upsert: true });
         }
-        log(`📦 Loaded ${nodes.length} nodes into UnifiedAgentDBService`);
-
-        // Also load into Canvas for view/broadcast purposes
-        const nodesMap = new Map(nodes.map((n) => [n.semanticId, n]));
-        const edgesMap = new Map(edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]));
-
-        await graphCanvas.loadGraph({
-          nodes: nodesMap,
-          edges: edgesMap,
-          ports: new Map(),
-        });
+        log(`📦 Loaded ${nodes.length} nodes into AgentDB`);
 
         // Broadcast initial state to graph viewer (WebSocket now connected)
         notifyGraphUpdate();

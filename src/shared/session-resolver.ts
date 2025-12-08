@@ -179,60 +179,28 @@ export interface SessionConfig {
 }
 
 /**
- * Interface for objects with updateSystemId method (GraphCanvas)
- */
-export interface SystemIdUpdatable {
-  updateSystemId(newSystemId: string): void;
-  persistToNeo4j(force?: boolean): Promise<{ success: boolean; savedCount?: number }>;
-}
-
-/**
- * Interface for AgentDB service (compatible with both old and new services)
- * CR-032: UnifiedAgentDBService doesn't need invalidateGraphSnapshot (uses version-aware caching)
- */
-interface AgentDBService {
-  invalidateGraphSnapshot?(systemId: string): Promise<void>;
-}
-
-/**
  * Update active system ID consistently across all components
+ *
+ * CR-032 Refactored: No longer requires canvas parameter.
+ * AgentDB is the Single Source of Truth for graph data.
  *
  * Called by: /new, /load, /import, auto-detect SYS
  *
  * @param neo4jClient - Neo4j client for AppSession updates
- * @param canvas - GraphCanvas or any object with updateSystemId() and persistToNeo4j()
  * @param config - Config object with userId, workspaceId, systemId (will be mutated!)
  * @param newSystemId - The new system ID to set
- * @param options.persistGraph - If true, persist graph to Neo4j (for /import and auto-detect)
- * @param options.getAgentDB - Function to get AgentDB service for cache invalidation
  *
  * @author andreas@siglochconsulting
  */
 export async function updateActiveSystem(
   neo4jClient: Neo4jClient,
-  canvas: SystemIdUpdatable,
   config: SessionConfig,
-  newSystemId: string,
-  options: {
-    persistGraph?: boolean;
-    // CR-032: Accept any AgentDB-like service (old or new)
-    getAgentDB?: () => Promise<AgentDBService | unknown>;
-  } = {}
+  newSystemId: string
 ): Promise<void> {
-  const oldSystemId = config.systemId;
-
   // 1. Update config (mutation)
   config.systemId = newSystemId;
 
-  // 2. Update canvas state (marks all nodes dirty for new systemId)
-  canvas.updateSystemId(newSystemId);
-
-  // 3. Persist to Neo4j if needed (for /import and auto-detect, NOT for /load)
-  if (options.persistGraph) {
-    await canvas.persistToNeo4j(true);
-  }
-
-  // 4. Update AppSession in Neo4j
+  // 2. Update AppSession in Neo4j
   const session = neo4jClient['getSession']();
   try {
     await session.run(
@@ -244,19 +212,6 @@ export async function updateActiveSystem(
     await session.close();
   }
 
-  // 5. Cache invalidation
   // Note: With CR-032 UnifiedAgentDBService, cache invalidation is automatic via graph version tracking.
-  // Old AgentDB snapshot invalidation is no longer needed - the version-aware cache handles this.
-  // If getAgentDB is provided (legacy), call invalidateGraphSnapshot for backward compatibility.
-  if (options.getAgentDB) {
-    try {
-      const agentdb = await options.getAgentDB() as AgentDBService;
-      if (agentdb.invalidateGraphSnapshot) {
-        await agentdb.invalidateGraphSnapshot(oldSystemId);
-        await agentdb.invalidateGraphSnapshot(newSystemId);
-      }
-    } catch {
-      // Ignore - using new UnifiedAgentDBService which doesn't need this
-    }
-  }
+  // No explicit cache invalidation needed - AgentDB handles this internally.
 }

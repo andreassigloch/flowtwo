@@ -192,6 +192,31 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
   }
 
   /**
+   * Clear data for system load (CR-032)
+   *
+   * Clears graph-related data but preserves:
+   * - variantPool (user-created optimization variants)
+   * - backend/episodes (learning history for Reflexion)
+   *
+   * Use this before loading a new system to prevent duplicates.
+   */
+  clearForSystemLoad(): void {
+    this.ensureInitialized();
+
+    // Clear graph data (nodes, edges)
+    this.graphStore!.clear();
+
+    // Clear embeddings (tied to nodes)
+    this.embeddingStore!.clear();
+
+    // Clear response cache (graph version changed)
+    this.versionedCache.clear();
+    this.cachedVersions.clear();
+
+    AgentDBLogger.info('Cleared graph data for system load (preserved episodes and variants)');
+  }
+
+  /**
    * Get graph statistics
    */
   getGraphStats(): { nodeCount: number; edgeCount: number; version: number } {

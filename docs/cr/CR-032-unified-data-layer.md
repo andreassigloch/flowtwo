@@ -432,12 +432,40 @@ With unified data layer in place, CR-026 becomes straightforward:
 ## Current Status
 
 - [x] Phase 1: AgentDB Graph Store
-- [x] Phase 2: Canvas Stateless Refactor
+- [x] Phase 2: Canvas Stateless Refactor (**COMPLETE** 2025-12-08)
 - [x] Phase 3: Validation Integration (2025-12-06: Added full rule evaluation in UnifiedRuleEvaluator)
 - [x] Phase 3.5: Embedding Store Consolidation (2025-12-07)
 - [ ] Phase 4: Variant Pool
 - [x] Phase 5: Neo4j Persistence Layer
 - [ ] Phase 6: CR-026 Integration
+
+### Phase 2 Completion (2025-12-08)
+
+**Completed the migration to StatelessGraphCanvas as Single Source of Truth:**
+
+**Files deleted (old stateful pattern):**
+- `src/canvas/graph-canvas.ts` - old stateful GraphCanvas with own Maps
+- `src/canvas/canvas-base.ts` - old abstract base class with dirty tracking
+- `tests/unit/canvas/canvas-base.test.ts` - tests for deleted class
+- `tests/unit/canvas/graph-canvas.test.ts` - tests for deleted class
+- `tests/e2e/system-generation.test.ts` - used old GraphCanvas
+- `tests/integration/neo4j/canvas-persistence.test.ts` - used old GraphCanvas
+
+**Files updated:**
+- `src/canvas/index.ts` - exports StatelessGraphCanvas only
+- `src/canvas/chat-canvas.ts` - now uses StatelessGraphCanvas, returns PersistResult type
+- `src/session.ts` - uses StatelessGraphCanvas type
+- `src/shared/session-resolver.ts` - updateActiveSystem() no longer needs canvas parameter
+- `src/terminal-ui/chat-interface.ts` - uses StatelessGraphCanvas with AgentDB
+- `src/terminal-ui/graph-viewer.ts` - uses StatelessGraphCanvas with AgentDB
+- `tests/unit/canvas/chat-canvas.test.ts` - uses mocked AgentDB + StatelessGraphCanvas
+
+**Key changes:**
+1. **AgentDB is now the Single Source of Truth** for all graph data
+2. **StatelessGraphCanvas** is the only canvas - delegates all CRUD to AgentDB
+3. **No more dual data paths** - removed old stateful GraphCanvas entirely
+4. **updateActiveSystem()** simplified - only updates Neo4j AppSession, no canvas param
+5. All graph loads go to AgentDB first, views read from AgentDB via StatelessGraphCanvas
 
 ### Phase 3.5 Completion (2025-12-07)
 

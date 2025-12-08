@@ -1,5 +1,40 @@
 # GraphEngine Project Maintenance Rules
 
+## Architecture Context ⭐ READ FIRST
+
+**Every prompt MUST understand the system architecture before making changes.**
+
+### Core Architecture (docs/architecture.md)
+- **4-Terminal UI**: WebSocket server (port 3001), Stdout logs, Graph viewer, Chat interface
+- **AgentDB-Centric (CR-032)**: UnifiedAgentDBService is the single source of truth during sessions
+- **Format E Protocol**: Universal diff format for ALL changes (graph, chat, user edits, LLM ops)
+- **Multi-Agent System**: Config-driven agents via `settings/agent-config.json`
+
+### Data Layer (CR-032 - Unified Data Layer)
+| Component | Reads From | Writes To |
+|-----------|------------|-----------|
+| Canvas | AgentDB | AgentDB |
+| LLM Engine | AgentDB | via Canvas |
+| Validation | AgentDB | - |
+| Neo4j | - | Cold storage only |
+
+**Key Rules:**
+1. All components read/write through AgentDB (not Neo4j directly)
+2. Response cache keyed by query + graph version
+3. No duplicate semanticIds or edges allowed (DuplicateSemanticIdError)
+4. Neo4j = cold storage: load on session start, persist on explicit /save
+
+### Migration Status
+- ✅ UnifiedAgentDBService (source of truth)
+- ✅ Validation reads from AgentDB
+- ⏳ Canvas migration: `StatelessGraphCanvas` exists but `chat-interface.ts` still uses stateful `GraphCanvas`
+
+**Reference documents:**
+- [docs/architecture.md](docs/architecture.md) - System architecture
+- [docs/cr/CR-032-unified-data-layer.md](docs/cr/CR-032-unified-data-layer.md) - Data layer details
+
+---
+
 ## Project Structure
 
 ### Root Directory Rules
@@ -185,11 +220,14 @@ All environment-based configuration goes in `src/shared/config.ts`.
 
 ## Development Workflow Integration
 
-### Before Committing
+### Before Committing ⭐ MANDATORY
 1. Run quality checks: `npx tsx scripts/quality-check.ts`
-2. Verify tests pass: `npm test`
-3. Update documentation if interfaces changed
-4. Update CR status if task completed
+2. **Run E2E tests:** `npm run test:e2e` - MUST pass before commit
+3. Verify unit tests pass: `npm test`
+4. Update documentation if interfaces changed
+5. Update CR status if task completed
+
+**E2E tests are NOT optional** - they validate the Terminal UI integration which is the primary user interface.
 
 ### Before Proposing Completion
 Per global CLAUDE.md rules:

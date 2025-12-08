@@ -12,7 +12,7 @@
 
 import 'dotenv/config';
 import * as fs from 'fs';
-import { GraphCanvas } from '../canvas/graph-canvas.js';
+import { StatelessGraphCanvas } from '../canvas/stateless-graph-canvas.js';
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
 import { GraphEngine } from '../graph-engine/graph-engine.js';
 import { CanvasWebSocketClient } from '../canvas/websocket-client.js';
@@ -25,6 +25,7 @@ import {
   renderMermaidAsImage,
 } from './terminal-graphics.js';
 import { initNeo4jClient, resolveSession } from '../shared/session-resolver.js';
+import { getUnifiedAgentDBService, UnifiedAgentDBService } from '../llm-engine/agentdb/unified-agentdb-service.js';
 // ASCII grid imports removed - architecture view now uses Mermaid
 
 // Configuration - will be set by resolveSession() in main()
@@ -39,8 +40,17 @@ const config = {
 let neo4jClient: Neo4jClient;
 let currentView: ViewType = 'hierarchy';
 let wsClient: CanvasWebSocketClient;
-let graphCanvas: GraphCanvas;
+let graphCanvas: StatelessGraphCanvas;
+let agentDB: UnifiedAgentDBService;
 let lastProcessedTimestamp: string | null = null; // Deduplication: track last processed update
+
+// AgentDB getter (initialized in main)
+async function getAgentDB(): Promise<UnifiedAgentDBService> {
+  if (!agentDB) {
+    agentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
+  }
+  return agentDB;
+}
 
 // GraphEngine instance (used for layout computation)
 void new GraphEngine(); // Suppress unused warning - kept for future use
@@ -1353,21 +1363,11 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
     // Parse JSON state (same format as file-based polling)
     const stateData = JSON.parse(update.diff || '{}');
 
-    // Load new state with proper type assertions
-    const nodesMap = new Map<string, any>(stateData.nodes || []);
-    const edgesMap = new Map<string, any>(stateData.edges || []);
-    const portsMap = new Map<string, any[]>(stateData.ports || []);
-
-    await graphCanvas.loadGraph({
-      workspaceId: config.workspaceId,
-      systemId: config.systemId,
-      nodes: nodesMap as any,
-      edges: edgesMap as any,
-      ports: portsMap as any,
-      version: 1,
-      lastSavedVersion: 1,
-      lastModified: new Date(),
-    });
+    // CR-032: Load into AgentDB (Single Source of Truth)
+    const db = await getAgentDB();
+    const nodes = (stateData.nodes || []).map(([_, n]: [string, any]) => n);
+    const edges = (stateData.edges || []).map(([_, e]: [string, any]) => e);
+    db.loadFromState({ nodes, edges });
 
     // Update current view if changed
     if (stateData.currentView) {
@@ -1376,7 +1376,7 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
 
     // Re-render
     await render();
-    log(`✅ Rendered ${nodesMap.size} nodes, ${edgesMap.size} edges`);
+    log(`✅ Rendered ${nodes.length} nodes, ${edges.length} edges`);
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1415,22 +1415,27 @@ async function main(): Promise<void> {
   log(`📋 Session: ${resolved.systemId} (source: ${resolved.source})`);
 
   // ============================================
-  // STEP 2: Initialize Canvas (after session)
+  // STEP 2: Initialize AgentDB (CR-032: Single Source of Truth)
   // ============================================
-  graphCanvas = new GraphCanvas(
+  agentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
+
+  // ============================================
+  // STEP 3: Initialize Canvas (delegates to AgentDB)
+  // ============================================
+  graphCanvas = new StatelessGraphCanvas(
+    agentDB,
     config.workspaceId,
     config.systemId,
     config.chatId,
     config.userId,
-    currentView,
-    neo4jClient
+    currentView
   );
 
   console.log('\x1b[90mGraph updates will appear below (scroll to see history)\x1b[0m');
   console.log('');
 
   // ============================================
-  // STEP 3: WebSocket Connection
+  // STEP 4: WebSocket Connection
   // ============================================
   wsClient = new CanvasWebSocketClient(
     process.env.WS_URL || WS_URL,

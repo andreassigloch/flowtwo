@@ -12,11 +12,14 @@
 - ✅ LLM Engine (Anthropic integration with caching + streaming)
 - ✅ Neo4j Client (persistence layer)
 - ✅ WebSocket Server (real-time terminal synchronization)
+- ✅ UnifiedAgentDBService (CR-032 - single source of truth)
 - ⏳ Graph Engine (layout algorithms - in progress)
+- ⏳ StatelessGraphCanvas migration (CR-032 Phase 2 - exists but not integrated)
 
 **Open Issues**:
 - 🔧 **Terminal sync format**: Currently uses JSON serialized state, should use Format E for consistency (see section 4.2.3)
 - 🔧 **ASCII graph viewer**: Functional-flow view not implemented (requires graphical rendering)
+- 🔧 **Canvas migration**: chat-interface.ts uses stateful GraphCanvas, should use StatelessGraphCanvas (see CR-032)
 
 ---
 
@@ -24,18 +27,42 @@
 
 ### 1.1 System Philosophy
 
-**Canvas-Centric Architecture**: The Canvas component is the central state manager and source of truth during active sessions. All other components orbit around Canvas:
+**AgentDB-Centric Architecture (CR-032)**: The UnifiedAgentDBService is the single source of truth during active sessions. All components read/write through AgentDB:
 
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 UnifiedAgentDBService (CR-032)                  │
+│                   Single Source of Truth                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │ Graph Store  │  │ Embedding    │  │ Response     │          │
+│  │ (nodes/edges)│  │ Store        │  │ Cache        │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+              ↑                ↑                ↑
+              │                │                │
+    ┌─────────┴──┐    ┌───────┴───────┐   ┌────┴────┐
+    │ Canvas     │    │ Validation    │   │ LLM     │
+    │ (stateless)│    │ (SimilarityScorer)│ │ Engine  │
+    └────────────┘    └───────────────┘   └─────────┘
+```
+
+**Component responsibilities:**
 - **Terminal UI** renders Canvas state (BOTH graph AND chat)
-- **LLM Engine** reads from and writes to Canvas
-- **Neo4j** serves as long-term persistence (not real-time state)
-- **Graph Engine** computes layouts from Canvas state
+- **Canvas** delegates to AgentDB (target: stateless, currently stateful)
+- **LLM Engine** reads from AgentDB, writes via Canvas
+- **Validation** reads from AgentDB (same data as LLM sees)
+- **Neo4j** serves as cold storage (load on session start, persist on explicit /save)
 
 **Key Insight**: "Canvas" is a generic concept - there are TWO canvas types:
 1. **Graph Canvas** - Manages graph state (nodes, edges, positions)
 2. **Chat Canvas** - Manages conversation state (messages, LLM responses)
 
 Both use the same Canvas State Manager pattern with Format E Diff as the universal change protocol.
+
+**Migration Status (CR-032):**
+- ✅ UnifiedAgentDBService implemented as source of truth
+- ✅ Validation reads from AgentDB
+- ⏳ Canvas migration: StatelessGraphCanvas exists but chat-interface.ts still uses stateful GraphCanvas
 
 ### 1.2 Design Principles
 

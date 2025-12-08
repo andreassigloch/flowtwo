@@ -2,16 +2,19 @@
  * Chat Canvas - State Manager for Conversation
  *
  * Manages chat state (messages, LLM responses) and forwards graph operations
- * to Graph Canvas
+ * to StatelessGraphCanvas (via AgentDB)
+ *
+ * CR-032: Refactored to use StatelessGraphCanvas
  *
  * @author andreas@siglochconsulting
- * @version 2.0.0
+ * @version 3.0.0
  */
 
-import { CanvasBase } from './canvas-base.js';
-import { GraphCanvas } from './graph-canvas.js';
-import { Message, Operation, ChatCanvasState } from '../shared/types/canvas.js';
+import { EventEmitter } from 'events';
+import { StatelessGraphCanvas } from './stateless-graph-canvas.js';
+import { Message, Operation, ChatCanvasState, FormatEDiff, PersistResult } from '../shared/types/canvas.js';
 import { FormatEParser } from '../shared/parsers/format-e-parser.js';
+import { IFormatEParser } from '../shared/types/format-e.js';
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
 
 /**
@@ -21,28 +24,37 @@ import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
  * - Message collection (user, assistant, system)
  * - LLM response streaming
  * - Extraction of graph operations from LLM responses
- * - Forwarding operations to Graph Canvas
- * - Dirty tracking for message persistence
+ * - Forwarding operations to StatelessGraphCanvas (-> AgentDB)
  *
  * TEST: tests/unit/canvas/chat-canvas.test.ts
  */
-export class ChatCanvas extends CanvasBase {
+export class ChatCanvas extends EventEmitter {
   private state: ChatCanvasState;
-  private graphCanvas?: GraphCanvas;
+  private graphCanvas?: StatelessGraphCanvas;
   private neo4jClient?: Neo4jClient;
+  private parser: IFormatEParser;
+
+  // Metadata
+  private readonly workspaceId: string;
+  private readonly systemId: string;
+  private readonly chatId: string;
+  private readonly userId: string;
 
   constructor(
     workspaceId: string,
     systemId: string,
     chatId: string,
     userId: string,
-    graphCanvas?: GraphCanvas,
-    neo4jClient?: Neo4jClient,
-    wsServer?: import('./websocket-server.js').CanvasWebSocketServer
+    graphCanvas?: StatelessGraphCanvas,
+    neo4jClient?: Neo4jClient
   ) {
-    const parser = new FormatEParser();
-    super(workspaceId, systemId, chatId, userId, parser, wsServer);
+    super();
+    this.parser = new FormatEParser();
     this.neo4jClient = neo4jClient;
+    this.workspaceId = workspaceId;
+    this.systemId = systemId;
+    this.chatId = chatId;
+    this.userId = userId;
 
     this.state = {
       chatId,
@@ -65,9 +77,9 @@ export class ChatCanvas extends CanvasBase {
   }
 
   /**
-   * Link to Graph Canvas for forwarding operations
+   * Link to StatelessGraphCanvas for forwarding operations
    */
-  linkGraphCanvas(graphCanvas: GraphCanvas): void {
+  linkGraphCanvas(graphCanvas: StatelessGraphCanvas): void {
     this.graphCanvas = graphCanvas;
   }
 
@@ -85,7 +97,6 @@ export class ChatCanvas extends CanvasBase {
 
     this.state.messages.push(message);
     this.state.dirtyMessageIds.add(message.messageId);
-    this.markDirty([message.messageId]); // Update base class dirty tracking
     this.state.lastModified = new Date();
 
     return message;
@@ -108,10 +119,9 @@ export class ChatCanvas extends CanvasBase {
 
     this.state.messages.push(message);
     this.state.dirtyMessageIds.add(message.messageId);
-    this.markDirty([message.messageId]); // Update base class dirty tracking
     this.state.lastModified = new Date();
 
-    // If operations present, forward to Graph Canvas
+    // If operations present, forward to Graph Canvas (-> AgentDB)
     if (operations && this.graphCanvas) {
       await this.forwardOperationsToGraph(operations);
     }
@@ -133,7 +143,6 @@ export class ChatCanvas extends CanvasBase {
 
     this.state.messages.push(message);
     this.state.dirtyMessageIds.add(message.messageId);
-    this.markDirty([message.messageId]); // Update base class dirty tracking
     this.state.lastModified = new Date();
 
     return message;
@@ -177,7 +186,7 @@ export class ChatCanvas extends CanvasBase {
   }
 
   /**
-   * Forward graph operations to Graph Canvas
+   * Forward graph operations to StatelessGraphCanvas (-> AgentDB)
    *
    * Extracts operations from LLM response and applies to graph state
    */
@@ -191,7 +200,7 @@ export class ChatCanvas extends CanvasBase {
       // Parse operations
       const diff = this.parser.parseDiff(operationsStr);
 
-      // Apply to Graph Canvas
+      // Apply to StatelessGraphCanvas (delegates to AgentDB)
       await this.graphCanvas.applyDiff(diff);
     } catch (error) {
       console.error('Failed to forward operations to Graph Canvas:', error);
@@ -200,11 +209,30 @@ export class ChatCanvas extends CanvasBase {
   }
 
   /**
-   * Apply operation to chat state
-   *
-   * SPEC: FR-4.1 (Canvas state management)
+   * Apply Format E Diff to chat state
    */
-  protected async applyOperation(op: Operation): Promise<void> {
+  async applyDiff(diff: FormatEDiff): Promise<{ success: boolean; errors?: string[] }> {
+    const errors: string[] = [];
+
+    for (const op of diff.operations) {
+      try {
+        await this.applyOperation(op);
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : 'Unknown error');
+      }
+    }
+
+    if (errors.length > 0) {
+      return { success: false, errors };
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Apply operation to chat state
+   */
+  private async applyOperation(op: Operation): Promise<void> {
     switch (op.type) {
       case 'add_message':
         if (op.message) {
@@ -226,143 +254,56 @@ export class ChatCanvas extends CanvasBase {
   }
 
   /**
-   * Get dirty items for persistence
+   * Persist dirty messages to Neo4j
    */
-  protected getDirtyItems(): Message[] {
-    const items: Message[] = [];
-
-    for (const messageId of this.state.dirtyMessageIds) {
-      const message = this.state.messages.find((m) => m.messageId === messageId);
-      if (message) {
-        items.push(message);
-      }
+  async persistToNeo4j(): Promise<PersistResult> {
+    if (!this.neo4jClient) {
+      return { success: false, errors: ['Neo4jClient not configured'] };
     }
 
-    return items;
-  }
-
-  /**
-   * Serialize dirty state as Format E Diff
-   */
-  protected serializeDirtyAsDiff(): string {
-    const operations: Operation[] = [];
-
-    for (const messageId of this.state.dirtyMessageIds) {
-      const message = this.state.messages.find((m) => m.messageId === messageId);
-      if (message) {
-        operations.push({
-          type: 'add_message',
-          semanticId: messageId,
-          message,
-        });
-      }
+    if (this.state.dirtyMessageIds.size === 0) {
+      return { success: true, savedCount: 0, skipped: true };
     }
 
-    return this.parser.serializeDiff({
-      baseSnapshot: `${this.chatId}@msgCount:${this.state.messages.length}`,
-      operations,
-    });
-  }
-
-  /**
-   * Validate diff before application
-   */
-  protected validateDiff(diff: any): {
-    valid: boolean;
-    errors: string[];
-    warnings?: string[];
-  } {
-    const errors: string[] = [];
-
-    // Check base snapshot
-    if (!diff.baseSnapshot) {
-      errors.push('Missing base snapshot');
-    }
-
-    // Validate operations
-    for (const op of diff.operations || []) {
-      if (!op.type) {
-        errors.push('Operation missing type');
-      }
-
-      if (op.type === 'add_message') {
-        if (!op.message) {
-          errors.push('add_message operation missing message data');
-        } else {
-          // Validate role
-          const validRoles = ['user', 'assistant', 'system'];
-          if (!validRoles.includes(op.message.role)) {
-            errors.push(`Invalid message role: ${op.message.role}`);
-          }
-
-          // Validate content
-          if (!op.message.content || op.message.content.trim() === '') {
-            errors.push('Message content cannot be empty');
-          }
+    try {
+      const messages: Message[] = [];
+      for (const messageId of this.state.dirtyMessageIds) {
+        const message = this.state.messages.find((m) => m.messageId === messageId);
+        if (message) {
+          messages.push(message);
         }
       }
-    }
 
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
-  }
-
-  /**
-   * Clear subclass dirty tracking
-   */
-  protected clearSubclassDirtyTracking(): void {
-    this.state.dirtyMessageIds.clear();
-  }
-
-  /**
-   * Save batch to Neo4j
-   */
-  protected async saveBatch(items: unknown[]): Promise<void> {
-    if (!this.neo4jClient) {
-      throw new Error(
-        'Cannot persist chat messages: Neo4jClient not configured. ' +
-        'Provide a Neo4jClient instance in ChatCanvas constructor to enable persistence.'
-      );
-    }
-
-    const messages: Message[] = [];
-
-    for (const messageId of items) {
-      const message = this.state.messages.find((m) => m.messageId === messageId);
-      if (message) {
-        messages.push(message);
+      if (messages.length > 0) {
+        await this.neo4jClient.saveMessages(messages);
       }
-    }
 
-    if (messages.length > 0) {
-      await this.neo4jClient.saveMessages(messages);
+      // Clear dirty tracking
+      this.state.dirtyMessageIds.clear();
+
+      return { success: true, savedCount: messages.length };
+    } catch (error) {
+      return {
+        success: false,
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
+      };
     }
   }
 
-  /**
-   * Create audit log
-   */
-  protected async createAuditLog(log: {
-    chatId: string;
-    diff: string;
-    action: string;
-  }): Promise<void> {
-    if (!this.neo4jClient) {
-      throw new Error(
-        'Cannot create audit log: Neo4jClient not configured. ' +
-        'Provide a Neo4jClient instance in ChatCanvas constructor to enable audit logging.'
-      );
-    }
+  // Metadata accessors
+  getWorkspaceId(): string {
+    return this.workspaceId;
+  }
 
-    await this.neo4jClient.createAuditLog({
-      chatId: log.chatId,
-      workspaceId: this.workspaceId,
-      systemId: this.systemId,
-      userId: this.userId,
-      action: log.action as any,
-      diff: log.diff,
-    });
+  getSystemId(): string {
+    return this.systemId;
+  }
+
+  getChatId(): string {
+    return this.chatId;
+  }
+
+  getUserId(): string {
+    return this.userId;
   }
 }

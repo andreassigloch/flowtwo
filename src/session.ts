@@ -21,7 +21,7 @@
 
 import { Neo4jClient } from './neo4j-client/neo4j-client.js';
 import type { CanvasWebSocketClient } from './canvas/websocket-client.js';
-import type { GraphCanvas } from './canvas/graph-canvas.js';
+import type { StatelessGraphCanvas } from './canvas/stateless-graph-canvas.js';
 import type { ChatCanvas } from './canvas/chat-canvas.js';
 
 export interface AppSession {
@@ -36,7 +36,7 @@ export interface AppSession {
 export class SessionManager {
   private neo4jClient: Neo4jClient;
   private wsClient?: CanvasWebSocketClient;
-  private graphCanvas?: GraphCanvas;
+  private graphCanvas?: StatelessGraphCanvas;
   private chatCanvas?: ChatCanvas;
 
   constructor(neo4jClient: Neo4jClient) {
@@ -48,7 +48,7 @@ export class SessionManager {
    */
   registerComponents(
     wsClient?: CanvasWebSocketClient,
-    graphCanvas?: GraphCanvas,
+    graphCanvas?: StatelessGraphCanvas,
     chatCanvas?: ChatCanvas
   ): void {
     this.wsClient = wsClient;
@@ -156,8 +156,8 @@ export class SessionManager {
       console.log('💾 Saving unsaved changes...');
 
       try {
-        const graphResult = this.graphCanvas ? await this.graphCanvas.persistToNeo4j() : { skipped: true, savedCount: 0 };
-        const chatResult = this.chatCanvas ? await this.chatCanvas.persistToNeo4j() : { skipped: true, savedCount: 0 };
+        const graphResult = this.graphCanvas ? await this.graphCanvas.persistToNeo4j() : { success: true, skipped: true, savedCount: 0 };
+        const chatResult = this.chatCanvas ? await this.chatCanvas.persistToNeo4j() : { success: true, skipped: true, savedCount: 0 };
 
         if (!graphResult.skipped || !chatResult.skipped) {
           const graphCount = graphResult.savedCount || 0;

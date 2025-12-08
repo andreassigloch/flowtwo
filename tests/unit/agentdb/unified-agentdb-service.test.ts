@@ -305,4 +305,87 @@ describe('UnifiedAgentDBService', () => {
       expect(service.isInitialized()).toBe(false);
     });
   });
+
+  describe('clearForSystemLoad', () => {
+    it('should clear graph data', () => {
+      // Add some data
+      service.setNode(createTestNode('Node1.FN.001', 'Node1'));
+      service.setNode(createTestNode('Node2.FN.002', 'Node2'));
+      service.setEdge(createTestEdge('edge-001', 'Node1.FN.001', 'Node2.FN.002'));
+
+      expect(service.getGraphStats().nodeCount).toBe(2);
+      expect(service.getGraphStats().edgeCount).toBe(1);
+
+      // Clear for system load
+      service.clearForSystemLoad();
+
+      // Graph should be empty
+      expect(service.getGraphStats().nodeCount).toBe(0);
+      expect(service.getGraphStats().edgeCount).toBe(0);
+    });
+
+    it('should clear response cache', async () => {
+      service.setNode(createTestNode('Node1.FN.001', 'Node1'));
+      const version = service.getGraphVersion();
+
+      // Cache a response
+      await service.cacheResponse('test query', version, 'test response', null);
+
+      // Verify cache exists
+      let cached = await service.checkCache('test query', version);
+      expect(cached).not.toBeNull();
+
+      // Clear for system load
+      service.clearForSystemLoad();
+
+      // Cache should be cleared (even with same version, data was cleared)
+      cached = await service.checkCache('test query', version);
+      expect(cached).toBeNull();
+    });
+
+    it('should clear embeddings', () => {
+      // Add a node
+      service.setNode(createTestNode('Node1.FN.001', 'Node1'));
+
+      // Manually load an embedding
+      service.loadEmbeddings([{
+        nodeId: 'Node1.FN.001',
+        nodeType: 'FUNC',
+        textContent: 'Test content',
+        embedding: [0.1, 0.2, 0.3],
+        model: 'test-model',
+        createdAt: Date.now(),
+      }]);
+
+      // Verify embedding exists
+      expect(service.getCachedEmbedding('Node1.FN.001')).not.toBeNull();
+
+      // Clear for system load
+      service.clearForSystemLoad();
+
+      // Embedding should be cleared
+      expect(service.getCachedEmbedding('Node1.FN.001')).toBeNull();
+    });
+
+    it('should allow reloading after clear', () => {
+      // Add initial data
+      service.setNode(createTestNode('Node1.FN.001', 'Node1'));
+      expect(service.getGraphStats().nodeCount).toBe(1);
+
+      // Clear
+      service.clearForSystemLoad();
+      expect(service.getGraphStats().nodeCount).toBe(0);
+
+      // Reload with new data
+      const newNodes = [
+        createTestNode('NewNode1.FN.001', 'NewNode1'),
+        createTestNode('NewNode2.FN.002', 'NewNode2'),
+        createTestNode('NewNode3.FN.003', 'NewNode3'),
+      ];
+      service.loadFromState({ nodes: newNodes, edges: [] });
+
+      expect(service.getGraphStats().nodeCount).toBe(3);
+      expect(service.getNode('NewNode1.FN.001')).not.toBeNull();
+    });
+  });
 });
