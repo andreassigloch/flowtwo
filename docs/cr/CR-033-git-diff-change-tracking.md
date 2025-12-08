@@ -1,9 +1,10 @@
 # CR-033: Git-like Diff/Change Tracking for Graph Canvas
 
 **Type:** Feature
-**Status:** Planned
+**Status:** Completed
 **Priority:** MEDIUM
 **Created:** 2025-12-06
+**Completed:** 2025-12-08
 
 ## Problem / Use Case
 
@@ -121,16 +122,16 @@ Current behavior (from canvas-base.ts):
 
 ## Acceptance Criteria
 
-- [ ] Added elements show `+` indicator
-- [ ] Deleted elements show `-` indicator (before actual removal)
-- [ ] Modified elements show `~` indicator
-- [ ] `/commit` saves to Neo4j and clears all indicators
-- [ ] `/save` removed (or deprecated alias)
-- [ ] Chat prompts user to `/commit` when changes exist
-- [ ] `/exit` with pending changes prompts for confirmation
-- [ ] `/status` shows change summary
-- [ ] Reload clears change tracking (expected behavior)
-- [ ] No performance regression on large graphs
+- [x] Added elements show `+` indicator
+- [x] Deleted elements show `-` indicator (before actual removal)
+- [x] Modified elements show `~` indicator
+- [x] `/commit` saves to Neo4j and clears all indicators
+- [x] `/save` kept as alias for `/commit` (backward compatibility)
+- [ ] Chat prompts user to `/commit` when changes exist (Phase 4 - future)
+- [ ] `/exit` with pending changes prompts for confirmation (Phase 4 - future)
+- [x] `/status` shows change summary
+- [x] Reload clears change tracking (expected behavior)
+- [x] No performance regression on large graphs
 
 ## Dependencies
 

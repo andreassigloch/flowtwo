@@ -1,11 +1,13 @@
 /**
  * Spec Views - Specification view renderers (spec, spec+)
  *
+ * CR-033: Added change indicator support (+/-/~)
+ *
  * @author andreas@siglochconsulting
  */
 
 import type { GraphState } from './view-utils.js';
-import { getNodeColor, buildOccurrenceMap, findChildOccurrences } from './view-utils.js';
+import { getNodeColor, getChangeIndicator, buildOccurrenceMap, findChildOccurrences } from './view-utils.js';
 
 /**
  * Render spec view (complete specification with multiple occurrences)
@@ -86,9 +88,10 @@ function renderOccurrence(
   if (!node) return lines;
 
   const color = getNodeColor(node.type);
+  const changeInd = getChangeIndicator(node.semanticId, state.nodeChangeStatus);
 
   if (occurrence.isPrimary) {
-    lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name}`);
+    lines.push(`${indent}${changeInd}[${color}${node.type}\x1b[0m] ${node.name}`);
 
     const children = findChildOccurrences(occurrence.path, occurrenceMap);
     const baseIndent = isRoot ? '' : indent;
@@ -105,7 +108,7 @@ function renderOccurrence(
       }
     });
   } else {
-    lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name} \x1b[90m\u2192\x1b[0m`);
+    lines.push(`${indent}${changeInd}[${color}${node.type}\x1b[0m] ${node.name} \x1b[90m\u2192\x1b[0m`);
   }
 
   return lines;
@@ -126,9 +129,10 @@ function renderOccurrenceWithDescription(
   if (!node) return lines;
 
   const color = getNodeColor(node.type);
+  const changeInd = getChangeIndicator(node.semanticId, state.nodeChangeStatus);
 
   if (occurrence.isPrimary) {
-    lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name}`);
+    lines.push(`${indent}${changeInd}[${color}${node.type}\x1b[0m] ${node.name}`);
 
     if (node.descr && node.descr.trim()) {
       const descIndent = isRoot ? '  ' : indent + '  ';
@@ -150,7 +154,7 @@ function renderOccurrenceWithDescription(
       }
     });
   } else {
-    lines.push(`${indent}[${color}${node.type}\x1b[0m] ${node.name} \x1b[90m\u2192\x1b[0m`);
+    lines.push(`${indent}${changeInd}[${color}${node.type}\x1b[0m] ${node.name} \x1b[90m\u2192\x1b[0m`);
   }
 
   return lines;

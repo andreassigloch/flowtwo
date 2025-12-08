@@ -41,12 +41,14 @@ import {
 import { handleCleanupCommand } from './commands/cleanup-commands.js';
 import {
   handleNewCommand,
+  handleCommitCommand,
   handleSaveCommand,
   handleLoadCommand,
   handleExportCommand,
   handleImportCommand,
   handleExportsCommand,
   handleStatsCommand,
+  handleStatusCommand,
   handleViewCommand,
   printHelpMenu,
 } from './commands/session-commands.js';
@@ -172,7 +174,11 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
       await handleLoadCommand(rl, ctx);
       return;
 
-    case '/save':
+    case '/commit':
+      await handleCommitCommand(ctx);
+      break;
+
+    case '/save':  // Alias for /commit (backward compatibility)
       await handleSaveCommand(ctx);
       break;
 
@@ -190,6 +196,10 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
 
     case '/stats':
       handleStatsCommand(ctx);
+      break;
+
+    case '/status':
+      handleStatusCommand(ctx);
       break;
 
     case '/view':

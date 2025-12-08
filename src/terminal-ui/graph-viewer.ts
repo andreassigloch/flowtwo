@@ -20,6 +20,7 @@ import type { ViewType } from '../shared/types/view.js';
 import { WS_URL, LOG_PATH } from '../shared/config.js';
 import { initNeo4jClient, resolveSession } from '../shared/session-resolver.js';
 import { getUnifiedAgentDBService, UnifiedAgentDBService } from '../llm-engine/agentdb/unified-agentdb-service.js';
+import type { ChangeStatus } from '../llm-engine/agentdb/change-tracker.js';
 import { generateAsciiGraph } from './views/index.js';
 
 // Configuration - will be set by resolveSession() in main()
@@ -59,10 +60,46 @@ function log(message: string): void {
 }
 
 /**
+ * CR-033: Build change status map for all nodes
+ * Returns Map<semanticId, ChangeStatus>
+ */
+function buildNodeChangeStatusMap(): Map<string, ChangeStatus> {
+  const statusMap = new Map<string, ChangeStatus>();
+
+  // Get all current nodes
+  const nodes = agentDB.getNodes();
+  for (const node of nodes) {
+    const status = agentDB.getNodeChangeStatus(node.semanticId);
+    if (status !== 'unchanged') {
+      statusMap.set(node.semanticId, status);
+    }
+  }
+
+  // Also include deleted nodes from the changes
+  const changes = agentDB.getChanges();
+  for (const change of changes) {
+    if (change.elementType === 'node' && change.status === 'deleted') {
+      statusMap.set(change.id, 'deleted');
+    }
+  }
+
+  return statusMap;
+}
+
+/**
  * Render graph to console
+ * CR-033: Extended with change tracking indicators
  */
 async function render(): Promise<void> {
   const state = graphCanvas.getState();
+
+  // CR-033: Add change status to state for view rendering
+  const stateWithChanges = {
+    ...state,
+    nodeChangeStatus: agentDB.hasBaseline()
+      ? buildNodeChangeStatusMap()
+      : undefined,
+  };
 
   console.log('');
   console.log('\x1b[36m' + '\u2500'.repeat(60) + '\x1b[0m');
@@ -71,7 +108,7 @@ async function render(): Promise<void> {
   console.log('\x1b[36m' + '\u2500'.repeat(60) + '\x1b[0m');
   console.log('');
 
-  const ascii = await generateAsciiGraph(state, currentView, config.systemId);
+  const ascii = await generateAsciiGraph(stateWithChanges, currentView, config.systemId);
   console.log(ascii);
 
   console.log('');

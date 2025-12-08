@@ -19,6 +19,7 @@ import { createBackend } from './backend-factory.js';
 import { GraphStore, type NodeFilter, type EdgeFilter, type SetOptions, type GraphChangeEvent } from './graph-store.js';
 import { VariantPool, type GraphDiff, type VariantInfo, type GraphState as VariantGraphState } from './variant-pool.js';
 import { EmbeddingStore, type EmbeddableNode, type EmbeddingEntry } from './embedding-store.js';
+import { ChangeTracker, type ChangeStatus, type TrackedChange, type ChangeSummary } from './change-tracker.js';
 import type { AgentDBBackend, CachedResponse, Episode, CacheMetrics, UnifiedAgentDBAPI } from './types.js';
 import type { Node, Edge, SemanticId, GraphState } from '../../shared/types/ontology.js';
 import { AgentDBLogger } from './agentdb-logger.js';
@@ -42,6 +43,7 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
   private graphStore: GraphStore | null = null;
   private variantPool: VariantPool | null = null;
   private embeddingStore: EmbeddingStore | null = null;
+  private changeTracker: ChangeTracker | null = null;
 
   // Version-aware cache: Map<cacheKey, CachedResponse>
   private versionedCache: Map<string, CachedResponse> = new Map();
@@ -61,6 +63,7 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
     this.graphStore = new GraphStore(workspaceId, systemId);
     this.variantPool = new VariantPool();
     this.embeddingStore = new EmbeddingStore();
+    this.changeTracker = new ChangeTracker();
 
     // Subscribe to graph changes for cache invalidation
     this.graphStore.onGraphChange((event) => {
@@ -577,6 +580,70 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
    */
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  // ============================================================
+  // Change Tracking (CR-033)
+  // ============================================================
+
+  /**
+   * Capture current state as baseline for change tracking
+   * Called on: session load, /commit
+   */
+  captureBaseline(): void {
+    if (!this.graphStore || !this.changeTracker) return;
+    this.changeTracker.captureBaseline(this.graphStore.toGraphState());
+  }
+
+  /**
+   * Get change status for a node
+   */
+  getNodeChangeStatus(semanticId: SemanticId): ChangeStatus {
+    if (!this.graphStore || !this.changeTracker) return 'unchanged';
+    const node = this.graphStore.getNode(semanticId);
+    return this.changeTracker.getNodeStatus(semanticId, node);
+  }
+
+  /**
+   * Get change status for an edge
+   */
+  getEdgeChangeStatus(uuid: string): ChangeStatus {
+    if (!this.graphStore || !this.changeTracker) return 'unchanged';
+    const edge = this.graphStore.getEdge(uuid);
+    return this.changeTracker.getEdgeStatus(uuid, edge);
+  }
+
+  /**
+   * Get all tracked changes
+   */
+  getChanges(): TrackedChange[] {
+    if (!this.graphStore || !this.changeTracker) return [];
+    return this.changeTracker.getChanges(this.graphStore.toGraphState());
+  }
+
+  /**
+   * Get change summary
+   */
+  getChangeSummary(): ChangeSummary {
+    if (!this.graphStore || !this.changeTracker) {
+      return { added: 0, modified: 0, deleted: 0, total: 0 };
+    }
+    return this.changeTracker.getSummary(this.graphStore.toGraphState());
+  }
+
+  /**
+   * Check if there are pending changes
+   */
+  hasChanges(): boolean {
+    if (!this.graphStore || !this.changeTracker) return false;
+    return this.changeTracker.hasChanges(this.graphStore.toGraphState());
+  }
+
+  /**
+   * Check if baseline exists
+   */
+  hasBaseline(): boolean {
+    return this.changeTracker?.hasBaseline() ?? false;
   }
 }
 

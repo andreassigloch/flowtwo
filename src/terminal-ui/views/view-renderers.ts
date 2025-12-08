@@ -47,6 +47,24 @@ export async function generateAsciiGraph(
   lines.push(`\x1b[1;36mGraph:\x1b[0m ${systemId}`);
   lines.push(`\x1b[1;36mView:\x1b[0m ${viewConfig.name}`);
   lines.push(`\x1b[1;36mNodes:\x1b[0m ${state.nodes.size} | \x1b[1;36mEdges:\x1b[0m ${state.edges.size}`);
+
+  // CR-033: Show change summary if tracking is active
+  if (state.nodeChangeStatus && state.nodeChangeStatus.size > 0) {
+    let added = 0, modified = 0, deleted = 0;
+    for (const status of state.nodeChangeStatus.values()) {
+      if (status === 'added') added++;
+      else if (status === 'modified') modified++;
+      else if (status === 'deleted') deleted++;
+    }
+    const total = added + modified + deleted;
+    if (total > 0) {
+      const parts: string[] = [];
+      if (added > 0) parts.push(`\x1b[32m+${added}\x1b[0m`);
+      if (modified > 0) parts.push(`\x1b[33m~${modified}\x1b[0m`);
+      if (deleted > 0) parts.push(`\x1b[31m-${deleted}\x1b[0m`);
+      lines.push(`\x1b[1;36mChanges:\x1b[0m ${parts.join(' ')}`);
+    }
+  }
   lines.push('');
 
   switch (currentView) {

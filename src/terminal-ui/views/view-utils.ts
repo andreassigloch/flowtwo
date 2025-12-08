@@ -4,12 +4,41 @@
  * @author andreas@siglochconsulting
  */
 
+import type { ChangeStatus } from '../../llm-engine/agentdb/change-tracker.js';
+
 /**
  * Graph state type for view renderers
+ * CR-033: Extended with optional change tracking
  */
 export interface GraphState {
   nodes: Map<string, any>;
   edges: Map<string, any>;
+  /** CR-033: Node change status (semanticId -> status) */
+  nodeChangeStatus?: Map<string, ChangeStatus>;
+  /** CR-033: Edge change status (uuid -> status) */
+  edgeChangeStatus?: Map<string, ChangeStatus>;
+}
+
+/**
+ * CR-033: Get change indicator prefix for a node
+ * Returns colored prefix: green + for added, yellow ~ for modified, red - for deleted
+ */
+export function getChangeIndicator(semanticId: string, changeStatus?: Map<string, ChangeStatus>): string {
+  if (!changeStatus) return '';
+
+  const status = changeStatus.get(semanticId);
+  if (!status || status === 'unchanged') return '';
+
+  switch (status) {
+    case 'added':
+      return '\x1b[32m+\x1b[0m';  // green +
+    case 'modified':
+      return '\x1b[33m~\x1b[0m';  // yellow ~
+    case 'deleted':
+      return '\x1b[31m-\x1b[0m';  // red -
+    default:
+      return '';
+  }
 }
 
 /**

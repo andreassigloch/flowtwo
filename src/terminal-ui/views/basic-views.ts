@@ -1,11 +1,13 @@
 /**
  * Basic Views - Hierarchy, Allocation, Requirements, Use-Case view renderers
  *
+ * CR-033: Added change indicator support (+/-/~)
+ *
  * @author andreas@siglochconsulting
  */
 
 import type { GraphState } from './view-utils.js';
-import { getNodeColor } from './view-utils.js';
+import { getNodeColor, getChangeIndicator } from './view-utils.js';
 
 /**
  * Render hierarchy view (tree using compose edges)
@@ -28,12 +30,13 @@ export function renderHierarchyView(state: GraphState, viewConfig: any): string[
     if (!node || !includeNodeTypes.includes(node.type)) return;
 
     const color = getNodeColor(node.type);
+    const changeInd = getChangeIndicator(nodeId, state.nodeChangeStatus);
 
     if (isRoot) {
-      lines.push(`[${color}${node.type}\x1b[0m] ${node.name}`);
+      lines.push(`${changeInd}[${color}${node.type}\x1b[0m] ${node.name}`);
     } else {
       const prefix = isLast ? '\u2514\u2500' : '\u251c\u2500';
-      lines.push(`${indent}${prefix}[${color}${node.type}\x1b[0m] ${node.name}`);
+      lines.push(`${indent}${prefix}${changeInd}[${color}${node.type}\x1b[0m] ${node.name}`);
     }
 
     const childEdges = Array.from(state.edges.values()).filter(
@@ -84,8 +87,9 @@ export function renderAllocationView(state: GraphState, _viewConfig: any): strin
       .filter((n: any) => n && n.type === 'FUNC');
 
     const modColor = getNodeColor('MOD');
+    const modChangeInd = getChangeIndicator(mod.semanticId, state.nodeChangeStatus);
     const boxWidth = Math.max(40, mod.name.length + 10);
-    const topLine = '\u250c\u2500 ' + `[${modColor}MOD\x1b[0m] ${mod.name}` + ' ' + '\u2500'.repeat(boxWidth - mod.name.length - 10) + '\u2510';
+    const topLine = '\u250c\u2500 ' + `${modChangeInd}[${modColor}MOD\x1b[0m] ${mod.name}` + ' ' + '\u2500'.repeat(boxWidth - mod.name.length - 10) + '\u2510';
     lines.push(topLine);
 
     if (allocatedFuncs.length === 0) {
@@ -93,9 +97,10 @@ export function renderAllocationView(state: GraphState, _viewConfig: any): strin
     } else {
       allocatedFuncs.forEach((func: any, funcIdx: number) => {
         const funcColor = getNodeColor('FUNC');
+        const funcChangeInd = getChangeIndicator(func.semanticId, state.nodeChangeStatus);
         const isLast = funcIdx === allocatedFuncs.length - 1;
         const prefix = isLast ? '\u2514\u2500' : '\u251c\u2500';
-        lines.push(`\u2502 ${prefix}[${funcColor}FUNC\x1b[0m] ${func.name}` + ' '.repeat(Math.max(0, boxWidth - func.name.length - 12)) + '\u2502');
+        lines.push(`\u2502 ${prefix}${funcChangeInd}[${funcColor}FUNC\x1b[0m] ${func.name}` + ' '.repeat(Math.max(0, boxWidth - func.name.length - 12)) + '\u2502');
       });
     }
 
@@ -126,7 +131,8 @@ export function renderRequirementsView(state: GraphState, viewConfig: any): stri
 
     const prefix = isLast ? '\u2514\u2500' : '\u251c\u2500';
     const color = getNodeColor(node.type);
-    lines.push(`${indent}${prefix}[${color}${node.type}\x1b[0m] ${node.name}`);
+    const changeInd = getChangeIndicator(nodeId, state.nodeChangeStatus);
+    lines.push(`${indent}${prefix}${changeInd}[${color}${node.type}\x1b[0m] ${node.name}`);
 
     const satisfyEdges = Array.from(state.edges.values()).filter(
       (e: any) => e.sourceId === nodeId && e.type === 'satisfy'
@@ -149,7 +155,8 @@ export function renderRequirementsView(state: GraphState, viewConfig: any): stri
         const childIsLast = idx === verifyEdges.length - 1;
         const testPrefix = childIsLast ? '\u2514\u2500' : '\u251c\u2500';
         const testColor = getNodeColor('TEST');
-        lines.push(`${childIndent}${testPrefix}[${testColor}TEST\x1b[0m] ${test.name} \x1b[90m(verifies)\x1b[0m`);
+        const testChangeInd = getChangeIndicator(edge.targetId, state.nodeChangeStatus);
+        lines.push(`${childIndent}${testPrefix}${testChangeInd}[${testColor}TEST\x1b[0m] ${test.name} \x1b[90m(verifies)\x1b[0m`);
       }
     });
   }
@@ -186,7 +193,8 @@ export function renderUseCaseView(state: GraphState, _viewConfig: any): string[]
 
   useCases.forEach((uc: any, ucIdx: number) => {
     const ucColor = getNodeColor('UC');
-    lines.push(`[${ucColor}UC\x1b[0m] ${uc.name}`);
+    const ucChangeInd = getChangeIndicator(uc.semanticId, state.nodeChangeStatus);
+    lines.push(`${ucChangeInd}[${ucColor}UC\x1b[0m] ${uc.name}`);
 
     const parentEdge = Array.from(state.edges.values()).find(
       (e: any) => e.targetId === uc.semanticId && e.type === 'compose' &&
@@ -210,7 +218,8 @@ export function renderUseCaseView(state: GraphState, _viewConfig: any): string[]
         const actor = state.nodes.get(edge.targetId);
         if (actor) {
           const actorColor = getNodeColor('ACTOR');
-          lines.push(`    - [${actorColor}ACTOR\x1b[0m] ${actor.name}`);
+          const actorChangeInd = getChangeIndicator(actor.semanticId, state.nodeChangeStatus);
+          lines.push(`    - ${actorChangeInd}[${actorColor}ACTOR\x1b[0m] ${actor.name}`);
         }
       });
     }
@@ -225,7 +234,8 @@ export function renderUseCaseView(state: GraphState, _viewConfig: any): string[]
         const req = state.nodes.get(edge.targetId);
         if (req) {
           const reqColor = getNodeColor('REQ');
-          lines.push(`    - [${reqColor}REQ\x1b[0m] ${req.name}`);
+          const reqChangeInd = getChangeIndicator(req.semanticId, state.nodeChangeStatus);
+          lines.push(`    - ${reqChangeInd}[${reqColor}REQ\x1b[0m] ${req.name}`);
         }
       });
     }

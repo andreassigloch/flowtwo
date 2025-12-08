@@ -33,15 +33,17 @@ export async function handleNewCommand(ctx: CommandContext): Promise<void> {
 }
 
 /**
- * Handle /save command - save to Neo4j
+ * Handle /commit command - save to Neo4j and reset change tracking (CR-033)
+ * This is the primary command for persisting changes.
+ * Also accessible via /save (alias for backward compatibility).
  */
-export async function handleSaveCommand(ctx: CommandContext): Promise<void> {
+export async function handleCommitCommand(ctx: CommandContext): Promise<void> {
   if (!ctx.neo4jClient) {
     console.log('\x1b[33m⚠️  Neo4j not configured\x1b[0m');
     return;
   }
-  console.log('💾 Saving to Neo4j...');
-  ctx.log('💾 Saving to Neo4j...');
+  console.log('💾 Committing to Neo4j...');
+  ctx.log('💾 Committing to Neo4j...');
 
   const graphResult = await ctx.graphCanvas.persistToNeo4j();
   const chatResult = await ctx.chatCanvas.persistToNeo4j();
@@ -57,9 +59,12 @@ export async function handleSaveCommand(ctx: CommandContext): Promise<void> {
     await saveSession.close();
   }
 
+  // Capture baseline for change tracking (CR-033)
+  ctx.agentDB.captureBaseline();
+
   if (graphResult.skipped && chatResult.skipped) {
-    console.log('\x1b[32m✅ Already saved (auto-save keeps graph up to date)\x1b[0m');
-    ctx.log('✅ Already saved');
+    console.log('\x1b[32m✅ Already committed (no pending changes)\x1b[0m');
+    ctx.log('✅ Already committed');
   } else {
     const graphCount = graphResult.savedCount || 0;
     const chatCount = chatResult.savedCount || 0;
@@ -67,9 +72,45 @@ export async function handleSaveCommand(ctx: CommandContext): Promise<void> {
     if (graphCount > 0) parts.push(`${graphCount} graph items`);
     if (chatCount > 0) parts.push(`${chatCount} messages`);
     const summary = parts.length > 0 ? parts.join(', ') : 'all changes';
-    console.log(`\x1b[32m✅ Saved ${summary}\x1b[0m`);
-    ctx.log(`✅ Saved ${summary}`);
+    console.log(`\x1b[32m✅ Committed ${summary}\x1b[0m`);
+    ctx.log(`✅ Committed ${summary}`);
   }
+}
+
+/**
+ * Handle /save command - alias for /commit (backward compatibility)
+ */
+export async function handleSaveCommand(ctx: CommandContext): Promise<void> {
+  return handleCommitCommand(ctx);
+}
+
+/**
+ * Handle /status command - show pending changes summary (CR-033)
+ */
+export function handleStatusCommand(ctx: CommandContext): void {
+  console.log('');
+  console.log('\x1b[1;36m📊 Change Status\x1b[0m');
+
+  if (!ctx.agentDB.hasBaseline()) {
+    console.log('\x1b[90m   No baseline captured yet. Use /save to establish baseline.\x1b[0m');
+    console.log('');
+    return;
+  }
+
+  const summary = ctx.agentDB.getChangeSummary();
+
+  if (summary.total === 0) {
+    console.log('\x1b[32m   ✅ No pending changes\x1b[0m');
+  } else {
+    const parts: string[] = [];
+    if (summary.added > 0) parts.push(`\x1b[32m+${summary.added} added\x1b[0m`);
+    if (summary.modified > 0) parts.push(`\x1b[33m~${summary.modified} modified\x1b[0m`);
+    if (summary.deleted > 0) parts.push(`\x1b[31m-${summary.deleted} deleted\x1b[0m`);
+    console.log(`   ${parts.join(', ')}`);
+    console.log(`   \x1b[90m(${summary.total} total pending changes)\x1b[0m`);
+  }
+
+  console.log('');
 }
 
 /**
@@ -338,10 +379,12 @@ export function printHelpMenu(): void {
   console.log('  /help           - Show this help');
   console.log('  /new            - Start new system (clear graph)');
   console.log('  /load           - List and load systems from Neo4j');
-  console.log('  /save           - Save graph to Neo4j');
+  console.log('  /commit         - Commit changes to Neo4j (resets change indicators)');
+  console.log('  /save           - Alias for /commit');
+  console.log('  /status         - Show pending changes (git-like diff)');
   console.log('  /stats          - Show graph statistics');
   console.log('  /clear          - Clear chat display');
-  console.log('  /exit           - Save session and quit (also: exit, quit)');
+  console.log('  /exit           - Commit and quit (also: exit, quit)');
   console.log('');
   console.log('\x1b[1mImport/Export:\x1b[0m');
   console.log('  /export [name]  - Export graph to file (default: auto-named)');

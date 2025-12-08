@@ -27,6 +27,7 @@ export { handleCleanupCommand } from './cleanup-commands.js';
 // Session/IO commands
 export {
   handleNewCommand,
+  handleCommitCommand,
   handleSaveCommand,
   handleLoadCommand,
   handleExportCommand,
@@ -34,5 +35,6 @@ export {
   handleExportsCommand,
   handleStatsCommand,
   handleViewCommand,
+  handleStatusCommand,
   printHelpMenu,
 } from './session-commands.js';

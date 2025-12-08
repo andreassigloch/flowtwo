@@ -19,3 +19,4 @@ export { VariantPool } from './variant-pool.js';
 export { Neo4jSyncManager, createNeo4jSyncManager } from './neo4j-sync.js';
 export { EmbeddingStore, type EmbeddingEntry, type EmbeddableNode } from './embedding-store.js';
 export { EmbeddingService } from './embedding-service.js';
+export { ChangeTracker, type ChangeStatus, type TrackedChange, type ChangeSummary } from './change-tracker.js';
