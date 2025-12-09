@@ -35,6 +35,30 @@ unified-rule-evaluator.ts → caches AgentDB instance #3 (stale forever)
 | graph-viewer | `getUnifiedAgentDBService()` | Creates separate instance, no baseline |
 | unified-rule-evaluator | `getUnifiedAgentDBService()` cached in singleton | Stale data forever |
 
+## Onion Model (Scope Hierarchy)
+
+Architecture follows an onion model for scope isolation:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  WORLD - External systems, APIs, file imports                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  DATABASE - All workspaces we host (multi-tenant)                           │
+│    └── Global SkillLibrary (shared patterns across workspaces)              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  WORKSPACE - All systems a user has access to                               │
+│    └── User authentication, workspace-level permissions                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  SYSTEM - Working package (one Session Manager)                             │
+│    └── AgentDB instance, graph state, validation                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  CONTEXT - Minimal data needed for current task                             │
+│    └── ContextManager slices graph per task type                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**MVP Scope:** System + Context layers only. Database/Workspace layers for future.
+
 ## Consolidated Use Cases
 
 Based on docs/architecture.md + CR-024/027/031/032/033/034:
@@ -48,6 +72,7 @@ Based on docs/architecture.md + CR-024/027/031/032/033/034:
 | **UC-5** | Session Mgmt | `/load`, `/save`, `/import`, `/export` - Neo4j persistence | CR-032 |
 | **UC-6** | Self-Learning | Episodes, rewards, skill library, embedding retrieval | CR-026, CR-031 |
 | **UC-7** | LLM Flexibility | Anthropic/OpenAI/Local provider switching via env | CR-034 |
+| **UC-8** | Context Optimization | LLM receives minimal relevant graph slice, not full graph | NEW |
 
 ## Requirements
 
@@ -98,11 +123,25 @@ Current architecture targets single-user with <500 nodes. For scale:
 | Component | Responsibility | Owns State? |
 |-----------|---------------|-------------|
 | **Session Manager** | Session lifecycle, owns AgentDB | YES - single AgentDB |
+| **Context Manager** | Task→GraphSlice, token optimization | NO - reads AgentDB |
 | **LLM Engine** | Multi-agent routing, streaming | NO - receives AgentDB ref |
 | **Validation** | Rule evaluation, scoring | NO - receives AgentDB ref |
-| **Canvas** | View transformation (Format E) | NO - reads AgentDB |
+| **Graph Canvas Controller** | View/filter state, user commands | YES - interaction state |
+| **Graph Canvas Renderer** | View transformation (Format E) | NO - pure function |
 | **Chat Interface** | User I/O, command dispatch | NO - receives context |
 | **Graph Viewer** | Render ASCII from WS data | NO - pure display |
+
+### Command Ownership Matrix
+
+| Command | Owner | Notes |
+|---------|-------|-------|
+| `/load`, `/save`, `/export` | Session Manager | Persistence lifecycle |
+| `/view`, `/filter` | Graph Canvas Controller | View state management |
+| `/analyze`, `/validate` | Session Manager → Validation | Delegates to evaluator |
+| `/optimize` | Session Manager → Optimizer | Uses Variant Pool |
+| `/status`, `/commit` | Session Manager | Change tracking |
+| User chat input | Chat Interface → LLM Engine | Via Session Manager context |
+| GUI node edit (future) | Graph Canvas Controller | Generates Format E ops |
 
 ### Target Architecture
 
@@ -125,21 +164,41 @@ Current architecture targets single-user with <500 nodes. For scale:
 │  └──────────────────────────────┬─────────────────────────────────────┘ │
 │                                 │                                       │
 │  ┌────────────────────────────────────────────────────────────────────┐ │
+│  │              Context Manager (LLM Token Optimization)              │ │
+│  │   - getContextForTask(task, phase) → GraphSlice                    │ │
+│  │   - Task-specific slicing:                                         │ │
+│  │     • 'derive testcase' → REQ nodes + parent only                  │ │
+│  │     • 'detail use case' → UC + neighboring UCs + parent SYS        │ │
+│  │     • 'allocate functions' → FUNC + MOD candidates                 │ │
+│  │     • 'validate phase' → full subgraph for phase                   │ │
+│  │   - estimateTokens(slice) + pruneToFit(slice, maxTokens)          │ │
+│  └────────────────────────────────────────────────────────────────────┘ │
+│                                 │                                       │
+│  ┌────────────────────────────────────────────────────────────────────┐ │
 │  │              Variant Pool (for Evaluator/Optimizer)                │ │
 │  │   - Isolated graph copies for what-if analysis                     │ │
 │  │   - Pareto front variants (optimization)                           │ │
 │  │   - Does NOT pollute main graph                                    │ │
 │  └────────────────────────────────────────────────────────────────────┘ │
 │                                 │                                       │
+│  ┌──────────────────────────────┴─────────────────────────────────────┐ │
+│  │              Graph Canvas Controller (Interaction State)           │ │
+│  │   - currentView, filters, selection                                │ │
+│  │   - Handles /view, /filter commands                                │ │
+│  │   - Future: GUI edit commands → Format E ops                       │ │
+│  │   - Viewer can REQUEST specific views (pull model)                 │ │
+│  └────────────────────────────────────────────────────────────────────┘ │
+│                                 │                                       │
 │             ┌───────────────────┼───────────────────┐                   │
 │             │                   │                   │                   │
 │             ▼                   ▼                   ▼                   │
 │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │
-│   │   LLM ENGINE    │  │   VALIDATION    │  │     CANVAS      │        │
-│   │                 │  │                 │  │                 │        │
-│   │ WorkflowRouter  │  │ RuleEvaluator   │  │ Stateless       │        │
-│   │ AgentExecutor   │  │ SimilarityScore │  │ View transform  │        │
-│   │ Anthropic/OpenAI│  │ Optimizer*      │  │ Format E        │        │
+│   │   LLM ENGINE    │  │   VALIDATION    │  │ CANVAS RENDERER │        │
+│   │                 │  │                 │  │   (Stateless)   │        │
+│   │ WorkflowRouter  │  │ RuleEvaluator   │  │                 │        │
+│   │ AgentExecutor   │  │ SimilarityScore │  │ Pure function:  │        │
+│   │ Anthropic/OpenAI│  │ Optimizer*      │  │ (slice,view) →  │        │
+│   │                 │  │                 │  │   render data   │        │
 │   └────────┬────────┘  └────────┬────────┘  └────────┬────────┘        │
 │            │                    │                    │                  │
 │            │         * Uses Variant Pool             │                  │
@@ -148,6 +207,7 @@ Current architecture targets single-user with <500 nodes. For scale:
              │  WebSocket Server (port 3001)           │
              │  - Broadcasts render-ready Format E     │
              │  - Includes nodeChangeStatus            │
+             │  - Supports pull: viewer requests view  │
              │                                         │
              └───────────────────┬─────────────────────┘
                                  │
@@ -162,7 +222,8 @@ Current architecture targets single-user with <500 nodes. For scale:
 │  - LLM output   │    │  - Render ASCII │    │  - Metrics      │
 │  - Commands     │    │  - Change indic.│    │  - Agent logs   │
 │  - NO state     │    │  - NO AgentDB   │    │                 │
-│  - Thin I/O     │    │  - Pure display │    │                 │
+│  - Thin I/O     │    │  - Can REQUEST  │    │                 │
+│                 │    │    specific view│    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -473,6 +534,208 @@ User Request → Load Context/Patterns → LLM Call → Graph Operations →
     → Validation → Store Episode → Record Pattern (if success) → Next Request
 ```
 
+### Phase 8: Context Manager (3 hours)
+
+**Files:**
+- `src/llm-engine/context-manager.ts` (new)
+- `src/llm-engine/llm-engine.ts` (update)
+
+**Purpose:** LLM receives minimal relevant graph slice, not full graph. Critical for scalability.
+
+**Problem:** Currently full graph is serialized for every LLM call. With 500+ nodes, this wastes tokens and dilutes LLM focus.
+
+**Context Manager Implementation:**
+
+```typescript
+// src/llm-engine/context-manager.ts
+interface GraphSlice {
+  nodes: Map<string, Node>;
+  edges: Map<string, Edge>;
+  focusNodeId: string;
+  depth: number;
+  estimatedTokens: number;
+}
+
+class ContextManager {
+  constructor(private agentDB: UnifiedAgentDBService) {}
+
+  /**
+   * Get minimal context for a task type
+   */
+  getContextForTask(task: string, phase: PhaseId): GraphSlice {
+    const taskType = this.classifyTask(task);
+
+    switch (taskType) {
+      case 'derive-testcase':
+        // Only REQ nodes + parent SYS
+        return this.sliceByTypes(['REQ', 'SYS'], 1);
+
+      case 'detail-usecase':
+        // UC + neighboring UCs + parent SYS
+        return this.sliceNeighbors('UC', 2);
+
+      case 'allocate-functions':
+        // FUNC nodes + MOD candidates
+        return this.sliceByTypes(['FUNC', 'MOD'], 2);
+
+      case 'validate-phase':
+        // Full subgraph for phase
+        return this.sliceByPhase(phase);
+
+      default:
+        // Fallback: focused context around mentioned nodes
+        return this.sliceByMentions(task, 3);
+    }
+  }
+
+  /**
+   * Estimate tokens for a slice (rough: 4 chars/token)
+   */
+  estimateTokens(slice: GraphSlice): number {
+    const serialized = this.serialize(slice);
+    return Math.ceil(serialized.length / 4);
+  }
+
+  /**
+   * Prune slice to fit token budget
+   */
+  pruneToFit(slice: GraphSlice, maxTokens: number): GraphSlice {
+    while (this.estimateTokens(slice) > maxTokens && slice.depth > 1) {
+      slice = this.reduceDepth(slice);
+    }
+    return slice;
+  }
+
+  /**
+   * Expand context if LLM response references missing nodes
+   */
+  expandIfNeeded(slice: GraphSlice, response: string): GraphSlice {
+    const missingRefs = this.findMissingReferences(response, slice);
+    if (missingRefs.length > 0) {
+      return this.addNodes(slice, missingRefs);
+    }
+    return slice;
+  }
+}
+```
+
+**Integration with LLM Engine:**
+
+```typescript
+// In LLM Engine before sendRequest()
+const slice = this.contextManager.getContextForTask(task, phase);
+const prunedSlice = this.contextManager.pruneToFit(slice, 8000); // 8K token budget
+const canvasState = this.renderer.serialize(prunedSlice);
+// Use canvasState instead of full graph
+```
+
+**Task Classification Heuristics:**
+
+| Pattern | Task Type | Slice Strategy |
+|---------|-----------|----------------|
+| "add test", "verify", "coverage" | derive-testcase | REQ + parent |
+| "detail", "refine", "elaborate UC" | detail-usecase | UC + neighbors |
+| "allocate", "assign to module" | allocate-functions | FUNC + MOD |
+| "validate", "phase gate", "check" | validate-phase | Full phase subgraph |
+| Other | general | Mentioned nodes + depth 3 |
+
+**Why This Matters:**
+
+- 500 node graph ≈ 15K tokens serialized
+- Typical task needs 50-100 nodes ≈ 1.5K-3K tokens
+- **5-10x token savings** per LLM call
+- Better LLM focus = better results
+
+### Phase 9: Graph Canvas Controller Split (2 hours)
+
+**Files:**
+- `src/canvas/graph-canvas-controller.ts` (new)
+- `src/canvas/graph-canvas-renderer.ts` (extract from existing)
+- `src/terminal-ui/chat-interface.ts` (update)
+
+**Purpose:** Separate interaction state (view, filters, selection) from pure rendering.
+
+**Graph Canvas Controller:**
+
+```typescript
+// src/canvas/graph-canvas-controller.ts
+class GraphCanvasController {
+  private currentView: ViewId = 'hierarchy';
+  private filters: FilterConfig = {};
+  private selection: Set<string> = new Set();
+  private renderer: GraphCanvasRenderer;
+
+  constructor(agentDB: UnifiedAgentDBService) {
+    this.renderer = new GraphCanvasRenderer();
+  }
+
+  /**
+   * Handle view commands
+   */
+  handleCommand(command: string, args: string[]): void {
+    switch (command) {
+      case '/view':
+        this.currentView = args[0] as ViewId;
+        this.broadcastViewChange();
+        break;
+      case '/filter':
+        this.filters = this.parseFilters(args);
+        this.broadcastFilterChange();
+        break;
+      case '/select':
+        this.selection = new Set(args);
+        break;
+    }
+  }
+
+  /**
+   * Handle GUI edit (future)
+   */
+  handleUserEdit(edit: UserEdit): FormatEOperation[] {
+    // Convert GUI action to Format E operations
+    return this.renderer.generateOperations(edit);
+  }
+
+  /**
+   * Respond to viewer pull request
+   */
+  handleViewRequest(viewerId: string, request: ViewRequest): RenderData {
+    const slice = this.agentDB.getSlice(request.scope);
+    return this.renderer.render(slice, this.currentView, this.filters);
+  }
+}
+```
+
+**Graph Canvas Renderer (Stateless):**
+
+```typescript
+// src/canvas/graph-canvas-renderer.ts
+class GraphCanvasRenderer {
+  /**
+   * Pure function: slice + view config → render data
+   */
+  render(slice: GraphSlice, view: ViewId, filters: FilterConfig): RenderData {
+    const filtered = this.applyFilters(slice, filters);
+    const transformed = this.applyViewTransform(filtered, view);
+    return this.toRenderData(transformed);
+  }
+
+  /**
+   * Generate Format E operations from user edit
+   */
+  generateOperations(edit: UserEdit): FormatEOperation[] {
+    // Pure function, no state
+    return [/* Format E ops */];
+  }
+}
+```
+
+**Benefits:**
+- Clear separation: Controller = interaction, Renderer = pure transform
+- GUI-ready: Controller handles user edits, generates Format E
+- Testable: Renderer is pure function, easy to unit test
+- Pull model: Viewer requests views, controller responds
+
 ## Current Status
 
 - [ ] Phase 1: Fix Graph Viewer
@@ -482,6 +745,8 @@ User Request → Load Context/Patterns → LLM Call → Graph Operations →
 - [ ] Phase 5: Session Manager
 - [ ] Phase 6: Variant Pool
 - [ ] Phase 7: Self-Learning Integration
+- [ ] Phase 8: Context Manager
+- [ ] Phase 9: Graph Canvas Controller Split
 
 ## Acceptance Criteria
 
@@ -499,6 +764,11 @@ User Request → Load Context/Patterns → LLM Call → Graph Operations →
 - [ ] ReflexionMemory stores episodes after graph operations
 - [ ] SkillLibrary records successful patterns
 - [ ] Episode context injected into LLM prompts
+- [ ] Context Manager slices graph per task type
+- [ ] LLM receives ~3K tokens context instead of full graph
+- [ ] Graph Canvas Controller handles /view, /filter commands
+- [ ] Graph Canvas Renderer is pure function (stateless)
+- [ ] Viewer can request specific views (pull model)
 - [ ] All existing tests pass
 
 ## Files to Modify
@@ -512,6 +782,9 @@ User Request → Load Context/Patterns → LLM Call → Graph Operations →
 | `src/session-manager.ts` | NEW - Orchestrator, owns AgentDB |
 | `src/llm-engine/agentdb/variant-pool.ts` | NEW - Isolated graph copies for analysis |
 | `src/llm-engine/validation/background-validator.ts` | NEW - Debounced validation handler |
+| `src/llm-engine/context-manager.ts` | NEW - Task→GraphSlice, token optimization |
+| `src/canvas/graph-canvas-controller.ts` | NEW - View/filter state, user commands |
+| `src/canvas/graph-canvas-renderer.ts` | Extract from existing, pure function |
 | `src/main.ts` | Integrate Session Manager |
 
 ## Estimated Effort
@@ -525,7 +798,19 @@ User Request → Load Context/Patterns → LLM Call → Graph Operations →
 | Phase 5: Session Manager | 4 | Orchestrator |
 | Phase 6: Variant Pool + COW | 4 | Copy-on-write for memory efficiency |
 | Phase 7: Self-Learning Integration | 2 | Connect ReflexionMemory + SkillLibrary |
-| **Total** | **18 hours** |
+| Phase 8: Context Manager | 3 | Task→GraphSlice, token optimization |
+| Phase 9: Canvas Controller Split | 2 | Controller + Renderer separation |
+| **Total** | **23 hours** |
+
+## Implementation Priority
+
+| Priority | Phases | Rationale |
+|----------|--------|-----------|
+| 🔴 Critical (MVP) | 1-5 | Core functionality fixes |
+| 🟠 High | 6-7 | Optimizer + Self-learning |
+| 🟡 Medium | 8-9 | Scalability + GUI-ready |
+
+**Phases 1-5** restore broken functionality. **Phases 6-7** enable learning system. **Phases 8-9** prepare for scale and GUI.
 
 ## References
 
