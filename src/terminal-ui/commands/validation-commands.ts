@@ -8,7 +8,7 @@
 
 import type { CommandContext } from './types.js';
 import {
-  getUnifiedRuleEvaluator,
+  createUnifiedRuleEvaluator,
   getRuleLoader,
   type PhaseId,
   type ValidationResult,
@@ -16,6 +16,7 @@ import {
 
 /**
  * Handle /validate command - run full validation report
+ * CR-039: Uses ctx.agentDB directly (no caching)
  */
 export async function handleValidateCommand(args: string[], ctx: CommandContext): Promise<void> {
   console.log('');
@@ -30,7 +31,8 @@ export async function handleValidateCommand(args: string[], ctx: CommandContext)
     else if (phaseArg === '3' || phaseArg === 'physical') phase = 'phase3_physical';
     else if (phaseArg === '4' || phaseArg === 'verification') phase = 'phase4_verification';
 
-    const evaluator = await getUnifiedRuleEvaluator(ctx.config.workspaceId, ctx.config.systemId);
+    // CR-039: Create fresh evaluator with ctx.agentDB (single source of truth)
+    const evaluator = createUnifiedRuleEvaluator(ctx.agentDB);
     const result = await evaluator.evaluate(phase);
     displayValidationResult(result);
 
@@ -45,6 +47,7 @@ export async function handleValidateCommand(args: string[], ctx: CommandContext)
 
 /**
  * Handle /phase-gate command - check phase gate readiness
+ * CR-039: Uses ctx.agentDB directly (no caching)
  */
 export async function handlePhaseGateCommand(args: string[], ctx: CommandContext): Promise<void> {
   console.log('');
@@ -59,7 +62,8 @@ export async function handlePhaseGateCommand(args: string[], ctx: CommandContext
     else if (phaseArg === '3') phase = 'phase3_physical';
     else if (phaseArg === '4') phase = 'phase4_verification';
 
-    const evaluator = await getUnifiedRuleEvaluator(ctx.config.workspaceId, ctx.config.systemId);
+    // CR-039: Create fresh evaluator with ctx.agentDB (single source of truth)
+    const evaluator = createUnifiedRuleEvaluator(ctx.agentDB);
     const ruleLoader = getRuleLoader();
 
     const gateResult = await evaluator.checkPhaseGate(phase);
@@ -101,6 +105,7 @@ export async function handlePhaseGateCommand(args: string[], ctx: CommandContext
 
 /**
  * Handle /score command - show multi-objective scores
+ * CR-039: Uses ctx.agentDB directly (no caching)
  */
 export async function handleScoreCommand(ctx: CommandContext): Promise<void> {
   console.log('');
@@ -108,7 +113,8 @@ export async function handleScoreCommand(ctx: CommandContext): Promise<void> {
   ctx.log('📊 Computing scores');
 
   try {
-    const evaluator = await getUnifiedRuleEvaluator(ctx.config.workspaceId, ctx.config.systemId);
+    // CR-039: Create fresh evaluator with ctx.agentDB (single source of truth)
+    const evaluator = createUnifiedRuleEvaluator(ctx.agentDB);
     const ruleLoader = getRuleLoader();
 
     const result = await evaluator.evaluate('phase2_logical');
@@ -164,6 +170,7 @@ export async function handleScoreCommand(ctx: CommandContext): Promise<void> {
 
 /**
  * Handle /analyze command - analyze violations and suggest fixes
+ * CR-039: Uses ctx.agentDB directly (no caching)
  */
 export async function handleAnalyzeCommand(ctx: CommandContext): Promise<void> {
   console.log('');
@@ -171,7 +178,8 @@ export async function handleAnalyzeCommand(ctx: CommandContext): Promise<void> {
   ctx.log('🔍 Running analysis');
 
   try {
-    const evaluator = await getUnifiedRuleEvaluator(ctx.config.workspaceId, ctx.config.systemId);
+    // CR-039: Create fresh evaluator with ctx.agentDB (single source of truth)
+    const evaluator = createUnifiedRuleEvaluator(ctx.agentDB);
     const result = await evaluator.evaluate('phase2_logical');
 
     if (result.totalViolations === 0) {

@@ -52,6 +52,7 @@ import {
   handleViewCommand,
   printHelpMenu,
 } from './commands/session-commands.js';
+import { createUnifiedRuleEvaluator } from '../llm-engine/validation/index.js';
 
 // Configuration - will be set by resolveSession() in main()
 const config = {
@@ -74,6 +75,52 @@ let chatCanvas: ChatCanvas;
 let agentDB: UnifiedAgentDBService;
 const parser = new FormatEParser();
 
+// CR-039 Fix 5: Background validation state
+let validationTimeout: NodeJS.Timeout | null = null;
+
+/**
+ * CR-039 Fix 5: Setup background validation on graph changes
+ * Debounced 500ms to avoid excessive validation calls
+ *
+ * CR-039: Pushes validation results to ChatCanvas (for LLM context)
+ * NOTE: Does NOT call notifyGraphUpdate() - avoids broadcast loop
+ */
+function setupBackgroundValidation(): void {
+  agentDB.onGraphChange(() => {
+    // Clear previous timeout
+    if (validationTimeout) {
+      clearTimeout(validationTimeout);
+    }
+
+    // Debounce: wait 500ms before running validation
+    validationTimeout = setTimeout(async () => {
+      try {
+        const evaluator = createUnifiedRuleEvaluator(agentDB);
+        const result = await evaluator.evaluate('phase2_logical');
+
+        // CR-039: Push to ChatCanvas for LLM context
+        chatCanvas.setValidationSummary({
+          violationCount: result.totalViolations,
+          rewardScore: result.rewardScore,
+          phaseGateReady: result.phaseGateReady,
+          timestamp: new Date(),
+        });
+
+        // Log validation summary (but don't broadcast - avoid loop)
+        if (result.totalViolations > 0) {
+          log(`🔍 Background validation: ${result.totalViolations} violations (score: ${(result.rewardScore * 100).toFixed(0)}%)`);
+        }
+        // NOTE: Don't call notifyGraphUpdate() here - it creates a broadcast loop
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        log(`⚠️ Background validation error: ${errorMsg}`);
+      }
+    }, 500);
+  });
+
+  log('✅ Background validation setup (500ms debounce)');
+}
+
 /**
  * Log to STDOUT file
  */
@@ -84,8 +131,39 @@ function log(message: string): void {
 }
 
 /**
+ * Build nodeChangeStatus map for broadcast
+ * CR-039 Fix 4: Include change status in WebSocket broadcasts
+ */
+function buildNodeChangeStatus(): Record<string, string> | undefined {
+  if (!agentDB.hasBaseline()) {
+    return undefined;
+  }
+
+  const statusMap: Record<string, string> = {};
+  const nodes = agentDB.getNodes();
+
+  for (const node of nodes) {
+    const status = agentDB.getNodeChangeStatus(node.semanticId);
+    if (status !== 'unchanged') {
+      statusMap[node.semanticId] = status;
+    }
+  }
+
+  // Include deleted nodes
+  const changes = agentDB.getChanges();
+  for (const change of changes) {
+    if (change.elementType === 'node' && change.status === 'deleted') {
+      statusMap[change.id] = 'deleted';
+    }
+  }
+
+  return Object.keys(statusMap).length > 0 ? statusMap : undefined;
+}
+
+/**
  * Notify graph viewer of update via WebSocket
  * CR-032: Reads from AgentDB (Single Source of Truth)
+ * CR-039 Fix 4: Includes nodeChangeStatus metadata
  */
 function notifyGraphUpdate(): void {
   if (!wsClient || !wsClient.isConnected()) {
@@ -98,12 +176,18 @@ function notifyGraphUpdate(): void {
   const nodes = agentDB.getNodes();
   const edges = agentDB.getEdges();
 
+  // CR-039 Fix 4: Build change status for broadcast
+  const nodeChangeStatus = buildNodeChangeStatus();
+
+  // CR-039: validationSummary goes to ChatCanvas (for LLM), not WebSocket (graph-viewer is pure display)
   const stateData = {
     nodes: nodes.map((n) => [n.semanticId, n]),
     edges: edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]),
     ports: [],
     currentView: graphCanvas.getCurrentView(),
     timestamp: Date.now(),
+    // CR-039: Include change tracking metadata for graph-viewer
+    nodeChangeStatus,
   };
 
   wsClient.send({
@@ -114,7 +198,8 @@ function notifyGraphUpdate(): void {
     timestamp: new Date().toISOString(),
   });
 
-  log(`📡 Graph update broadcast (${nodes.length} nodes, ${edges.length} edges)`);
+  const changeCount = nodeChangeStatus ? Object.keys(nodeChangeStatus).length : 0;
+  log(`📡 Graph update broadcast (${nodes.length} nodes, ${edges.length} edges, ${changeCount} changes)`);
 }
 
 /**
@@ -426,6 +511,9 @@ async function main(): Promise<void> {
   log('🔧 Initializing UnifiedAgentDBService (CR-032)...');
   agentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
   log('✅ UnifiedAgentDBService initialized');
+
+  // CR-039 Fix 5: Setup background validation
+  setupBackgroundValidation();
 
   // STEP 3: Initialize Canvases (delegate to AgentDB)
   graphCanvas = new StatelessGraphCanvas(

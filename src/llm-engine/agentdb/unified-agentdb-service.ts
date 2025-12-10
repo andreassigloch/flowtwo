@@ -648,37 +648,67 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
 }
 
 // ============================================================
-// Singleton Management
+// Singleton Management (CR-039: True Singleton)
 // ============================================================
 
-// Map of workspace/system -> service instance
-const serviceInstances: Map<string, UnifiedAgentDBService> = new Map();
+/**
+ * TRUE singleton instance - only ONE AgentDB instance per process
+ * This is THE single source of truth (CR-032, CR-039)
+ */
+let cachedInstance: UnifiedAgentDBService | null = null;
+let cachedWorkspaceId: string | null = null;
+let cachedSystemId: string | null = null;
 
 /**
- * Get or create UnifiedAgentDBService for a workspace/system pair
+ * Get the singleton UnifiedAgentDBService instance
+ *
+ * CR-039: True singleton - returns SAME instance for same workspace/system
+ * If workspace/system changes, clears old data and re-initializes
  */
 export async function getUnifiedAgentDBService(
   workspaceId: string,
   systemId: string
 ): Promise<UnifiedAgentDBService> {
-  const key = `${workspaceId}::${systemId}`;
-
-  let service = serviceInstances.get(key);
-  if (!service) {
-    service = new UnifiedAgentDBService();
-    await service.initialize(workspaceId, systemId);
-    serviceInstances.set(key, service);
+  // Same session - return cached instance
+  if (cachedInstance && cachedWorkspaceId === workspaceId && cachedSystemId === systemId) {
+    return cachedInstance;
   }
 
-  return service;
+  // Different session - clear and re-initialize
+  if (cachedInstance) {
+    AgentDBLogger.info(`Switching session from ${cachedWorkspaceId}/${cachedSystemId} to ${workspaceId}/${systemId}`);
+    cachedInstance.clearForSystemLoad();
+  } else {
+    cachedInstance = new UnifiedAgentDBService();
+  }
+
+  await cachedInstance.initialize(workspaceId, systemId);
+  cachedWorkspaceId = workspaceId;
+  cachedSystemId = systemId;
+
+  return cachedInstance;
+}
+
+/**
+ * Reset singleton instance (for testing only)
+ */
+export function resetAgentDBInstance(): void {
+  if (cachedInstance) {
+    cachedInstance.shutdown().catch(() => {});
+  }
+  cachedInstance = null;
+  cachedWorkspaceId = null;
+  cachedSystemId = null;
 }
 
 /**
  * Shutdown all service instances
  */
 export async function shutdownAllServices(): Promise<void> {
-  for (const service of serviceInstances.values()) {
-    await service.shutdown();
+  if (cachedInstance) {
+    await cachedInstance.shutdown();
+    cachedInstance = null;
+    cachedWorkspaceId = null;
+    cachedSystemId = null;
   }
-  serviceInstances.clear();
 }

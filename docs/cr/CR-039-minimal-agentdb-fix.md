@@ -1,9 +1,10 @@
 # CR-039: Minimal AgentDB Fix
 
 **Type:** Bug Fix
-**Status:** Planned
+**Status:** Completed
 **Priority:** CRITICAL
 **Created:** 2025-12-08
+**Completed:** 2025-12-08
 **Author:** andreas@siglochconsulting
 
 **Fixes:** Immediate issues from CR-038 analysis
@@ -160,10 +161,10 @@ private setupBackgroundValidation(): void {
 
 ## What This Fixes
 
-- [x] `/analyze` detects violations (evaluator gets current data)
-- [x] `/optimize` sees current data (same fix)
-- [x] Change tracking indicators appear (single AgentDB, proper baseline)
-- [x] `/status` shows correct counts (single source of truth)
+- [x] `/analyze` detects violations (evaluator gets current data) ✅
+- [x] `/optimize` sees current data (same fix) ✅
+- [x] Change tracking indicators appear (single AgentDB, proper baseline) ✅
+- [x] `/status` shows correct counts (single source of truth) ✅
 
 ## What This Defers (to CR-038)
 
@@ -185,12 +186,15 @@ private setupBackgroundValidation(): void {
 
 ## Acceptance Criteria
 
-- [ ] `/analyze` returns violations on loaded graph
-- [ ] `/optimize` works with current data
-- [ ] Diff indicators (+/-/~) show in graph viewer
-- [ ] `/status` shows correct change count
-- [ ] Only ONE AgentDB instance exists (verified via logging)
-- [ ] All existing tests pass
+- [x] `/analyze` returns violations on loaded graph ✅
+- [x] `/optimize` works with current data ✅
+- [x] Diff indicators (+/-/~) show in graph viewer ✅
+- [x] `/status` shows correct change count ✅
+- [x] Only ONE AgentDB instance exists (verified via logging) ✅
+- [x] All existing tests pass ✅
+- [x] E2E tests pass:
+  - [x] `tests/e2e/cr039-agentdb-singleton.test.ts` (7 tests) ✅
+  - [x] `tests/e2e/cr039-validation-commands.test.ts` (9 tests) ✅
 
 ## Relationship to CR-038
 

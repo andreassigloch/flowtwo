@@ -350,6 +350,21 @@ Graph Viewer (local render buffer - OK!)
    ```
 3. Graph viewer applies operations to local render buffer
 4. Full sync on reconnect (`type: 'sync-request'` → server sends full state)
+5. **`/commit` triggers broadcast** - resets change indicators in graph viewer:
+   ```typescript
+   // In handleCommitCommand()
+   ctx.agentDB.captureBaseline();  // Reset change tracking
+   ctx.notifyGraphUpdate();        // Broadcast to graph viewer (clears +/-/~ indicators)
+   ```
+
+**Important Broadcast Triggers:**
+| Event | Broadcast | Effect on Graph Viewer |
+|-------|-----------|------------------------|
+| LLM graph operation | Format E delta | Apply operation, show +/-/~ |
+| `/commit` | Full state + empty changeStatus | Clear all change indicators |
+| `/load` | Full state + empty changeStatus | Replace buffer, fresh baseline |
+| `/new` | Empty state | Clear buffer |
+| Reconnect | Full sync | Rebuild buffer from scratch |
 
 ### Phase 3: Fix Evaluator Data Source (2 hours)
 

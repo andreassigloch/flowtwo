@@ -28,11 +28,25 @@ import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
  *
  * TEST: tests/unit/canvas/chat-canvas.test.ts
  */
+/**
+ * Validation summary from background validation
+ * CR-039: ChatCanvas receives validation feedback for LLM context
+ */
+export interface ValidationSummary {
+  violationCount: number;
+  rewardScore: number;
+  phaseGateReady: boolean;
+  timestamp: Date;
+}
+
 export class ChatCanvas extends EventEmitter {
   private state: ChatCanvasState;
   private graphCanvas?: StatelessGraphCanvas;
   private neo4jClient?: Neo4jClient;
   private parser: IFormatEParser;
+
+  // CR-039: Validation results for LLM context
+  private validationSummary?: ValidationSummary;
 
   // Metadata
   private readonly workspaceId: string;
@@ -305,5 +319,39 @@ export class ChatCanvas extends EventEmitter {
 
   getUserId(): string {
     return this.userId;
+  }
+
+  /**
+   * CR-039: Set validation summary from background validation
+   * Called by chat-interface when validation completes
+   */
+  setValidationSummary(summary: ValidationSummary): void {
+    this.validationSummary = summary;
+    this.emit('validation_update', summary);
+  }
+
+  /**
+   * CR-039: Get current validation summary for LLM context
+   */
+  getValidationSummary(): ValidationSummary | undefined {
+    return this.validationSummary;
+  }
+
+  /**
+   * CR-039: Get validation context string for LLM prompts
+   * Returns formatted string to inject into LLM context
+   */
+  getValidationContextForLLM(): string | undefined {
+    if (!this.validationSummary) {
+      return undefined;
+    }
+
+    const { violationCount, rewardScore, phaseGateReady } = this.validationSummary;
+
+    if (violationCount === 0) {
+      return `[Architecture Status: ✅ Clean - No violations, score: ${(rewardScore * 100).toFixed(0)}%, phase gate: ${phaseGateReady ? 'ready' : 'not ready'}]`;
+    }
+
+    return `[Architecture Status: ⚠️ ${violationCount} violation(s) detected, score: ${(rewardScore * 100).toFixed(0)}%, phase gate: ${phaseGateReady ? 'ready' : 'not ready'}]`;
   }
 }

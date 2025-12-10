@@ -81,6 +81,9 @@ export async function handleCommitCommand(ctx: CommandContext): Promise<void> {
   // Capture baseline for change tracking (CR-033)
   ctx.agentDB.captureBaseline();
 
+  // CR-039: Notify graph viewer that baseline was reset (clears change indicators)
+  ctx.notifyGraphUpdate();
+
   const chatCount = chatResult.savedCount || 0;
   const parts: string[] = [];
   if (graphSavedCount > 0) parts.push(`${nodes.length} nodes, ${edges.length} edges`);

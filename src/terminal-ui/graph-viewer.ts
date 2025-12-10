@@ -11,16 +11,14 @@
 
 import 'dotenv/config';
 import * as fs from 'fs';
-import { StatelessGraphCanvas } from '../canvas/stateless-graph-canvas.js';
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
-import { GraphEngine } from '../graph-engine/graph-engine.js';
 import { CanvasWebSocketClient } from '../canvas/websocket-client.js';
 import type { BroadcastUpdate } from '../canvas/websocket-server.js';
 import type { ViewType } from '../shared/types/view.js';
 import { WS_URL, LOG_PATH } from '../shared/config.js';
 import { initNeo4jClient, resolveSession } from '../shared/session-resolver.js';
-import { getUnifiedAgentDBService, UnifiedAgentDBService } from '../llm-engine/agentdb/unified-agentdb-service.js';
 import type { ChangeStatus } from '../llm-engine/agentdb/change-tracker.js';
+import type { Node, Edge } from '../shared/types/ontology.js';
 import { generateAsciiGraph } from './views/index.js';
 
 // Configuration - will be set by resolveSession() in main()
@@ -35,20 +33,24 @@ const config = {
 let neo4jClient: Neo4jClient;
 let currentView: ViewType = 'hierarchy';
 let wsClient: CanvasWebSocketClient;
-let graphCanvas: StatelessGraphCanvas;
-let agentDB: UnifiedAgentDBService;
 let lastProcessedTimestamp: string | null = null;
 
-// AgentDB getter (initialized in main)
-async function getAgentDB(): Promise<UnifiedAgentDBService> {
-  if (!agentDB) {
-    agentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
-  }
-  return agentDB;
+/**
+ * CR-039: Local render buffer for graph viewer
+ * Fed by WebSocket broadcasts from chat-interface (single source of truth)
+ * NO AgentDB instance - pure display component
+ */
+interface RenderBuffer {
+  nodes: Map<string, Node>;
+  edges: Map<string, Edge>;
+  nodeChangeStatus?: Map<string, ChangeStatus>;
 }
 
-// GraphEngine instance (used for layout computation)
-void new GraphEngine(); // Suppress unused warning - kept for future use
+const renderBuffer: RenderBuffer = {
+  nodes: new Map(),
+  edges: new Map(),
+  nodeChangeStatus: undefined,
+};
 
 /**
  * Log to STDOUT file
@@ -60,51 +62,23 @@ function log(message: string): void {
 }
 
 /**
- * CR-033: Build change status map for all nodes
- * Returns Map<semanticId, ChangeStatus>
- */
-function buildNodeChangeStatusMap(): Map<string, ChangeStatus> {
-  const statusMap = new Map<string, ChangeStatus>();
-
-  // Get all current nodes
-  const nodes = agentDB.getNodes();
-  for (const node of nodes) {
-    const status = agentDB.getNodeChangeStatus(node.semanticId);
-    if (status !== 'unchanged') {
-      statusMap.set(node.semanticId, status);
-    }
-  }
-
-  // Also include deleted nodes from the changes
-  const changes = agentDB.getChanges();
-  for (const change of changes) {
-    if (change.elementType === 'node' && change.status === 'deleted') {
-      statusMap.set(change.id, 'deleted');
-    }
-  }
-
-  return statusMap;
-}
-
-/**
- * Render graph to console
- * CR-033: Extended with change tracking indicators
+ * Render graph to console from local render buffer
+ * CR-039: Uses render buffer fed by WebSocket (no AgentDB)
+ * CR-033: Change tracking indicators from broadcast metadata
  */
 async function render(): Promise<void> {
-  const state = graphCanvas.getState();
-
-  // CR-033: Add change status to state for view rendering
+  // CR-039: Read from local render buffer (fed by WebSocket)
   const stateWithChanges = {
-    ...state,
-    nodeChangeStatus: agentDB.hasBaseline()
-      ? buildNodeChangeStatusMap()
-      : undefined,
+    nodes: renderBuffer.nodes,
+    edges: renderBuffer.edges,
+    currentView,
+    nodeChangeStatus: renderBuffer.nodeChangeStatus,
   };
 
   console.log('');
   console.log('\x1b[36m' + '\u2500'.repeat(60) + '\x1b[0m');
   console.log(`\x1b[1;36mGraph Update:\x1b[0m ${new Date().toLocaleTimeString()}`);
-  console.log(`\x1b[36mView:\x1b[0m ${currentView} | \x1b[36mNodes:\x1b[0m ${state.nodes.size} | \x1b[36mEdges:\x1b[0m ${state.edges.size}`);
+  console.log(`\x1b[36mView:\x1b[0m ${currentView} | \x1b[36mNodes:\x1b[0m ${renderBuffer.nodes.size} | \x1b[36mEdges:\x1b[0m ${renderBuffer.edges.size}`);
   console.log('\x1b[36m' + '\u2500'.repeat(60) + '\x1b[0m');
   console.log('');
 
@@ -118,6 +92,7 @@ async function render(): Promise<void> {
 
 /**
  * Handle graph update from WebSocket
+ * CR-039: Updates local render buffer (no AgentDB)
  */
 async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
   // Handle shutdown signal
@@ -156,21 +131,38 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
       }
     }
 
-    // Parse JSON state (same format as file-based polling)
+    // Parse JSON state from WebSocket broadcast
     const stateData = JSON.parse(update.diff || '{}');
 
-    // CR-032: Load into AgentDB (Single Source of Truth)
-    const db = await getAgentDB();
-    const nodes = (stateData.nodes || []).map(([_, n]: [string, any]) => n);
-    const edges = (stateData.edges || []).map(([_, e]: [string, any]) => e);
-    db.loadFromState({ nodes, edges });
+    // CR-039: Update local render buffer (NO AgentDB)
+    const nodes = (stateData.nodes || []).map(([_, n]: [string, Node]) => n);
+    const edges = (stateData.edges || []).map(([_, e]: [string, Edge]) => e);
+
+    // Clear and rebuild render buffer
+    renderBuffer.nodes.clear();
+    renderBuffer.edges.clear();
+    for (const node of nodes) {
+      renderBuffer.nodes.set(node.semanticId, node);
+    }
+    for (const edge of edges) {
+      renderBuffer.edges.set(edge.uuid, edge);
+    }
+
+    // CR-039 Fix 4: Parse nodeChangeStatus from broadcast metadata
+    if (stateData.nodeChangeStatus) {
+      renderBuffer.nodeChangeStatus = new Map(
+        Object.entries(stateData.nodeChangeStatus) as [string, ChangeStatus][]
+      );
+    } else {
+      renderBuffer.nodeChangeStatus = undefined;
+    }
 
     // Update current view if changed
     if (stateData.currentView) {
       currentView = stateData.currentView;
     }
 
-    // Re-render
+    // Re-render from local buffer
     await render();
     log(`\u2705 Rendered ${nodes.length} nodes, ${edges.length} edges`);
 
@@ -183,6 +175,7 @@ async function handleGraphUpdate(update: BroadcastUpdate): Promise<void> {
 
 /**
  * Main entry point
+ * CR-039: Simplified - no AgentDB, pure display component
  */
 async function main(): Promise<void> {
   // Initial header (only once)
@@ -192,9 +185,9 @@ async function main(): Promise<void> {
   console.log('\x1b[36m\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d\x1b[0m');
   console.log('');
 
-  log('\ud83d\udcca Graph viewer started');
+  log('\ud83d\udcca Graph viewer started (CR-039: pure display mode)');
 
-  // STEP 1: Session Resolution (MANDATORY Neo4j)
+  // STEP 1: Session Resolution (for WebSocket subscription)
   neo4jClient = initNeo4jClient();
 
   const resolved = await resolveSession(neo4jClient);
@@ -206,18 +199,8 @@ async function main(): Promise<void> {
   console.log(`\x1b[90m\u2713 Session: ${resolved.systemId} (${resolved.source})\x1b[0m`);
   log(`\ud83d\udccb Session: ${resolved.systemId} (source: ${resolved.source})`);
 
-  // STEP 2: Initialize AgentDB (CR-032: Single Source of Truth)
-  agentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
-
-  // STEP 3: Initialize Canvas (delegates to AgentDB)
-  graphCanvas = new StatelessGraphCanvas(
-    agentDB,
-    config.workspaceId,
-    config.systemId,
-    config.chatId,
-    config.userId,
-    currentView
-  );
+  // CR-039: NO AgentDB initialization - graph viewer is pure display
+  // Data comes via WebSocket from chat-interface (single source of truth)
 
   console.log('\x1b[90mGraph updates will appear below (scroll to see history)\x1b[0m');
   console.log('');

@@ -53,8 +53,30 @@ You are a Requirements Engineer working with a Systems Engineering ontology base
 
 ### FCHAIN (Function Chain) - Activity Diagram
 - Sequence of functions implementing a UC scenario
-- Contains: ACTOR (start/end), FUNC (steps), FLOW (data)
+- **Structure (CRITICAL):**
+  - FCHAIN contains FUNC nodes via `compose` (FLAT, not nested!)
+  - FCHAIN contains ACTOR nodes via `compose` (start/end points)
+  - FUNCs connect to each other via `io` edges through FLOW nodes
 - Example: `OrderFoodScenario.FC.001`
+
+**FCHAIN Pattern (CORRECT):**
+```
+FCHAIN ─compose→ ACTOR (start)
+FCHAIN ─compose→ FUNC1
+FCHAIN ─compose→ FUNC2
+FCHAIN ─compose→ FUNC3
+FCHAIN ─compose→ ACTOR (end)
+
+ACTOR ─io→ FLOW1 ─io→ FUNC1
+FUNC1 ─io→ FLOW2 ─io→ FUNC2
+FUNC2 ─io→ FLOW3 ─io→ FUNC3
+FUNC3 ─io→ FLOW4 ─io→ ACTOR
+```
+
+**WRONG (nested compose):**
+```
+FCHAIN ─compose→ FUNC1 ─compose→ FUNC2 ─compose→ FUNC3  ❌
+```
 
 ## Decision Criteria
 
@@ -180,13 +202,60 @@ UC (OrderFood.UC.001)
 ├── -sat-> REQ (Precondition: CustomerAuthenticated.RQ.002)
 ├── -sat-> REQ (Postcondition: RestaurantNotified.RQ.003)
 └── -cp-> FCHAIN (Main Scenario: OrderFoodFlow.FC.001)
-          ├── -cp-> ACTOR (Customer.AC.001) ← Trigger/Primary Actor
-          ├── -cp-> FUNC (steps...)
-          └── -cp-> ACTOR (Restaurant.AC.002) ← Receiver
 ```
 
-**Phase 1 creates:** UC, REQ, ACTOR nodes and their edges
-**Phase 2 creates:** FCHAIN, FUNC, FLOW nodes (via /derive or /architect)
+**FCHAIN internal structure (FLAT compose, io via FLOW):**
+```
+OrderFoodFlow.FC.001
+├── -cp-> Customer.AC.001          (start actor)
+├── -cp-> SelectItems.FN.001       (step 1)
+├── -cp-> AddToCart.FN.002         (step 2)
+├── -cp-> ProcessPayment.FN.003    (step 3)
+├── -cp-> ConfirmOrder.FN.004      (step 4)
+└── -cp-> Restaurant.AC.002        (end actor)
+
+Data flow (io edges via FLOW):
+Customer.AC.001 ─io→ MenuSelection.FL.001 ─io→ SelectItems.FN.001
+SelectItems.FN.001 ─io→ ItemData.FL.002 ─io→ AddToCart.FN.002
+AddToCart.FN.002 ─io→ CartData.FL.003 ─io→ ProcessPayment.FN.003
+ProcessPayment.FN.003 ─io→ PaymentResult.FL.004 ─io→ ConfirmOrder.FN.004
+ConfirmOrder.FN.004 ─io→ OrderConfirmation.FL.005 ─io→ Restaurant.AC.002
+```
+
+## Workflow Phases (from ontology-rules.json)
+
+### Phase 1: System Requirements (requirements-engineer)
+**Deliverables:** SYS node, UC hierarchy, REQ nodes with satisfy edges
+**Gate Rules:** req_semantic_id, uc_satisfy_req, sys_satisfy_nfr
+
+Work:
+- SYS node (root of all decomposition)
+- REQ nodes (functional linked to UC, non-functional linked to SYS)
+- ACTOR nodes (external entities outside specification authority)
+- UC nodes with UC→satisfy→REQ edges
+
+### Phase 2: Logical Architecture (requirements-engineer → system-architect handoff)
+**Deliverables:** 5-9 top-level FUNC, FLOW with SCHEMA, FCHAIN per leaf UC
+**Gate Rules:** millers_law, function_requirements, function_io, flow_connectivity, fchain_actor_boundary
+
+Requirements-Engineer creates:
+- FCHAIN per UC scenario (activity diagrams)
+- FUNC nodes as flat children of FCHAIN (via compose)
+- FLOW nodes connecting ACTOR/FUNC via io edges
+- ACTOR at start/end of each FCHAIN
+
+System-Architect completes:
+- Top-level FUNC decomposition from SYS
+- Volatility classification for all FUNC
+- SCHEMA for all FLOW (Layer 2: Datenformat)
+
+### Phase 3: Physical Architecture (system-architect)
+**Deliverables:** 5-9 top-level MOD, MOD→FUNC allocation
+**Gate Rules:** millers_law, function_allocation, no_orphan_mod
+
+### Phase 4: Integration & Verification
+**Deliverables:** TEST per REQ, Full traceability path
+**Gate Rules:** requirements_verification, isolation, naming, full_traceability
 
 ## Validation Rules You Must Satisfy
 

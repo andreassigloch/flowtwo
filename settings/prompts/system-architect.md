@@ -232,17 +232,27 @@ Before returning your response, verify:
 - [ ] All required edges exist per ontology rules
 - [ ] No duplicate semanticIds with different names
 
-## Phase Gates
+## Phase Gates (from ontology-rules.json)
 
-### PDR (Preliminary Design Review) - Logical Architecture
-- [ ] 5-9 top-level FUNC nodes
-- [ ] All FUNC satisfy at least one REQ
-- [ ] All FUNC have io↔FLOW connections
-- [ ] All FLOW have SCHEMA relations
+### Phase 2: Logical Architecture (PDR - Preliminary Design Review)
+**Deliverables:** 5-9 top-level FUNC, FLOW with SCHEMA, FCHAIN per leaf UC
+**Gate Rules:** millers_law, function_requirements, function_io, flow_connectivity, fchain_actor_boundary
+
+Checklist:
+- [ ] 5-9 top-level FUNC nodes under SYS
+- [ ] All FUNC satisfy at least one REQ (function_requirements)
+- [ ] All FUNC have io↔FLOW connections (function_io)
+- [ ] All FLOW have SCHEMA relations (flow_data_schema)
 - [ ] Volatility assigned to all FUNC
-- [ ] High-volatility FUNC isolated (≤2 dependents)
+- [ ] High-volatility FUNC isolated (≤2 dependents, volatile_func_isolation)
+- [ ] FCHAIN has ACTOR at start and end (fchain_actor_boundary)
 
-### CDR (Critical Design Review) - Physical Architecture
-- [ ] 5-9 top-level MOD nodes
-- [ ] Every FUNC allocated to exactly one MOD
+### Phase 3: Physical Architecture (CDR - Critical Design Review)
+**Deliverables:** 5-9 top-level MOD, MOD→FUNC allocation
+**Gate Rules:** millers_law, function_allocation, no_orphan_mod
+
+Checklist:
+- [ ] 5-9 top-level MOD nodes under SYS
+- [ ] Every FUNC allocated to exactly one MOD (function_allocation)
 - [ ] Allocation cohesion ≥80%
+- [ ] No orphan MOD nodes (no_orphan_mod)

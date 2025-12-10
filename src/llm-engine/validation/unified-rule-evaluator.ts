@@ -546,12 +546,11 @@ export function createUnifiedRuleEvaluator(agentDB: UnifiedAgentDBService): Unif
   return new UnifiedRuleEvaluator(agentDB);
 }
 
-// Singleton instances per workspace/system pair
-const evaluatorInstances: Map<string, UnifiedRuleEvaluator> = new Map();
-
 /**
- * Get or create UnifiedRuleEvaluator for a workspace/system pair
- * Mirrors the pattern from getUnifiedAgentDBService
+ * Get fresh UnifiedRuleEvaluator with current AgentDB data
+ *
+ * CR-039: NO CACHING - always creates fresh evaluator with current data
+ * This ensures /analyze and /optimize see the current graph state
  */
 export async function getUnifiedRuleEvaluator(
   workspaceId: string,
@@ -559,23 +558,19 @@ export async function getUnifiedRuleEvaluator(
 ): Promise<UnifiedRuleEvaluator> {
   const { getUnifiedAgentDBService } = await import('../agentdb/unified-agentdb-service.js');
 
-  const key = `${workspaceId}::${systemId}`;
+  // Always get the singleton AgentDB (true singleton per CR-039)
+  const agentDB = await getUnifiedAgentDBService(workspaceId, systemId);
 
-  let evaluator = evaluatorInstances.get(key);
-  if (!evaluator) {
-    const agentDB = await getUnifiedAgentDBService(workspaceId, systemId);
-    evaluator = new UnifiedRuleEvaluator(agentDB);
-    evaluatorInstances.set(key, evaluator);
-  }
-
-  return evaluator;
+  // Always create fresh evaluator - no caching (CR-039 Fix 2)
+  return new UnifiedRuleEvaluator(agentDB);
 }
 
 /**
- * Clear evaluator cache (for testing)
+ * Clear evaluator cache (no-op, kept for API compatibility)
+ * @deprecated No longer has any effect - evaluators are not cached
  */
 export function clearEvaluatorCache(): void {
-  evaluatorInstances.clear();
+  // No-op: evaluators are no longer cached (CR-039)
 }
 
 /**
