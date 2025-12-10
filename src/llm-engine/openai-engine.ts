@@ -128,7 +128,7 @@ export class OpenAIEngine {
     // Buffer full response
     let fullText = '';
     let emittedBlockCount = 0; // Track how many blocks we've already emitted
-    let emittedTextLength = 0; // Track how much text we've already emitted
+    let _emittedTextLength = 0; // Track how much text we've already emitted
     let promptTokens = 0;
     let completionTokens = 0;
 
@@ -161,7 +161,7 @@ export class OpenAIEngine {
         if (!isCurrentlyInside && !textChunk.includes('<operations')) {
           // Emit the chunk as text (it's outside any operations block)
           onChunk({ type: 'text', text: textChunk });
-          emittedTextLength += textChunk.length;
+          _emittedTextLength += textChunk.length;
         }
       }
     }

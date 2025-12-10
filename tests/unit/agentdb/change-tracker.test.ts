@@ -112,7 +112,7 @@ describe('unit: ChangeTracker', () => {
       const baseline = createState([node], []);
       tracker.captureBaseline(baseline);
 
-      const current = createState([node], []);
+      const _current = createState([node], []);
 
       expect(tracker.getNodeStatus('func1', node)).toBe('unchanged');
     });
@@ -124,7 +124,7 @@ describe('unit: ChangeTracker', () => {
       tracker.captureBaseline(baseline);
 
       const edge = createEdge('edge1', 'sys', 'func1');
-      const current = createState([], [edge]);
+      const _current = createState([], [edge]);
 
       expect(tracker.getEdgeStatus('edge1', edge)).toBe('added');
     });
