@@ -220,6 +220,23 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
   }
 
   /**
+   * Update system ID without clearing data (CR-038 Fix)
+   *
+   * Used when auto-detecting system ID from 'new-system' placeholder.
+   * Preserves all existing graph data, just updates the systemId.
+   */
+  updateSystemId(newSystemId: string): void {
+    this.ensureInitialized();
+    this.graphStore!.setSystemId(newSystemId);
+
+    // Clear response cache (systemId changed, responses may be stale)
+    this.versionedCache.clear();
+    this.cachedVersions.clear();
+
+    AgentDBLogger.info(`System ID updated to ${newSystemId} (data preserved)`);
+  }
+
+  /**
    * Get graph statistics
    */
   getGraphStats(): { nodeCount: number; edgeCount: number; version: number } {
@@ -664,6 +681,10 @@ let cachedSystemId: string | null = null;
  *
  * CR-039: True singleton - returns SAME instance for same workspace/system
  * If workspace/system changes, clears old data and re-initializes
+ *
+ * CR-038 Fix: When transitioning from 'new-system' placeholder to a detected
+ * system ID, PRESERVE data (don't clear). This handles the auto-detection
+ * scenario where the LLM creates nodes and the system ID is auto-detected.
  */
 export async function getUnifiedAgentDBService(
   workspaceId: string,
@@ -674,15 +695,27 @@ export async function getUnifiedAgentDBService(
     return cachedInstance;
   }
 
-  // Different session - clear and re-initialize
+  // Different session - handle based on scenario
   if (cachedInstance) {
-    AgentDBLogger.info(`Switching session from ${cachedWorkspaceId}/${cachedSystemId} to ${workspaceId}/${systemId}`);
-    cachedInstance.clearForSystemLoad();
+    const isNewSystemTransition = cachedSystemId === 'new-system' && systemId !== 'new-system';
+
+    if (isNewSystemTransition) {
+      // CR-038 Fix: Auto-detection from 'new-system' to real system ID
+      // PRESERVE data - just update the cached systemId
+      AgentDBLogger.info(`System auto-detected: updating systemId from ${cachedSystemId} to ${systemId} (preserving data)`);
+      // Re-initialize GraphStore with new systemId but preserve existing nodes
+      cachedInstance.updateSystemId(systemId);
+    } else {
+      // Normal system switch (e.g., /load different system) - clear old data
+      AgentDBLogger.info(`Switching session from ${cachedWorkspaceId}/${cachedSystemId} to ${workspaceId}/${systemId}`);
+      cachedInstance.clearForSystemLoad();
+      await cachedInstance.initialize(workspaceId, systemId);
+    }
   } else {
     cachedInstance = new UnifiedAgentDBService();
+    await cachedInstance.initialize(workspaceId, systemId);
   }
 
-  await cachedInstance.initialize(workspaceId, systemId);
   cachedWorkspaceId = workspaceId;
   cachedSystemId = systemId;
 

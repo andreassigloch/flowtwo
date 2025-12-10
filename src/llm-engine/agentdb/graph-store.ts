@@ -478,6 +478,33 @@ export class GraphStore extends EventEmitter {
   }
 
   /**
+   * Update system ID (CR-038 Fix)
+   *
+   * Used when auto-detecting system ID from 'new-system' placeholder.
+   * Also updates systemId on all existing nodes and edges.
+   */
+  setSystemId(newSystemId: string): void {
+    const oldSystemId = this.systemId;
+    this.systemId = newSystemId;
+
+    // Update all existing nodes with new systemId
+    for (const [key, node] of this.nodes) {
+      if (node.systemId === oldSystemId || node.systemId === 'new-system') {
+        this.nodes.set(key, { ...node, systemId: newSystemId });
+      }
+    }
+
+    // Update all existing edges with new systemId
+    for (const [key, edge] of this.edges) {
+      if (edge.systemId === oldSystemId || edge.systemId === 'new-system') {
+        this.edges.set(key, { ...edge, systemId: newSystemId });
+      }
+    }
+
+    this.incrementVersion();
+  }
+
+  /**
    * Get store statistics
    */
   getStats(): { nodeCount: number; edgeCount: number; version: number } {

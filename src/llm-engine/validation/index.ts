@@ -50,3 +50,10 @@ export {
   createEvaluatorFromGraph,
   clearEvaluatorCache,
 } from './unified-rule-evaluator.js';
+
+// CR-038 Phase 4: Background Validator
+export {
+  BackgroundValidator,
+  createBackgroundValidator,
+  type BackgroundValidatorOptions,
+} from './background-validator.js';

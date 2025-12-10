@@ -52,7 +52,7 @@ import {
   handleViewCommand,
   printHelpMenu,
 } from './commands/session-commands.js';
-import { createUnifiedRuleEvaluator } from '../llm-engine/validation/index.js';
+import { createBackgroundValidator, BackgroundValidator } from '../llm-engine/validation/index.js';
 
 // Configuration - will be set by resolveSession() in main()
 const config = {
@@ -75,51 +75,8 @@ let chatCanvas: ChatCanvas;
 let agentDB: UnifiedAgentDBService;
 const parser = new FormatEParser();
 
-// CR-039 Fix 5: Background validation state
-let validationTimeout: NodeJS.Timeout | null = null;
-
-/**
- * CR-039 Fix 5: Setup background validation on graph changes
- * Debounced 500ms to avoid excessive validation calls
- *
- * CR-039: Pushes validation results to ChatCanvas (for LLM context)
- * NOTE: Does NOT call notifyGraphUpdate() - avoids broadcast loop
- */
-function setupBackgroundValidation(): void {
-  agentDB.onGraphChange(() => {
-    // Clear previous timeout
-    if (validationTimeout) {
-      clearTimeout(validationTimeout);
-    }
-
-    // Debounce: wait 500ms before running validation
-    validationTimeout = setTimeout(async () => {
-      try {
-        const evaluator = createUnifiedRuleEvaluator(agentDB);
-        const result = await evaluator.evaluate('phase2_logical');
-
-        // CR-039: Push to ChatCanvas for LLM context
-        chatCanvas.setValidationSummary({
-          violationCount: result.totalViolations,
-          rewardScore: result.rewardScore,
-          phaseGateReady: result.phaseGateReady,
-          timestamp: new Date(),
-        });
-
-        // Log validation summary (but don't broadcast - avoid loop)
-        if (result.totalViolations > 0) {
-          log(`🔍 Background validation: ${result.totalViolations} violations (score: ${(result.rewardScore * 100).toFixed(0)}%)`);
-        }
-        // NOTE: Don't call notifyGraphUpdate() here - it creates a broadcast loop
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        log(`⚠️ Background validation error: ${errorMsg}`);
-      }
-    }, 500);
-  });
-
-  log('✅ Background validation setup (500ms debounce)');
-}
+// CR-038 Phase 4: Background validator instance
+let backgroundValidator: BackgroundValidator | null = null;
 
 /**
  * Log to STDOUT file
@@ -512,9 +469,6 @@ async function main(): Promise<void> {
   agentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
   log('✅ UnifiedAgentDBService initialized');
 
-  // CR-039 Fix 5: Setup background validation
-  setupBackgroundValidation();
-
   // STEP 3: Initialize Canvases (delegate to AgentDB)
   graphCanvas = new StatelessGraphCanvas(
     agentDB,
@@ -533,6 +487,14 @@ async function main(): Promise<void> {
     graphCanvas,
     neo4jClient
   );
+
+  // CR-038 Phase 4: Setup background validation with BackgroundValidator class
+  // Must be after ChatCanvas initialization (needs chatCanvas instance)
+  backgroundValidator = createBackgroundValidator(agentDB, chatCanvas, {
+    debounceMs: 300, // CR-038 Phase 4: 300ms debounce as specified
+    phase: 'phase2_logical',
+    log,
+  });
 
   // STEP 4: LLM Engine (CR-034: Factory-based provider selection)
   const provider = getCurrentProvider();
@@ -645,6 +607,11 @@ async function main(): Promise<void> {
 
     if (trimmed === 'exit' || trimmed === 'quit' || trimmed === '/exit') {
       log('🛑 Shutting down all terminals...');
+
+      // CR-038 Phase 4: Stop background validator
+      if (backgroundValidator) {
+        backgroundValidator.stop();
+      }
 
       if (wsClient) {
         try {
