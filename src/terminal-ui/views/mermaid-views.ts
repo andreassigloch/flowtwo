@@ -48,6 +48,9 @@ export async function renderArchitectureView(state: GraphState, _viewConfig: any
 
   const flowNodes = Array.from(state.nodes.values()).filter((n: any) => n.type === 'FLOW');
 
+  // Track unique connections to avoid duplicates when multiple sources write to same FLOW
+  const seenConnections = new Set<string>();
+
   for (const flowNode of flowNodes as any[]) {
     const incomingFromFuncs = Array.from(state.edges.values()).filter(
       (e: any) => e.type === 'io' && e.targetId === flowNode.semanticId && funcIds.has(e.sourceId)
@@ -58,11 +61,16 @@ export async function renderArchitectureView(state: GraphState, _viewConfig: any
 
     for (const inEdge of incomingFromFuncs as any[]) {
       for (const outEdge of outgoingToFuncs as any[]) {
-        connections.push({
-          sourceFunc: inEdge.sourceId,
-          targetFunc: outEdge.targetId,
-          flowName: flowNode.name,
-        });
+        // Dedupe by source-target-flowName to avoid duplicates
+        const key = `${inEdge.sourceId}:${outEdge.targetId}:${flowNode.name}`;
+        if (!seenConnections.has(key)) {
+          seenConnections.add(key);
+          connections.push({
+            sourceFunc: inEdge.sourceId,
+            targetFunc: outEdge.targetId,
+            flowName: flowNode.name,
+          });
+        }
       }
     }
   }
@@ -184,6 +192,9 @@ export async function renderFunctionalNetworkView(state: GraphState, _viewConfig
   const flowNodes = Array.from(state.nodes.values()).filter((n: any) => n.type === 'FLOW');
   const connections: Array<{ sourceId: string; targetId: string; flowName: string }> = [];
 
+  // Track unique connections to avoid duplicates when multiple sources write to same FLOW
+  const seenConnections = new Set<string>();
+
   for (const flowNode of flowNodes as any[]) {
     const incomingEdges = Array.from(state.edges.values()).filter(
       (e: any) => e.type === 'io' && e.targetId === flowNode.semanticId
@@ -200,11 +211,16 @@ export async function renderFunctionalNetworkView(state: GraphState, _viewConfig
         if (sourceNode && targetNode &&
             ['FUNC', 'ACTOR'].includes(sourceNode.type) &&
             ['FUNC', 'ACTOR'].includes(targetNode.type)) {
-          connections.push({
-            sourceId: inEdge.sourceId,
-            targetId: outEdge.targetId,
-            flowName: flowNode.name,
-          });
+          // Dedupe by source-target-flowName to avoid duplicates
+          const key = `${inEdge.sourceId}:${outEdge.targetId}:${flowNode.name}`;
+          if (!seenConnections.has(key)) {
+            seenConnections.add(key);
+            connections.push({
+              sourceId: inEdge.sourceId,
+              targetId: outEdge.targetId,
+              flowName: flowNode.name,
+            });
+          }
         }
       }
     }

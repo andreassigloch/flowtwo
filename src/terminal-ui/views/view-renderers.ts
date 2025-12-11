@@ -21,7 +21,7 @@ import {
   renderRequirementsView,
   renderUseCaseView,
 } from './basic-views.js';
-import { renderSpecView, renderSpecPlusView } from './spec-views.js';
+import { renderSpecView, renderSpecPlusView, renderFchainView } from './spec-views.js';
 import { renderArchitectureView, renderFunctionalNetworkView } from './mermaid-views.js';
 
 /**
@@ -95,6 +95,9 @@ export async function generateAsciiGraph(
       break;
     case 'functional-network':
       lines.push(...await renderFunctionalNetworkView(state, viewConfig));
+      break;
+    case 'fchain':
+      lines.push(...renderFchainView(state, viewConfig));
       break;
     default:
       lines.push(`\x1b[33m\u26a0\ufe0f  View "${currentView}" not implemented in ASCII renderer\x1b[0m`);

@@ -254,8 +254,50 @@ Per global CLAUDE.md rules:
 ### Test Distribution (Test Pyramid)
 - **70% Unit tests** - tests/unit/**/*.test.ts
 - **20% Integration tests** - tests/integration/**/*.test.ts
-- **10% E2E tests** - tests/e2e/**/*.spec.ts
+- **10% E2E tests** - tests/e2e/**/*.e2e.ts
 - **Zero skipped tests** - no .skip() allowed in CI
+
+### Terminal UI E2E Testing (stdin/stdout)
+
+GraphEngine uses a **4-terminal text UI** (WebSocket server, Chat interface, Graph viewer, Stdout logs). E2E tests interact via **stdin/stdout redirection**, not WebSocket or direct API calls.
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     AppTestHelper                            │
+├─────────────────────────────────────────────────────────────┤
+│  spawn('node', [...], { stdio: ['pipe', 'pipe', 'pipe'] })  │
+│                                                             │
+│  stdin.write('/command\n')  →  process  →  stdout.on('data')│
+│                                                             │
+│  chatLogs[] ← collects all terminal output                  │
+│  expectOutput(pattern) ← polls logs for verification        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Methods (AppTestHelper):**
+- `sendCommand(cmd)` - Writes to stdin, sets log checkpoint
+- `expectOutput(pattern, timeout)` - Polls stdout logs from checkpoint
+- `parseStats()` - Extracts node/edge counts from stats output
+- `killProcess(name)` / `restartWsServer()` - Crash recovery testing
+
+**Why stdin/stdout (not WebSocket):**
+- Tests observe **what the user sees** in the terminal
+- WebSocket is internal communication between terminals
+- stdout captures all console.log(), prompts, results
+- More reliable than intercepting WebSocket messages
+
+**Test File Locations:**
+- `tests/e2e/helpers/app-helper.ts` - AppTestHelper class
+- `tests/e2e/smoke/*.e2e.ts` - Fast startup verification
+- `tests/e2e/workflows/*.e2e.ts` - Complete user journeys
+
+**Run Commands:**
+```bash
+npm run test:e2e           # All E2E tests
+npm run test:e2e:smoke     # Smoke tests only (fast)
+npm run test:e2e:workflows # Workflow tests
+```
 
 ### Interactive UI Elements
 **MANDATORY:** All interactive elements must have `data-testid` attributes:
@@ -270,6 +312,49 @@ Per global CLAUDE.md rules:
 ```
 
 Use kebab-case, be specific, include context.
+
+## Neo4j Database Access
+
+### Direct Database Queries
+Use **cypher-shell** for direct Neo4j debugging independent of the application:
+
+```bash
+# Install (macOS)
+brew install cypher-shell
+
+# Connect using .env credentials
+source .env && cypher-shell -u $NEO4J_USER -p $NEO4J_PASSWORD
+
+# Or direct (default dev credentials)
+cypher-shell -u neo4j -p aise_password_2024
+```
+
+### Common Debug Queries
+```cypher
+-- Count nodes by type
+MATCH (n) RETURN labels(n)[0] AS type, count(*) AS count ORDER BY count DESC;
+
+-- Count edges by type (stored as property)
+MATCH ()-[r]->() RETURN r.type AS type, count(*) AS count ORDER BY count DESC;
+
+-- Find io-flow-io connections within FCHAIN
+MATCH (fchain:FCHAIN)-[:COMPOSE]->(func1:FUNC),
+      (fchain)-[:COMPOSE]->(flow:FLOW),
+      (fchain)-[:COMPOSE]->(func2:FUNC),
+      (func1)-[:IO]->(flow)-[:IO]->(func2)
+RETURN fchain.name, func1.name AS source, flow.name AS flowName, func2.name AS target;
+
+-- Find orphan nodes (no edges)
+MATCH (n) WHERE NOT (n)--() RETURN labels(n)[0] AS type, n.semanticId, n.name;
+```
+
+### When to Use cypher-shell
+- Verifying data integrity independent of application
+- Debugging data issues (duplicates, missing edges)
+- Checking FCHAIN composition and io-flow-io connections
+- Performance profiling queries (`PROFILE` / `EXPLAIN`)
+
+**Skill Reference:** [.claude/skills/neo4j-query/SKILL.md](.claude/skills/neo4j-query/SKILL.md)
 
 ## Summary
 
