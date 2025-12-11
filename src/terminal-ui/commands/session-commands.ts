@@ -24,6 +24,9 @@ export async function handleNewCommand(ctx: CommandContext): Promise<void> {
   await updateActiveSystem(ctx.neo4jClient, ctx.config, 'new-system');
   ctx.log('💾 Session updated: new-system');
 
+  // Capture empty baseline so new additions show as "added" in /status
+  ctx.agentDB.captureBaseline();
+
   ctx.notifyGraphUpdate();
 
   console.log('\x1b[32m✅ Graph cleared - ready for new system\x1b[0m');
@@ -101,6 +104,52 @@ export async function handleSaveCommand(ctx: CommandContext): Promise<void> {
 }
 
 /**
+ * Handle /restore command - discard changes since last commit (CR-044)
+ * Like `git restore .` - rolls back to baseline state
+ */
+export function handleRestoreCommand(ctx: CommandContext): void {
+  console.log('');
+
+  if (!ctx.agentDB.hasBaseline()) {
+    console.log('\x1b[33m⚠️  No baseline to restore to\x1b[0m');
+    console.log('\x1b[90m   Use /commit or /load to establish a baseline first.\x1b[0m');
+    console.log('');
+    return;
+  }
+
+  // Check if there are changes to discard
+  const summary = ctx.agentDB.getChangeSummary();
+  if (summary.total === 0) {
+    console.log('\x1b[90m   No changes to discard - already at baseline\x1b[0m');
+    console.log('');
+    return;
+  }
+
+  // Restore from baseline
+  const result = ctx.agentDB.restoreFromBaseline();
+
+  if (!result) {
+    console.log('\x1b[31m❌ Restore failed - baseline not available\x1b[0m');
+    console.log('');
+    return;
+  }
+
+  // Notify graph viewer (diff should now be empty)
+  ctx.notifyGraphUpdate();
+
+  const parts: string[] = [];
+  if (summary.added > 0) parts.push(`\x1b[31m-${summary.added} added\x1b[0m`);
+  if (summary.modified > 0) parts.push(`\x1b[33m~${summary.modified} reverted\x1b[0m`);
+  if (summary.deleted > 0) parts.push(`\x1b[32m+${summary.deleted} restored\x1b[0m`);
+
+  console.log(`\x1b[32m✅ Restored to baseline\x1b[0m`);
+  console.log(`   Discarded: ${parts.join(', ')}`);
+  console.log(`   Graph now: ${result.nodes} nodes, ${result.edges} edges`);
+  ctx.log(`✅ Restored to baseline (discarded ${summary.total} changes)`);
+  console.log('');
+}
+
+/**
  * Handle /status command - show pending changes summary (CR-033)
  */
 export function handleStatusCommand(ctx: CommandContext): void {
@@ -173,6 +222,9 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
       });
       console.log('');
 
+      // CR-045: Pause main readline to prevent duplicate input processing
+      mainRl.pause();
+
       // Create temporary readline for selection
       const selectRl = readline.createInterface({
         input: process.stdin,
@@ -181,6 +233,8 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
 
       selectRl.question('Enter number to load (or press Enter to cancel): ', async (answer) => {
         selectRl.close();
+        // CR-045: Resume main readline after selection
+        mainRl.resume();
 
         const num = parseInt(answer.trim(), 10);
         if (isNaN(num) || num < 1 || num > result.records.length) {
@@ -403,6 +457,7 @@ export function printHelpMenu(): void {
   console.log('  /load           - List and load systems from Neo4j');
   console.log('  /commit         - Commit changes to Neo4j (resets change indicators)');
   console.log('  /save           - Alias for /commit');
+  console.log('  /restore        - Discard changes, restore to last commit (like git restore .)');
   console.log('  /status         - Show pending changes (git-like diff)');
   console.log('  /stats          - Show graph statistics');
   console.log('  /clear          - Clear chat display');
