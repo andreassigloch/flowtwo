@@ -16,6 +16,7 @@
  */
 
 import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
+import { syncSingletonCache } from '../llm-engine/agentdb/unified-agentdb-service.js';
 
 export interface ResolvedSession {
   workspaceId: string;
@@ -212,6 +213,7 @@ export async function updateActiveSystem(
     await session.close();
   }
 
-  // Note: With CR-032 UnifiedAgentDBService, cache invalidation is automatic via graph version tracking.
-  // No explicit cache invalidation needed - AgentDB handles this internally.
+  // CR-038 Fix: Sync singleton cache to prevent data loss on subsequent getUnifiedAgentDBService() calls
+  // Without this, a mismatch between config.systemId and cachedSystemId would trigger clearForSystemLoad()
+  syncSingletonCache(config.workspaceId, newSystemId);
 }

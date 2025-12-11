@@ -388,4 +388,168 @@ describe('UnifiedAgentDBService', () => {
       expect(service.getNode('NewNode1.FN.001')).not.toBeNull();
     });
   });
+
+  describe('restoreFromBaseline (CR-044)', () => {
+    it('should return null when no baseline', () => {
+      service.setNode(createTestNode('Node1.FN.001', 'Node1'));
+
+      const result = service.restoreFromBaseline();
+
+      expect(result).toBeNull();
+    });
+
+    it('should restore to baseline state after changes', () => {
+      // Setup: create baseline with 2 nodes
+      const node1 = createTestNode('Node1.FN.001', 'Node1');
+      const node2 = createTestNode('Node2.FN.002', 'Node2');
+      service.setNode(node1);
+      service.setNode(node2);
+      service.captureBaseline();
+
+      // Make changes: add node3, delete node2
+      service.setNode(createTestNode('Node3.FN.003', 'Node3'));
+      service.deleteNode('Node2.FN.002');
+
+      expect(service.getGraphStats().nodeCount).toBe(2); // node1, node3
+
+      // Restore
+      const result = service.restoreFromBaseline();
+
+      expect(result).not.toBeNull();
+      expect(result!.nodes).toBe(2);
+      expect(service.getGraphStats().nodeCount).toBe(2);
+      expect(service.getNode('Node1.FN.001')).not.toBeNull();
+      expect(service.getNode('Node2.FN.002')).not.toBeNull(); // Restored
+      expect(service.getNode('Node3.FN.003')).toBeNull(); // Removed
+    });
+
+    it('should restore edges to baseline state', () => {
+      // Setup: create baseline with edge
+      const node1 = createTestNode('Node1.FN.001', 'Node1');
+      const node2 = createTestNode('Node2.FN.002', 'Node2');
+      const edge = createTestEdge('edge1', 'Node1.FN.001', 'Node2.FN.002', 'io');
+      service.setNode(node1);
+      service.setNode(node2);
+      service.setEdge(edge);
+      service.captureBaseline();
+
+      // Make changes: delete edge
+      service.deleteEdge('edge1');
+      expect(service.getGraphStats().edgeCount).toBe(0);
+
+      // Restore
+      const result = service.restoreFromBaseline();
+
+      expect(result).not.toBeNull();
+      expect(result!.edges).toBe(1);
+      expect(service.getGraphStats().edgeCount).toBe(1);
+    });
+
+    it('should clear change tracking after restore', () => {
+      const node1 = createTestNode('Node1.FN.001', 'Node1');
+      service.setNode(node1);
+      service.captureBaseline();
+
+      // Make changes
+      service.setNode(createTestNode('Node2.FN.002', 'Node2'));
+      expect(service.getChangeSummary().added).toBe(1);
+
+      // Restore
+      service.restoreFromBaseline();
+
+      // After restore, there should be no changes (we're at baseline)
+      expect(service.getChangeSummary().total).toBe(0);
+    });
+  });
+
+  describe('Singleton Race Condition Protection (CR-038)', () => {
+    // Import the singleton functions for testing
+    let getUnifiedAgentDBService: typeof import('../../../src/llm-engine/agentdb/unified-agentdb-service.js').getUnifiedAgentDBService;
+    let resetAgentDBInstance: typeof import('../../../src/llm-engine/agentdb/unified-agentdb-service.js').resetAgentDBInstance;
+    let syncSingletonCache: typeof import('../../../src/llm-engine/agentdb/unified-agentdb-service.js').syncSingletonCache;
+
+    beforeAll(async () => {
+      const module = await import('../../../src/llm-engine/agentdb/unified-agentdb-service.js');
+      getUnifiedAgentDBService = module.getUnifiedAgentDBService;
+      resetAgentDBInstance = module.resetAgentDBInstance;
+      syncSingletonCache = module.syncSingletonCache;
+    });
+
+    beforeEach(() => {
+      // Reset singleton before each test
+      resetAgentDBInstance();
+    });
+
+    afterEach(() => {
+      // Clean up singleton after each test
+      resetAgentDBInstance();
+    });
+
+    it('should preserve data when stale new-system request arrives after /load', async () => {
+      // Scenario: User runs /load, then a stale LLM request with old systemId arrives
+
+      // Step 1: Initialize with real system (simulates /load completion)
+      const realSystemId = 'LoadedSystem.SY.001';
+      const instance1 = await getUnifiedAgentDBService(workspaceId, realSystemId);
+
+      // Add data (simulates loaded graph)
+      instance1.setNode(createTestNode('Node1.FN.001', 'LoadedNode'));
+      expect(instance1.getGraphStats().nodeCount).toBe(1);
+
+      // Step 2: Stale request with 'new-system' arrives (simulates race condition)
+      const instance2 = await getUnifiedAgentDBService(workspaceId, 'new-system');
+
+      // Should return SAME instance without clearing data
+      expect(instance2).toBe(instance1);
+      expect(instance2.getGraphStats().nodeCount).toBe(1); // Data preserved!
+    });
+
+    it('should update cache when transitioning from new-system to real system', async () => {
+      // Step 1: Start with new-system (fresh session)
+      const instance1 = await getUnifiedAgentDBService(workspaceId, 'new-system');
+      instance1.setNode(createTestNode('NewNode.FN.001', 'NewNode'));
+      expect(instance1.getGraphStats().nodeCount).toBe(1);
+
+      // Step 2: Auto-detect real system ID
+      const realSystemId = 'DetectedSystem.SY.001';
+      const instance2 = await getUnifiedAgentDBService(workspaceId, realSystemId);
+
+      // Should return SAME instance with data preserved
+      expect(instance2).toBe(instance1);
+      expect(instance2.getGraphStats().nodeCount).toBe(1); // Data preserved!
+    });
+
+    it('should clear data when switching between two real systems', async () => {
+      // Step 1: Initialize with first real system
+      const system1 = 'System1.SY.001';
+      const instance1 = await getUnifiedAgentDBService(workspaceId, system1);
+      instance1.setNode(createTestNode('Node1.FN.001', 'System1Node'));
+      expect(instance1.getGraphStats().nodeCount).toBe(1);
+
+      // Step 2: Switch to different real system (simulates /load different system)
+      const system2 = 'System2.SY.001';
+      const instance2 = await getUnifiedAgentDBService(workspaceId, system2);
+
+      // Should return SAME instance but with cleared data
+      expect(instance2).toBe(instance1);
+      expect(instance2.getGraphStats().nodeCount).toBe(0); // Data cleared for new system
+    });
+
+    it('should sync cache via syncSingletonCache after /load', async () => {
+      // Step 1: Initialize with new-system
+      const instance1 = await getUnifiedAgentDBService(workspaceId, 'new-system');
+      instance1.setNode(createTestNode('Node1.FN.001', 'TestNode'));
+
+      // Step 2: /load completes and syncs cache (without calling getUnifiedAgentDBService)
+      const loadedSystemId = 'LoadedSystem.SY.001';
+      syncSingletonCache(workspaceId, loadedSystemId);
+
+      // Step 3: Subsequent request with correct systemId should hit cache
+      const instance2 = await getUnifiedAgentDBService(workspaceId, loadedSystemId);
+
+      // Should return SAME instance (cache was synced)
+      expect(instance2).toBe(instance1);
+      expect(instance2.getGraphStats().nodeCount).toBe(1); // Data preserved!
+    });
+  });
 });

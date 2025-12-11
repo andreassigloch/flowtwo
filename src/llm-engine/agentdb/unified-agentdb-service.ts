@@ -237,6 +237,31 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
   }
 
   /**
+   * Reinitialize for a new system after clearing data (CR-043 Fix)
+   *
+   * Called during system switch (e.g., /load different system).
+   * Creates new GraphStore with new systemId, re-subscribes to events.
+   * IMPORTANT: Call clearForSystemLoad() BEFORE this method.
+   *
+   * Unlike initialize(), this can be called when already initialized.
+   */
+  reinitializeForSystem(workspaceId: string, systemId: string): void {
+    if (!this.initialized) {
+      throw new Error('Cannot reinitialize - service not yet initialized');
+    }
+
+    // Create new GraphStore with new workspace/system IDs
+    this.graphStore = new GraphStore(workspaceId, systemId);
+
+    // Re-subscribe to graph changes for cache invalidation
+    this.graphStore.onGraphChange((event) => {
+      this.handleGraphChange(event);
+    });
+
+    AgentDBLogger.info(`Reinitialized GraphStore for ${workspaceId}/${systemId}`);
+  }
+
+  /**
    * Get graph statistics
    */
   getGraphStats(): { nodeCount: number; edgeCount: number; version: number } {
@@ -662,6 +687,35 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
   hasBaseline(): boolean {
     return this.changeTracker?.hasBaseline() ?? false;
   }
+
+  /**
+   * Restore graph state from baseline (CR-044)
+   * Discards all changes since last commit/load
+   * Returns the restored state summary or null if no baseline
+   */
+  restoreFromBaseline(): { nodes: number; edges: number } | null {
+    if (!this.graphStore || !this.changeTracker) return null;
+
+    const baselineState = this.changeTracker.getBaselineState();
+    if (!baselineState) {
+      return null;
+    }
+
+    // Clear current graph
+    this.graphStore.clear();
+
+    // Load baseline state back
+    this.graphStore.loadFromState(baselineState);
+
+    AgentDBLogger.info(
+      `Restored from baseline: ${baselineState.nodes.length} nodes, ${baselineState.edges.length} edges`
+    );
+
+    return {
+      nodes: baselineState.nodes.length,
+      edges: baselineState.edges.length,
+    };
+  }
 }
 
 // ============================================================
@@ -698,6 +752,7 @@ export async function getUnifiedAgentDBService(
   // Different session - handle based on scenario
   if (cachedInstance) {
     const isNewSystemTransition = cachedSystemId === 'new-system' && systemId !== 'new-system';
+    const isStaleRequestFromNewSystem = systemId === 'new-system' && cachedSystemId !== 'new-system';
 
     if (isNewSystemTransition) {
       // CR-038 Fix: Auto-detection from 'new-system' to real system ID
@@ -705,11 +760,18 @@ export async function getUnifiedAgentDBService(
       AgentDBLogger.info(`System auto-detected: updating systemId from ${cachedSystemId} to ${systemId} (preserving data)`);
       // Re-initialize GraphStore with new systemId but preserve existing nodes
       cachedInstance.updateSystemId(systemId);
+    } else if (isStaleRequestFromNewSystem) {
+      // CR-038 Fix: Stale request with 'new-system' while real system is cached
+      // This happens when a request was created before /load completed
+      // IGNORE the stale request - return cached instance without clearing
+      AgentDBLogger.info(`Ignoring stale 'new-system' request - cached system: ${cachedSystemId} (preserving data)`);
+      return cachedInstance;
     } else {
       // Normal system switch (e.g., /load different system) - clear old data
+      // CR-043 Fix: Use reinitializeForSystem() instead of initialize() which returns early
       AgentDBLogger.info(`Switching session from ${cachedWorkspaceId}/${cachedSystemId} to ${workspaceId}/${systemId}`);
       cachedInstance.clearForSystemLoad();
-      await cachedInstance.initialize(workspaceId, systemId);
+      cachedInstance.reinitializeForSystem(workspaceId, systemId);
     }
   } else {
     cachedInstance = new UnifiedAgentDBService();
@@ -732,6 +794,29 @@ export function resetAgentDBInstance(): void {
   cachedInstance = null;
   cachedWorkspaceId = null;
   cachedSystemId = null;
+}
+
+/**
+ * CR-038 Fix: Sync singleton cache with external system changes
+ *
+ * Called by updateActiveSystem() after /load, /import, /new to ensure
+ * the singleton cache matches the current session state.
+ *
+ * This prevents data loss when getUnifiedAgentDBService() is called later
+ * (e.g., during LLM requests) with the new systemId - without this sync,
+ * the mismatch would trigger clearForSystemLoad() and delete all data.
+ *
+ * @param workspaceId - Current workspace ID
+ * @param systemId - Current system ID (after /load, /import, /new)
+ */
+export function syncSingletonCache(workspaceId: string, systemId: string): void {
+  if (cachedInstance) {
+    // Only update cache if there's an existing instance
+    // Don't create new instance - let getUnifiedAgentDBService handle that
+    AgentDBLogger.info(`Syncing singleton cache to ${workspaceId}/${systemId}`);
+    cachedWorkspaceId = workspaceId;
+    cachedSystemId = systemId;
+  }
 }
 
 /**
