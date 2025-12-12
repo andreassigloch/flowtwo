@@ -171,6 +171,7 @@ export async function handleScoreCommand(ctx: CommandContext): Promise<void> {
 /**
  * Handle /analyze command - analyze violations and suggest fixes
  * CR-039: Uses ctx.agentDB directly (no caching)
+ * CR-046: Added progress feedback to prevent apparent freeze
  */
 export async function handleAnalyzeCommand(ctx: CommandContext): Promise<void> {
   console.log('');
@@ -180,6 +181,13 @@ export async function handleAnalyzeCommand(ctx: CommandContext): Promise<void> {
   try {
     // CR-039: Create fresh evaluator with ctx.agentDB (single source of truth)
     const evaluator = createUnifiedRuleEvaluator(ctx.agentDB);
+
+    // CR-046: Show progress for potentially slow operations
+    const nodeCount = ctx.agentDB.getNodes().length;
+    if (nodeCount > 20) {
+      console.log(`\x1b[90m   Analyzing ${nodeCount} nodes (similarity check may take a moment)...\x1b[0m`);
+    }
+
     const result = await evaluator.evaluate('phase2_logical');
 
     if (result.totalViolations === 0) {
@@ -242,6 +250,7 @@ export async function handleAnalyzeCommand(ctx: CommandContext): Promise<void> {
 
 /**
  * Handle /optimize command - run multi-objective optimization
+ * CR-044: Applies best variant to AgentDB, shows diff in chat AND graph-viewer
  */
 export async function handleOptimizeCommand(args: string, ctx: CommandContext): Promise<void> {
   const maxIterations = args ? parseInt(args, 10) : 30;
@@ -250,6 +259,13 @@ export async function handleOptimizeCommand(args: string, ctx: CommandContext): 
   console.log('\x1b[1;36m⚡ Multi-Objective Optimization\x1b[0m');
   console.log(`\x1b[90m   Max iterations: ${maxIterations}\x1b[0m`);
   ctx.log(`⚡ Running optimization (${maxIterations} iterations)`);
+
+  // CR-044: Check if baseline exists for diff display
+  if (!ctx.agentDB.hasBaseline()) {
+    console.log('\x1b[33m⚠️  No baseline set - run /commit or /load first to enable diff tracking\x1b[0m');
+    console.log('');
+    return;
+  }
 
   try {
     const { violationGuidedSearch, formatScore } = await import('../../llm-engine/optimizer/index.js');
@@ -295,23 +311,68 @@ export async function handleOptimizeCommand(args: string, ctx: CommandContext): 
 
     console.log('\r\x1b[K');
 
-    console.log('\x1b[1mOptimization Results:\x1b[0m');
-    console.log(`  Iterations: ${result.iterations}`);
-    console.log(`  Convergence: ${result.convergenceReason}`);
-    console.log(`  Success: ${result.success ? '\x1b[32mYes\x1b[0m' : '\x1b[33mPartial\x1b[0m'}`);
+    // CR-044: Apply bestVariant.architecture to AgentDB
+    const bestArch = result.bestVariant.architecture;
+
+    // Convert optimizer Architecture to AgentDB Node/Edge and apply
+    applyOptimizerArchitecture(ctx, bestArch);
+
+    // CR-044: Display optimization results AND diff in chat
+    console.log('\x1b[1mOptimization Applied:\x1b[0m');
+    console.log(`  Score: ${formatScore(result.bestVariant.score)}`);
+    console.log(`  Operator: ${result.bestVariant.appliedOperator || 'none'}`);
     console.log('');
 
-    console.log('\x1b[1mBest Variant:\x1b[0m');
-    console.log(`  Score: ${formatScore(result.bestVariant.score)}`);
-    console.log(`  Applied operators: ${result.bestVariant.appliedOperator || 'none'}`);
+    // Show diff summary
+    const changeSummary = ctx.agentDB.getChangeSummary();
+    if (changeSummary.total > 0) {
+      console.log('\x1b[1mChanges Applied:\x1b[0m');
+      if (changeSummary.added > 0) {
+        console.log(`  \x1b[32m+${changeSummary.added} added\x1b[0m`);
+      }
+      if (changeSummary.modified > 0) {
+        console.log(`  \x1b[33m~${changeSummary.modified} modified\x1b[0m`);
+      }
+      if (changeSummary.deleted > 0) {
+        console.log(`  \x1b[31m-${changeSummary.deleted} deleted\x1b[0m`);
+      }
+      console.log('');
+
+      // Show specific changes (nodes only, max 5)
+      const changes = ctx.agentDB.getChanges().filter(c => c.elementType === 'node');
+      if (changes.length > 0) {
+        console.log('\x1b[1mNode Changes:\x1b[0m');
+        for (const change of changes.slice(0, 5)) {
+          const icon = change.status === 'added' ? '\x1b[32m+\x1b[0m' :
+                       change.status === 'deleted' ? '\x1b[31m-\x1b[0m' : '\x1b[33m~\x1b[0m';
+          // TrackedChange stores Node | Edge, but we filtered for nodes only
+          const currentNode = change.current as import('../../shared/types/ontology.js').Node | undefined;
+          const baselineNode = change.baseline as import('../../shared/types/ontology.js').Node | undefined;
+          const name = currentNode?.name || baselineNode?.name || change.id;
+          console.log(`  ${icon} ${name}`);
+        }
+        if (changes.length > 5) {
+          console.log(`  \x1b[90m... and ${changes.length - 5} more\x1b[0m`);
+        }
+        console.log('');
+      }
+    } else {
+      console.log('\x1b[90m   No changes from optimizer (already optimal or no improvement found)\x1b[0m');
+      console.log('');
+    }
+
+    // CR-044: Update graph viewer with diff display
+    ctx.notifyGraphUpdate();
+
+    // Show decision prompt
+    console.log('\x1b[1;36m📋 Review changes in Graph Viewer (+/-/~ indicators)\x1b[0m');
+    console.log('');
+    console.log('  \x1b[32m/commit\x1b[0m  - Keep changes and save to Neo4j');
+    console.log('  \x1b[31m/restore\x1b[0m - Discard changes, restore to last commit');
     console.log('');
 
     if (result.paretoFront.length > 1) {
-      console.log('\x1b[1mPareto Front:\x1b[0m');
-      for (const variant of result.paretoFront) {
-        console.log(`  [${variant.id}] w=${variant.score.weighted.toFixed(3)} op=${variant.appliedOperator || '-'}`);
-      }
-      console.log('');
+      console.log('\x1b[90mPareto front has ' + result.paretoFront.length + ' alternatives (best applied)\x1b[0m');
     }
 
     const opUsage = Object.entries(result.stats.operatorUsage)
@@ -319,17 +380,96 @@ export async function handleOptimizeCommand(args: string, ctx: CommandContext): 
       .map(([op, count]) => `${op}:${count}`)
       .join(', ');
     if (opUsage) {
-      console.log(`\x1b[90m   Operators: ${opUsage}\x1b[0m`);
+      console.log(`\x1b[90mOperators used: ${opUsage}\x1b[0m`);
     }
-    console.log(`\x1b[90m   Variants: ${result.stats.totalVariantsGenerated} generated, ${result.stats.variantsRejected} rejected\x1b[0m`);
 
-    ctx.log(`✅ Optimization complete: score=${result.bestVariant.score.weighted.toFixed(3)}`);
+    ctx.log(`✅ Optimization applied: score=${result.bestVariant.score.weighted.toFixed(3)}, changes=${changeSummary.total}`);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.log(`\x1b[31m❌ Optimization error: ${errorMsg}\x1b[0m`);
     ctx.log(`❌ Optimization error: ${errorMsg}`);
   }
   console.log('');
+}
+
+/**
+ * Apply optimizer Architecture to AgentDB
+ * CR-044: Converts optimizer node/edge format to AgentDB format
+ */
+function applyOptimizerArchitecture(
+  ctx: CommandContext,
+  arch: import('../../llm-engine/optimizer/types.js').Architecture
+): void {
+  // Build set of optimizer node IDs for quick lookup
+  const optimizerNodeIds = new Set(arch.nodes.map(n => n.id));
+  const optimizerEdgeKeys = new Set(arch.edges.map(e => `${e.source}-${e.type}-${e.target}`));
+
+  // Get current AgentDB state
+  const currentNodes = ctx.agentDB.getNodes();
+  const currentEdges = ctx.agentDB.getEdges();
+
+  // Track what exists currently
+  const currentNodeIds = new Set(currentNodes.map(n => n.semanticId));
+  const currentEdgeKeys = new Set(currentEdges.map(e => `${e.sourceId}-${e.type}-${e.targetId}`));
+
+  // Delete nodes that are no longer in optimizer result
+  for (const node of currentNodes) {
+    if (!optimizerNodeIds.has(node.semanticId)) {
+      ctx.agentDB.deleteNode(node.semanticId);
+    }
+  }
+
+  // Delete edges that are no longer in optimizer result
+  for (const edge of currentEdges) {
+    const edgeKey = `${edge.sourceId}-${edge.type}-${edge.targetId}`;
+    if (!optimizerEdgeKeys.has(edgeKey)) {
+      ctx.agentDB.deleteEdge(edge.uuid);
+    }
+  }
+
+  // Add/update nodes from optimizer
+  for (const optNode of arch.nodes) {
+    // Node properties contain the full original node
+    const props = optNode.properties as Record<string, unknown>;
+
+    if (!currentNodeIds.has(optNode.id)) {
+      // New node - create it
+      const newNode = {
+        uuid: optNode.id,
+        semanticId: optNode.id,
+        type: optNode.type,
+        name: optNode.label,
+        descr: (props.descr as string) || `Created by optimizer`,
+        workspaceId: ctx.config.workspaceId,
+        systemId: ctx.config.systemId,
+        attributes: (props.attributes as Record<string, unknown>) || undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 'optimizer',
+      };
+      ctx.agentDB.setNode(newNode as import('../../shared/types/ontology.js').Node, { upsert: true });
+    }
+    // Existing nodes: optimizer doesn't modify node content, only structure
+  }
+
+  // Add edges from optimizer that don't exist
+  for (const optEdge of arch.edges) {
+    const edgeKey = `${optEdge.source}-${optEdge.type}-${optEdge.target}`;
+    if (!currentEdgeKeys.has(edgeKey)) {
+      const newEdge = {
+        uuid: optEdge.id || `${optEdge.source}-${optEdge.type}-${optEdge.target}`,
+        type: optEdge.type as import('../../shared/types/ontology.js').EdgeType,
+        sourceId: optEdge.source,
+        targetId: optEdge.target,
+        workspaceId: ctx.config.workspaceId,
+        systemId: ctx.config.systemId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 'optimizer',
+      };
+      ctx.agentDB.setEdge(newEdge as import('../../shared/types/ontology.js').Edge, { upsert: true });
+    }
+  }
 }
 
 /**

@@ -11,6 +11,7 @@ import type { CommandContext } from './types.js';
 import { DEFAULT_VIEW_CONFIGS } from '../../shared/types/view.js';
 import { exportSystem, importSystem, listExports, getExportMetadata } from '../../shared/parsers/import-export.js';
 import { updateActiveSystem } from '../../shared/session-resolver.js';
+import { lockInput, unlockInput } from '../chat-interface.js';
 
 /**
  * Handle /new command - start new system (clear graph)
@@ -182,6 +183,9 @@ export function handleStatusCommand(ctx: CommandContext): void {
  * Handle /load command - list and load systems from Neo4j
  */
 export async function handleLoadCommand(mainRl: readline.Interface, ctx: CommandContext): Promise<void> {
+  // CR-045: Lock input IMMEDIATELY to prevent any input during async operations
+  lockInput();
+
   console.log('');
   console.log('\x1b[1;36m📂 Available Systems in Neo4j\x1b[0m');
   ctx.log('📂 Listing systems');
@@ -189,6 +193,7 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
   if (!ctx.neo4jClient) {
     console.log('\x1b[33m⚠️  Neo4j not configured\x1b[0m');
     console.log('');
+    unlockInput(); // CR-045: Unlock on early return
     mainRl.prompt();
     return;
   }
@@ -206,6 +211,7 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
       if (result.records.length === 0) {
         console.log('\x1b[90m   No systems found in this workspace\x1b[0m');
         console.log('');
+        unlockInput(); // CR-045: Unlock on early return
         mainRl.prompt();
         return;
       }
@@ -222,7 +228,8 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
       });
       console.log('');
 
-      // CR-045: Pause main readline to prevent duplicate input processing
+      // CR-045: Pause main readline to prevent it from consuming keystrokes
+      // This fixes the "preller" problem where keystrokes go to both readline instances
       mainRl.pause();
 
       // Create temporary readline for selection
@@ -233,8 +240,9 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
 
       selectRl.question('Enter number to load (or press Enter to cancel): ', async (answer) => {
         selectRl.close();
-        // CR-045: Resume main readline after selection
+        // CR-045: Resume main readline and unlock input
         mainRl.resume();
+        unlockInput();
 
         const num = parseInt(answer.trim(), 10);
         if (isNaN(num) || num < 1 || num > result.records.length) {
@@ -301,6 +309,7 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
     console.log(`\x1b[31m❌ Error listing systems: ${errorMsg}\x1b[0m`);
     ctx.log(`❌ Error listing systems: ${errorMsg}`);
     console.log('');
+    unlockInput(); // CR-045: Unlock on error
     mainRl.prompt();
   }
 }
