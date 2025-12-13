@@ -28,7 +28,7 @@
       "outputNodeTypes": ["SYS", "UC", "REQ", "ACTOR"],
       "outputEdgeTypes": ["compose", "satisfy"],
       "promptTemplate": "settings/prompts/requirements-engineer.md",
-      "toolAccess": ["graph_read", "graph_write", "validation_check", "user_question"],
+      "toolAccess": ["graph_query", "graph_read", "graph_write", "validation_check", "user_question"],
       "decisionTrees": [],
       "successCriteria": {
         "rules": ["req_semantic_id", "uc_satisfy_req", "required_properties", "naming"],
@@ -57,7 +57,7 @@
       "outputNodeTypes": ["FUNC", "FLOW", "SCHEMA", "MOD"],
       "outputEdgeTypes": ["compose", "io", "relation", "allocate"],
       "promptTemplate": "settings/prompts/system-architect.md",
-      "toolAccess": ["graph_read", "graph_write", "validation_check", "layout_compute"],
+      "toolAccess": ["graph_query", "graph_read", "graph_write", "validation_check", "layout_compute"],
       "decisionTrees": [
         "nestingVsSubsystem",
         "subsystemCriteria",
@@ -102,7 +102,7 @@
       "outputNodeTypes": [],
       "outputEdgeTypes": [],
       "promptTemplate": "settings/prompts/architecture-reviewer.md",
-      "toolAccess": ["graph_read", "validation_check", "workitem_create"],
+      "toolAccess": ["graph_query", "graph_read", "validation_check", "workitem_create"],
       "decisionTrees": [],
       "reviewTriggers": [
         "after_agent_action",
@@ -153,7 +153,7 @@
       "outputNodeTypes": ["FCHAIN", "ACTOR", "FLOW"],
       "outputEdgeTypes": ["compose", "io"],
       "promptTemplate": "settings/prompts/functional-analyst.md",
-      "toolAccess": ["graph_read", "graph_write"],
+      "toolAccess": ["graph_query", "graph_read", "graph_write"],
       "decisionTrees": ["actorVsSubsystem"],
       "successCriteria": {
         "rules": ["fchain_actor_boundary"],
@@ -180,7 +180,7 @@
       "outputNodeTypes": ["TEST"],
       "outputEdgeTypes": ["verify"],
       "promptTemplate": "settings/prompts/verification-engineer.md",
-      "toolAccess": ["graph_read", "graph_write", "validation_check"],
+      "toolAccess": ["graph_query", "graph_read", "graph_write", "validation_check"],
       "decisionTrees": [],
       "successCriteria": {
         "rules": ["requirements_verification", "isolation"],
@@ -356,6 +356,34 @@
   },
 
   "toolDefinitions": {
+    "graph_query": {
+      "description": "Query graph structure to understand existing nodes and edges before making changes. Use this to check for existing connections, understand io-flow-io chains, and avoid creating duplicate or circular edges.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "queryType": {
+            "type": "string",
+            "enum": ["edges", "nodes", "check_edge", "io_chain"],
+            "description": "Query type: 'edges' for edge queries, 'nodes' for node queries, 'check_edge' to verify if edge exists, 'io_chain' to analyze io-flow-io patterns"
+          },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "sourceType": { "type": "string", "description": "Node type of edge source (SYS, FUNC, FLOW, etc.)" },
+              "targetType": { "type": "string", "description": "Node type of edge target" },
+              "edgeType": { "type": "string", "description": "Edge type: compose, io, satisfy, verify, allocate, relation" },
+              "nodeType": { "type": "string", "description": "Filter nodes by type" },
+              "semanticId": { "type": "string", "description": "Specific node semantic ID to query" },
+              "sourceId": { "type": "string", "description": "Source node ID for check_edge" },
+              "targetId": { "type": "string", "description": "Target node ID for check_edge" },
+              "fchainId": { "type": "string", "description": "FCHAIN semantic ID for io_chain query" }
+            }
+          }
+        },
+        "required": ["queryType"]
+      },
+      "returns": "JSON with query results: edges[], nodes[], exists:boolean, or chain analysis"
+    },
     "graph_read": {
       "description": "Read current graph state",
       "returns": "Format E serialized graph"
