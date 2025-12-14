@@ -166,24 +166,48 @@ const splitOperator: MoveOperator = {
 
 const mergeOperator: MoveOperator = {
   type: 'MERGE',
-  applicableTo: ['millers_law_func', 'undersized_mod', 'undersized', 'fragmented'],
+  applicableTo: [
+    'millers_law_func', 'undersized_mod', 'undersized', 'fragmented',
+    // CR-049: Similarity-based merging
+    'func_merge_candidate',      // FUNC similarity >= 0.70
+    'func_near_duplicate',       // FUNC similarity >= 0.85
+    'schema_merge_candidate',    // SCHEMA similarity >= 0.70
+    'schema_near_duplicate'      // SCHEMA similarity >= 0.85
+  ],
 
   apply(arch: Architecture, violation: Violation): Architecture | null {
     const result = cloneArchitecture(arch);
 
-    // The first affected node is the undersized container (MOD)
-    const node1 = getNodeById(result, violation.affectedNodes[0]);
-    if (!node1) return null;
+    // CR-049: For similarity violations, both nodes are specified in affectedNodes
+    const isSimilarityViolation = [
+      'func_merge_candidate', 'func_near_duplicate',
+      'schema_merge_candidate', 'schema_near_duplicate'
+    ].includes(violation.ruleId);
 
-    // Find another undersized node of same type to merge with
-    const candidates = result.nodes.filter(n =>
-      n.type === node1.type &&
-      n.id !== node1.id &&
-      getChildren(result, n.id).length < 5 // Also undersized
-    );
+    let node1: Node | undefined;
+    let node2: Node | undefined;
 
-    if (candidates.length === 0) return null;
-    const node2 = candidates[0];
+    if (isSimilarityViolation && violation.affectedNodes.length >= 2) {
+      // Similarity violation: merge the two specified nodes
+      node1 = getNodeById(result, violation.affectedNodes[0]);
+      node2 = getNodeById(result, violation.affectedNodes[1]);
+    } else {
+      // Original behavior: find undersized containers
+      node1 = getNodeById(result, violation.affectedNodes[0]);
+      if (!node1) return null;
+
+      // Find another undersized node of same type to merge with
+      const candidates = result.nodes.filter(n =>
+        n.type === node1!.type &&
+        n.id !== node1!.id &&
+        getChildren(result, n.id).length < 5 // Also undersized
+      );
+
+      if (candidates.length === 0) return null;
+      node2 = candidates[0];
+    }
+
+    if (!node1 || !node2) return null;
 
     // Create merged node
     const mergedNode: Node = {
@@ -474,7 +498,9 @@ const deleteOperator: MoveOperator = {
   type: 'DELETE',
   applicableTo: [
     'empty_mod', 'empty_uc', 'redundant', 'duplicate',
-    'unused', 'dead_code', 'obsolete'
+    'unused', 'dead_code', 'obsolete',
+    // CR-049: Delete excess allocate edges for cross-cutting FUNCs
+    'allocation_cohesion'
   ],
 
   apply(arch: Architecture, violation: Violation): Architecture | null {
@@ -538,7 +564,11 @@ const deleteOperator: MoveOperator = {
 
 const reallocOperator: MoveOperator = {
   type: 'REALLOC',
-  applicableTo: ['volatile_func_isolation', 'high_volatility', 'imbalanced', 'coupling'],
+  applicableTo: [
+    'volatile_func_isolation', 'high_volatility', 'imbalanced', 'coupling',
+    // CR-049: Allocation cohesion - remove cross-cutting allocations
+    'allocation_cohesion'
+  ],
 
   apply(arch: Architecture, violation: Violation): Architecture | null {
     const result = cloneArchitecture(arch);
@@ -547,6 +577,29 @@ const reallocOperator: MoveOperator = {
     const node = getNodeById(result, nodeId);
     if (!node) return null;
 
+    // CR-049: For allocation_cohesion, remove excess allocate edges
+    if (violation.ruleId === 'allocation_cohesion' && node.type === 'FUNC') {
+      // affectedNodes = [funcId, modId1, modId2, ...]
+      // Keep only the first MOD allocation, remove the rest
+      const modIds = violation.affectedNodes.slice(1);
+      if (modIds.length < 2) return null;
+
+      // Find all allocate edges for this FUNC
+      const allocateEdges = result.edges.filter(e =>
+        e.type === 'allocate' &&
+        (e.source === nodeId || e.target === nodeId)
+      );
+
+      if (allocateEdges.length < 2) return null;
+
+      // Keep the first allocate edge, remove the rest
+      const edgesToRemove = allocateEdges.slice(1).map(e => e.id);
+      result.edges = result.edges.filter(e => !edgesToRemove.includes(e.id));
+
+      return result;
+    }
+
+    // Original behavior for other violations
     // Find current parent (via containment edge)
     const containmentEdge = result.edges.find(e => {
       if (e.source !== nodeId) return false;

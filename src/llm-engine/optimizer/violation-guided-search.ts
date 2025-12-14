@@ -164,6 +164,300 @@ export function detectViolations(arch: Architecture): Violation[] {
     }
   }
 
+  // CR-049: Check allocation_cohesion (FUNC allocated to >1 MOD)
+  const funcAllocations: Record<string, string[]> = {};
+  for (const [funcId, modId] of Object.entries(funcToMod)) {
+    if (!funcAllocations[funcId]) funcAllocations[funcId] = [];
+    funcAllocations[funcId].push(modId);
+  }
+
+  // Check for additional allocations (multiple MODs per FUNC)
+  const funcNodes = new Set(arch.nodes.filter(n => n.type === 'FUNC').map(n => n.id));
+  for (const edge of arch.edges.filter(e => e.type === 'allocate')) {
+    // Direction 1: MOD → FUNC
+    if (funcNodes.has(edge.target)) {
+      if (!funcAllocations[edge.target]) funcAllocations[edge.target] = [];
+      if (!funcAllocations[edge.target].includes(edge.source)) {
+        funcAllocations[edge.target].push(edge.source);
+      }
+    }
+    // Direction 2: FUNC → MOD (handled by funcToMod above)
+  }
+
+  for (const [funcId, mods] of Object.entries(funcAllocations)) {
+    if (mods.length > 1) {
+      violations.push({
+        ruleId: 'allocation_cohesion',
+        severity: 'soft',
+        affectedNodes: [funcId, ...mods],
+        message: `FUNC ${funcId} allocated to ${mods.length} MODs (should be 1): ${mods.join(', ')}`,
+        suggestedOperator: 'REALLOC'
+      });
+    }
+  }
+
+  // CR-049: Check FUNC similarity (merge candidates)
+  const funcSimilarityViolations = detectFuncSimilarityViolations(arch);
+  violations.push(...funcSimilarityViolations);
+
+  // CR-049: Check SCHEMA similarity (merge candidates)
+  const schemaSimilarityViolations = detectSchemaSimilarityViolations(arch);
+  violations.push(...schemaSimilarityViolations);
+
+  return violations;
+}
+
+// ============================================================================
+// CR-049: Similarity Detection Helpers
+// ============================================================================
+
+/**
+ * Simple text similarity using Jaccard index on word tokens
+ */
+function textSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+
+  const tokenize = (s: string) =>
+    s.toLowerCase()
+      .replace(/[^a-zA-ZäöüÄÖÜß0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(t => t.length > 2);
+
+  const tokensA = new Set(tokenize(a));
+  const tokensB = new Set(tokenize(b));
+
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+
+  const intersection = [...tokensA].filter(t => tokensB.has(t)).length;
+  const union = new Set([...tokensA, ...tokensB]).size;
+
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Canonical verb mapping (from ontology-rules.json)
+ */
+const CANONICAL_VERBS: Record<string, string[]> = {
+  'Validate': ['Check', 'Verify', 'Ensure', 'Assert', 'Prüfen', 'Validieren'],
+  'Create': ['Generate', 'Build', 'Produce', 'Make', 'Erstellen', 'Erzeugen'],
+  'Transform': ['Convert', 'Map', 'Translate', 'Parse', 'Transformieren', 'Konvertieren'],
+  'Send': ['Emit', 'Publish', 'Dispatch', 'Notify', 'Senden', 'Versenden'],
+  'Receive': ['Accept', 'Consume', 'Listen', 'Subscribe', 'Empfangen'],
+  'Store': ['Save', 'Persist', 'Write', 'Cache', 'Speichern'],
+  'Retrieve': ['Load', 'Fetch', 'Read', 'Get', 'Laden', 'Abrufen'],
+  'Calculate': ['Compute', 'Evaluate', 'Derive', 'Berechnen']
+};
+
+/**
+ * Extract canonical verb from function name
+ */
+function getCanonicalVerb(name: string): string | null {
+  // Try to extract verb from PascalCase name (first word)
+  const match = name.match(/^([A-Z][a-z]+)/);
+  if (!match) return null;
+
+  const verb = match[1];
+
+  // Check if it's a canonical verb
+  for (const [canonical, synonyms] of Object.entries(CANONICAL_VERBS)) {
+    if (canonical === verb || synonyms.includes(verb)) {
+      return canonical;
+    }
+  }
+
+  return verb; // Return as-is if not in mapping
+}
+
+/**
+ * Calculate FUNC similarity score
+ * Based on ontology-rules.json funcSimilarity criteria:
+ * - descriptionSemantic: 0.35
+ * - actionVerb: 0.25
+ * - flowStructure: 0.25
+ * - reqOverlap: 0.10
+ * - hierarchyPosition: 0.05
+ */
+function calculateFuncSimilarity(
+  funcA: Architecture['nodes'][0],
+  funcB: Architecture['nodes'][0],
+  arch: Architecture
+): number {
+  let score = 0;
+
+  // 1. Description semantic similarity (35%)
+  const descrA = (funcA.properties.descr as string) || funcA.label;
+  const descrB = (funcB.properties.descr as string) || funcB.label;
+  score += 0.35 * textSimilarity(descrA, descrB);
+
+  // 2. Action verb similarity (25%)
+  const verbA = getCanonicalVerb(funcA.label);
+  const verbB = getCanonicalVerb(funcB.label);
+  if (verbA && verbB && verbA === verbB) {
+    score += 0.25;
+  }
+
+  // 3. Flow structure similarity (25%)
+  // Count io edges for each func
+  const ioIn = (id: string) => arch.edges.filter(e => e.type === 'io' && e.target === id).length;
+  const ioOut = (id: string) => arch.edges.filter(e => e.type === 'io' && e.source === id).length;
+
+  const inA = ioIn(funcA.id), inB = ioIn(funcB.id);
+  const outA = ioOut(funcA.id), outB = ioOut(funcB.id);
+
+  if (inA === inB && outA === outB && (inA > 0 || outA > 0)) {
+    score += 0.25;
+  } else if ((inA > 0 && inB > 0) || (outA > 0 && outB > 0)) {
+    score += 0.15; // Partial match
+  }
+
+  // 4. REQ overlap (10%) - Jaccard on satisfy edges
+  const reqsA = new Set(arch.edges.filter(e => e.type === 'satisfy' && e.source === funcA.id).map(e => e.target));
+  const reqsB = new Set(arch.edges.filter(e => e.type === 'satisfy' && e.source === funcB.id).map(e => e.target));
+  if (reqsA.size > 0 && reqsB.size > 0) {
+    const intersection = [...reqsA].filter(r => reqsB.has(r)).length;
+    const union = new Set([...reqsA, ...reqsB]).size;
+    score += 0.10 * (intersection / union);
+  }
+
+  // 5. Hierarchy position (5%) - same parent
+  const parentA = arch.edges.find(e => e.type === 'compose' && e.target === funcA.id)?.source;
+  const parentB = arch.edges.find(e => e.type === 'compose' && e.target === funcB.id)?.source;
+  if (parentA && parentB && parentA === parentB) {
+    score += 0.05;
+  }
+
+  return Math.min(1.0, score);
+}
+
+/**
+ * Detect FUNC similarity violations
+ */
+function detectFuncSimilarityViolations(arch: Architecture): Violation[] {
+  const violations: Violation[] = [];
+  const funcs = arch.nodes.filter(n => n.type === 'FUNC');
+
+  // Pairwise comparison
+  for (let i = 0; i < funcs.length; i++) {
+    for (let j = i + 1; j < funcs.length; j++) {
+      const similarity = calculateFuncSimilarity(funcs[i], funcs[j], arch);
+
+      if (similarity >= 0.85) {
+        violations.push({
+          ruleId: 'func_near_duplicate',
+          severity: 'hard',
+          affectedNodes: [funcs[i].id, funcs[j].id],
+          message: `Near-duplicate FUNCs: ${funcs[i].label} / ${funcs[j].label} (similarity ${(similarity * 100).toFixed(0)}%)`,
+          suggestedOperator: 'MERGE'
+        });
+      } else if (similarity >= 0.70) {
+        violations.push({
+          ruleId: 'func_merge_candidate',
+          severity: 'soft',
+          affectedNodes: [funcs[i].id, funcs[j].id],
+          message: `Merge candidate FUNCs: ${funcs[i].label} / ${funcs[j].label} (similarity ${(similarity * 100).toFixed(0)}%)`,
+          suggestedOperator: 'MERGE'
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
+/**
+ * Calculate SCHEMA similarity score
+ * Based on ontology-rules.json schemaSimilarity criteria:
+ * - structSimilarity: 0.50
+ * - nameSimilarity: 0.25
+ * - usagePattern: 0.25
+ */
+function calculateSchemaSimilarity(
+  schemaA: Architecture['nodes'][0],
+  schemaB: Architecture['nodes'][0],
+  arch: Architecture
+): number {
+  let score = 0;
+
+  // 1. Struct similarity (50%)
+  const structA = (schemaA.properties.struct as string) || '';
+  const structB = (schemaB.properties.struct as string) || '';
+
+  if (structA && structB) {
+    try {
+      const jsonA = typeof structA === 'string' ? JSON.parse(structA) : structA;
+      const jsonB = typeof structB === 'string' ? JSON.parse(structB) : structB;
+
+      // Compare field names
+      const fieldsA = new Set(Object.keys(jsonA));
+      const fieldsB = new Set(Object.keys(jsonB));
+      const intersection = [...fieldsA].filter(f => fieldsB.has(f)).length;
+      const union = new Set([...fieldsA, ...fieldsB]).size;
+
+      if (union > 0) {
+        score += 0.50 * (intersection / union);
+      }
+    } catch {
+      // If JSON parsing fails, fall back to text similarity
+      score += 0.50 * textSimilarity(structA, structB);
+    }
+  }
+
+  // 2. Name similarity (25%)
+  score += 0.25 * textSimilarity(schemaA.label, schemaB.label);
+
+  // 3. Usage pattern (25%) - same FLOWs use them
+  const flowsA = new Set(
+    arch.edges
+      .filter(e => e.type === 'relation' && e.target === schemaA.id)
+      .map(e => e.source)
+  );
+  const flowsB = new Set(
+    arch.edges
+      .filter(e => e.type === 'relation' && e.target === schemaB.id)
+      .map(e => e.source)
+  );
+
+  if (flowsA.size > 0 && flowsB.size > 0) {
+    const intersection = [...flowsA].filter(f => flowsB.has(f)).length;
+    const union = new Set([...flowsA, ...flowsB]).size;
+    score += 0.25 * (intersection / union);
+  }
+
+  return Math.min(1.0, score);
+}
+
+/**
+ * Detect SCHEMA similarity violations
+ */
+function detectSchemaSimilarityViolations(arch: Architecture): Violation[] {
+  const violations: Violation[] = [];
+  const schemas = arch.nodes.filter(n => n.type === 'SCHEMA');
+
+  // Pairwise comparison
+  for (let i = 0; i < schemas.length; i++) {
+    for (let j = i + 1; j < schemas.length; j++) {
+      const similarity = calculateSchemaSimilarity(schemas[i], schemas[j], arch);
+
+      if (similarity >= 0.85) {
+        violations.push({
+          ruleId: 'schema_near_duplicate',
+          severity: 'hard',
+          affectedNodes: [schemas[i].id, schemas[j].id],
+          message: `Near-duplicate SCHEMAs: ${schemas[i].label} / ${schemas[j].label} (similarity ${(similarity * 100).toFixed(0)}%)`,
+          suggestedOperator: 'MERGE'
+        });
+      } else if (similarity >= 0.70) {
+        violations.push({
+          ruleId: 'schema_merge_candidate',
+          severity: 'soft',
+          affectedNodes: [schemas[i].id, schemas[j].id],
+          message: `Merge candidate SCHEMAs: ${schemas[i].label} / ${schemas[j].label} (similarity ${(similarity * 100).toFixed(0)}%)`,
+          suggestedOperator: 'MERGE'
+        });
+      }
+    }
+  }
+
   return violations;
 }
 

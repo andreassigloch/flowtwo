@@ -372,6 +372,28 @@
       "weight": 0.15,
       "cypher": "MATCH (fl:Node {type: 'FLOW'}) WHERE NOT EXISTS { MATCH ()-[e:EDGE {type: 'io'}]->(fl) } OR NOT EXISTS { MATCH (fl)-[e:EDGE {type: 'io'}]->() } RETURN fl.semanticId AS violation, 'Disconnected FLOW' AS reason"
     },
+    "io_bidirectional_flow": {
+      "id": "io_bidirectional_flow",
+      "description": "A FUNC/ACTOR should not be both source AND target of the same FLOW (bidirectional io creates circular data flow)",
+      "phase": "phase2_logical",
+      "severity": "error",
+      "type": "hard",
+      "weight": 0.15,
+      "cypher": "MATCH (n)-[e1:EDGE {type: 'io'}]->(fl:Node {type: 'FLOW'})-[e2:EDGE {type: 'io'}]->(n) WHERE n.type IN ['FUNC', 'ACTOR'] RETURN n.semanticId + ' ↔ ' + fl.semanticId AS violation, 'Bidirectional io to same FLOW creates circular data flow. Use separate FLOW for return path.' AS reason",
+      "rationale": "Bidirectional io to same FLOW indicates modeling error. Data flows are unidirectional: Producer→FLOW→Consumer. For feedback loops, use separate FLOW nodes.",
+      "fix": "Delete one direction. If feedback needed, create separate return FLOW (e.g., RequestData vs ResponseData)."
+    },
+    "io_circular_chain": {
+      "id": "io_circular_chain",
+      "description": "FLOW should not have io edge back to its own producer (circular chain)",
+      "phase": "phase2_logical",
+      "severity": "error",
+      "type": "hard",
+      "weight": 0.15,
+      "cypher": "MATCH (producer)-[e1:EDGE {type: 'io'}]->(fl:Node {type: 'FLOW'})-[e2:EDGE {type: 'io'}]->(producer) WHERE producer.type IN ['FUNC', 'ACTOR'] RETURN producer.semanticId + ' → ' + fl.semanticId + ' → ' + producer.semanticId AS violation, 'Circular io chain: FLOW reads back to its producer' AS reason",
+      "rationale": "io-flow-io pattern is unidirectional: Producer writes to FLOW, Consumer reads from FLOW. Same node cannot be both.",
+      "fix": "Remove the back-edge. FLOW data goes to downstream consumer, not back to producer."
+    },
     "fchain_actor_boundary": {
       "id": "fchain_actor_boundary",
       "description": "Every FCHAIN must have ACTOR→...→ACTOR path (at least 2 actors)",
@@ -492,6 +514,18 @@
       "weight": 0.05,
       "threshold": 0.70,
       "note": "Requires Struct JSON similarity calculation - not pure Cypher"
+    },
+    "allocation_cohesion": {
+      "id": "allocation_cohesion",
+      "description": "Each FUNC should be allocated to exactly one MOD (no cross-cutting)",
+      "phase": "phase3_physical",
+      "severity": "warning",
+      "weight": 0.15,
+      "type": "soft",
+      "cypher": "MATCH (f:Node {type: 'FUNC'})<-[a:EDGE {type: 'allocate'}]-(m:Node {type: 'MOD'}) WITH f, count(m) AS modCount WHERE modCount > 1 RETURN f.semanticId AS violation, 'FUNC allocated to ' + modCount + ' MODs (should be 1)' AS reason",
+      "metric": "cohesion = FUNCs_with_single_MOD / total_allocated_FUNCs",
+      "threshold": 0.80,
+      "rationale": "Cross-cutting allocation increases coupling and complicates testing. Each FUNC should have clear ownership."
     }
   },
 
@@ -831,9 +865,14 @@
       "volatile_func_isolation": "High-volatility FUNC has too many dependents. Wrap behind stable interface (Adapter/Facade pattern) to isolate change impact.",
       "func_near_duplicate": "Near-duplicate FUNCs detected. Merge into single abstract function or differentiate clearly.",
       "func_merge_candidate": "Similar FUNCs detected. Consider merging or creating common abstraction.",
+      "schema_near_duplicate": "Near-duplicate SCHEMAs detected. Merge into single SCHEMA with all fields.",
+      "schema_merge_candidate": "Similar SCHEMAs detected. Consider consolidating into one SCHEMA (fields become optional).",
+      "allocation_cohesion": "FUNC is allocated to multiple MODs. Remove redundant allocate edges - each FUNC should belong to exactly one MOD.",
       "no_duplicate_nodes": "Duplicate node detected. Each (type, name, parent) combination must be unique.",
       "no_duplicate_edges": "Duplicate edge detected. Each (source, target, edgeType) combination must be unique.",
-      "no_self_loops": "Self-referencing edge detected. An edge cannot have the same source and target node."
+      "no_self_loops": "Self-referencing edge detected. An edge cannot have the same source and target node.",
+      "io_bidirectional_flow": "Node has bidirectional io to same FLOW (writes AND reads). This creates circular data flow. DELETE one direction. If feedback is needed, create separate return FLOW (e.g., RequestData for input, ResponseData for output).",
+      "io_circular_chain": "Circular io chain detected: FLOW reads back to its producer. io-flow-io is UNIDIRECTIONAL: Producer→FLOW→Consumer. DELETE the back-edge from FLOW to producer."
     }
   },
 
