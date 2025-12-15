@@ -1,0 +1,73 @@
+#!/bin/bash
+# Pre-commit hook for GraphEngine
+# Runs targeted checks based on staged files
+set -e
+
+# Get staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Check if any rule-related files are staged
+ONTOLOGY_CHANGED=$(echo "$STAGED_FILES" | grep -c "settings/ontology-rules.json" || true)
+EVALUATOR_CHANGED=$(echo "$STAGED_FILES" | grep -c "src/llm-engine/validation/unified-rule-evaluator.ts" || true)
+PROMPTS_CHANGED=$(echo "$STAGED_FILES" | grep -c "settings/prompts/" || true)
+PRE_APPLY_CHANGED=$(echo "$STAGED_FILES" | grep -c "src/llm-engine/validation/pre-apply-validator.ts" || true)
+PARSER_CHANGED=$(echo "$STAGED_FILES" | grep -c "src/shared/parsers/format-e-parser.ts" || true)
+
+# Calculate if any rule-consistency-relevant file changed
+RULE_FILES_CHANGED=$((ONTOLOGY_CHANGED + EVALUATOR_CHANGED + PROMPTS_CHANGED + PRE_APPLY_CHANGED))
+
+if [ "$RULE_FILES_CHANGED" -gt 0 ]; then
+  echo ""
+  echo "🔍 Rule-related files changed - running consistency check..."
+  echo "════════════════════════════════════════════════════════════════════"
+
+  # Show which categories changed
+  [ "$ONTOLOGY_CHANGED" -gt 0 ] && echo "   📋 ontology-rules.json"
+  [ "$EVALUATOR_CHANGED" -gt 0 ] && echo "   ⚙️  unified-rule-evaluator.ts"
+  [ "$PROMPTS_CHANGED" -gt 0 ] && echo "   📝 settings/prompts/*.md"
+  [ "$PRE_APPLY_CHANGED" -gt 0 ] && echo "   🛡️  pre-apply-validator.ts"
+  echo ""
+
+  npx tsx scripts/check-rule-consistency.ts
+
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Rule consistency check failed."
+    echo ""
+    echo "   When changing rules, ALL three must stay in sync:"
+    echo "   1. ontology-rules.json    (rule definition)"
+    echo "   2. unified-rule-evaluator.ts (implementation)"
+    echo "   3. settings/prompts/*.md  (LLM instructions)"
+    echo ""
+    echo "   Run: npx tsx scripts/check-rule-consistency.ts"
+    exit 1
+  fi
+
+  echo ""
+fi
+
+# TypeScript check only if .ts files changed
+TS_FILES_CHANGED=$(echo "$STAGED_FILES" | grep -c "\.ts$" || true)
+
+if [ "$TS_FILES_CHANGED" -gt 0 ]; then
+  echo "🔍 TypeScript files changed - running type check..."
+  npx tsc --noEmit 2>&1 | head -20
+
+  if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo ""
+    echo "❌ TypeScript type check failed."
+    exit 1
+  fi
+  echo "✅ Type check passed"
+  echo ""
+fi
+
+# Format E parser changed - extra warning
+if [ "$PARSER_CHANGED" -gt 0 ]; then
+  echo "⚠️  Format E parser changed!"
+  echo "   Remember: LLM output parsing is critical."
+  echo "   Test with real LLM responses before pushing."
+  echo ""
+fi
+
+exit 0

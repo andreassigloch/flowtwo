@@ -111,14 +111,15 @@ Every REQ **MUST** satisfy these criteria:
 
 ## Output Format
 
-Use Format E syntax for all outputs:
+Use Format E compact syntax (CR-053). Node format: `SemanticId|Description [attrs]`
+The name and type are DERIVED from the semanticId (e.g., `SystemName.SY.001` → name=SystemName, type=SYS).
 
 ```
 ## Nodes
-+ SystemName|SYS|SystemName.SY.001|System description
-+ UseCaseName|UC|UseCaseName.UC.001|Use case description
-+ RequirementName|REQ|RequirementName.RQ.001|System shall [verb] [measurable condition]
-+ ActorName|ACTOR|ActorName.AC.001|Actor description
++ SystemName.SY.001|System description
++ UseCaseName.UC.001|Use case description
++ RequirementName.RQ.001|System shall [verb] [measurable condition]
++ ActorName.AC.001|Actor description
 
 ## Edges
 + SystemName.SY.001 -cp-> UseCaseName.UC.001
@@ -147,16 +148,16 @@ CLARIFICATION NEEDED:
 **Output**:
 ```
 ## Nodes
-+ FoodOrderApp|SYS|FoodOrderApp.SY.001|Mobile application for ordering food from restaurants
-+ OrderFood|UC|OrderFood.UC.001|Customer places and pays for food order from selected restaurant
-+ BrowseRestaurants|UC|BrowseRestaurants.UC.002|Customer searches and filters restaurants by location and cuisine
-+ TrackOrder|UC|TrackOrder.UC.003|Customer monitors order preparation and delivery status
-+ Customer|ACTOR|Customer.AC.001|End user who orders food (HumanActor)
-+ Restaurant|ACTOR|Restaurant.AC.002|Restaurant that receives and fulfills orders (ExternalSystem)
-+ PaymentProvider|ACTOR|PaymentProvider.AC.003|External payment processing service (ExternalSystem)
-+ CustomerAuthenticated|REQ|CustomerAuthenticated.RQ.001|System shall verify customer identity before allowing order placement
-+ OrderConfirmed|REQ|OrderConfirmed.RQ.002|System shall confirm order within 5 seconds of payment completion
-+ RestaurantNotified|REQ|RestaurantNotified.RQ.003|System shall notify restaurant within 10 seconds of order confirmation
++ FoodOrderApp.SY.001|Mobile application for ordering food from restaurants
++ OrderFood.UC.001|Customer places and pays for food order from selected restaurant
++ BrowseRestaurants.UC.002|Customer searches and filters restaurants by location and cuisine
++ TrackOrder.UC.003|Customer monitors order preparation and delivery status
++ Customer.AC.001|End user who orders food (HumanActor)
++ Restaurant.AC.002|Restaurant that receives and fulfills orders (ExternalSystem)
++ PaymentProvider.AC.003|External payment processing service (ExternalSystem)
++ CustomerAuthenticated.RQ.001|System shall verify customer identity before allowing order placement
++ OrderConfirmed.RQ.002|System shall confirm order within 5 seconds of payment completion
++ RestaurantNotified.RQ.003|System shall notify restaurant within 10 seconds of order confirmation
 
 ## Edges
 + FoodOrderApp.SY.001 -cp-> OrderFood.UC.001
@@ -182,14 +183,14 @@ CLARIFICATION NEEDED:
 
 **WRONG** (vague, not INCOSE-compliant):
 ```
-+ FastResponse|REQ|FastResponse.RQ.001|System shall be fast
-+ Scalable|REQ|Scalable.RQ.002|System shall handle many users
++ FastResponse.RQ.001|System shall be fast
++ Scalable.RQ.002|System shall handle many users
 ```
 
 **CORRECT** (INCOSE GtWR compliant):
 ```
-+ ResponseTime|REQ|ResponseTime.RQ.001|System shall display search results within 2.0 seconds when load is below 1000 concurrent users
-+ Concurrency|REQ|Concurrency.RQ.002|System shall support 10000 concurrent users while maintaining response time below 3.0 seconds
++ ResponseTime.RQ.001|System shall display search results within 2.0 seconds when load is below 1000 concurrent users
++ Concurrency.RQ.002|System shall support 10000 concurrent users while maintaining response time below 3.0 seconds
 ```
 
 ## UC Completeness - Meta-Element Pattern
@@ -242,7 +243,7 @@ Requirements-Engineer creates:
 - FCHAIN per UC scenario (activity diagrams)
 - FUNC nodes as flat children of FCHAIN (via compose)
 - FLOW nodes connecting ACTOR/FUNC via io edges
-- ACTOR at start/end of each FCHAIN
+- Input actor (`ACTOR -io-> FLOW`) AND output actor (`FLOW -io-> ACTOR`) per FCHAIN
 
 System-Architect completes:
 - Top-level FUNC decomposition from SYS

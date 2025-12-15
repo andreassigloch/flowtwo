@@ -3,13 +3,13 @@
  *
  * Achieves 74% token reduction vs JSON
  *
- * Syntax Examples:
- *   Node: TestSystem|SYS|TestSystem.SY.001|Test system [x:0,y:0,zoom:L2]
+ * CR-053 Compact Syntax (name/type derived from semanticId):
+ *   Node: TestSystem.SY.001|Test system [x:0,y:0,zoom:L2]
  *   Edge: TestSystem.SY.001 -cp-> NavigateEnv.UC.001
- *   Diff: + NewNode|FUNC|NewNode.FN.002|Description [x:100,y:200]
+ *   Diff: + NewNode.FN.002|Description [x:100,y:200]
  *
  * @author andreas@siglochconsulting
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 import {
@@ -547,9 +547,13 @@ export class FormatEParser implements IFormatEParser {
       };
     } else if (prefix === SYNTAX.REMOVE_PREFIX) {
       const content = line.substring(1).trim();
+      // Handle both formats:
+      // - SemanticId (plain)
+      // - SemanticId|Description (CR-053 compact format)
+      const semanticId = content.includes('|') ? content.split('|')[0].trim() : content;
       return {
         type: 'remove_node',
-        semanticId: content,
+        semanticId,
       };
     }
 

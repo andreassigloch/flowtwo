@@ -51,11 +51,12 @@ Examples:
 
 ## Output Format
 
-Use Format E syntax:
+Use Format E compact syntax (CR-053). Node format: `SemanticId|Description [attrs]`
+The name and type are DERIVED from the semanticId (e.g., `TestName.TC.001` → name=TestName, type=TEST).
 
 ```
 ## Nodes
-+ TestName|TEST|TestName.TC.001|Test description
++ TestName.TC.001|Test description
 
 ## Edges
 + RequirementName.RQ.001 -ver-> TestName.TC.001
@@ -69,20 +70,20 @@ Use Format E syntax:
 ```
 ## Nodes
 # Payment Tests
-+ TestPaymentValid|TEST|TestPaymentValid.TC.001|Verify payment succeeds with valid card
-+ TestPaymentInvalid|TEST|TestPaymentInvalid.TC.002|Verify payment fails with invalid card
-+ TestPaymentTimeout|TEST|TestPaymentTimeout.TC.003|Verify graceful handling of payment timeout
++ TestPaymentValid.TC.001|Verify payment succeeds with valid card
++ TestPaymentInvalid.TC.002|Verify payment fails with invalid card
++ TestPaymentTimeout.TC.003|Verify graceful handling of payment timeout
 
 # Order Tests
-+ TestOrderCreation|TEST|TestOrderCreation.TC.004|Verify order is created with correct items
-+ TestOrderTracking|TEST|TestOrderTracking.TC.005|Verify order status updates are received
++ TestOrderCreation.TC.004|Verify order is created with correct items
++ TestOrderTracking.TC.005|Verify order status updates are received
 
 # Menu Tests
-+ TestMenuLoad|TEST|TestMenuLoad.TC.006|Verify menu loads within 2 seconds
-+ TestMenuFilter|TEST|TestMenuFilter.TC.007|Verify menu filtering by cuisine type
++ TestMenuLoad.TC.006|Verify menu loads within 2 seconds
++ TestMenuFilter.TC.007|Verify menu filtering by cuisine type
 
 # E2E Tests
-+ TestOrderFlowE2E|TEST|TestOrderFlowE2E.TC.008|Complete order flow from browse to confirmation
++ TestOrderFlowE2E.TC.008|Complete order flow from browse to confirmation
 
 ## Edges
 + PaymentProcessing.RQ.001 -ver-> TestPaymentValid.TC.001

@@ -326,6 +326,14 @@
       "severity": "error",
       "type": "hard",
       "cypher": "MATCH (n)-[e:EDGE]->(n) RETURN e.uuid AS violation, 'Self-referencing edge' AS reason"
+    },
+    "valid_edge_types": {
+      "id": "valid_edge_types",
+      "description": "Edge type must be one of: io, compose, satisfy, verify, allocate, relation",
+      "phase": "all",
+      "severity": "error",
+      "type": "hard",
+      "cypher": "MATCH ()-[e:EDGE]->() WHERE NOT e.type IN ['io', 'compose', 'satisfy', 'verify', 'allocate', 'relation'] RETURN e.uuid AS violation, 'Invalid edge type: ' + e.type AS reason"
     }
   },
 
@@ -396,11 +404,13 @@
     },
     "fchain_actor_boundary": {
       "id": "fchain_actor_boundary",
-      "description": "Every FCHAIN must have ACTOR→...→ACTOR path (at least 2 actors)",
+      "description": "Every FCHAIN must have input actor (ACTOR -io-> FLOW) AND output actor (FLOW -io-> ACTOR)",
       "phase": "phase2_logical",
       "severity": "warning",
       "weight": 0.10,
-      "cypher": "MATCH (fc:Node {type: 'FCHAIN'})-[e:EDGE {type: 'compose'}]->(a:Node {type: 'ACTOR'}) WITH fc, collect(a) AS actors WHERE size(actors) < 2 RETURN fc.semanticId AS violation, 'Missing actor boundary' AS reason"
+      "cypher": "MATCH (fc:Node {type: 'FCHAIN'})-[e:EDGE {type: 'compose'}]->(a:Node {type: 'ACTOR'}) WITH fc, collect(a) AS actors WHERE size(actors) < 2 RETURN fc.semanticId AS violation, 'Missing actor boundary' AS reason",
+      "rationale": "Input actor writes trigger data to FLOW (ACTOR -io-> FLOW). Output actor receives result from FLOW (FLOW -io-> ACTOR). Both are required for complete activity chain.",
+      "fix": "Add missing boundary actor: For input, add ACTOR -io-> FLOW at chain start. For output, add FLOW -io-> ACTOR at chain end."
     },
     "function_allocation": {
       "id": "function_allocation",
@@ -854,6 +864,50 @@
   "llmContext": {
     "systemPromptSection": "You are working with a Systems Engineering ontology based on INCOSE/SysML 2.0. Key rules: (1) Functional view is primary - FUNC nodes for behavior, (2) Physical view is secondary - MOD nodes for realization, (3) Miller's Law: 5-9 top-level blocks, (4) Every FUNC needs satisfy→REQ and io↔FLOW, (5) Every REQ needs verify→TEST, (6) No near-duplicate FUNCs (similarity ≥0.85).",
     "critiqueTemplate": "Validation failed:\n{violations}\n\nTo fix: {suggestions}",
+    "criticalErrors": [
+      {
+        "rule": "io_bidirectional_flow",
+        "title": "BIDIRECTIONAL IO EDGES",
+        "wrong": "Node -io-> FLOW AND FLOW -io-> same Node",
+        "right": "A -io-> FLOW -io-> B (unidirectional chain)",
+        "fix": "DELETE one direction. If feedback needed, create separate return FLOW (e.g., RequestData vs ResponseData)"
+      },
+      {
+        "rule": "io_circular_chain",
+        "title": "CIRCULAR IO CHAINS",
+        "wrong": "FUNC -io-> FLOW -io-> same FUNC (producer reads own output)",
+        "right": "Producer -io-> FLOW -io-> Consumer (different nodes)",
+        "fix": "DELETE the back-edge from FLOW to producer"
+      },
+      {
+        "rule": "no_duplicate_edges",
+        "title": "DUPLICATE EDGES",
+        "wrong": "Same (source, target, edgeType) twice",
+        "right": "Each edge combination unique",
+        "fix": "Check existing edges before adding. Use graph_query tool to verify."
+      },
+      {
+        "rule": "no_duplicate_nodes",
+        "title": "DUPLICATE NODES",
+        "wrong": "Same (type, name, parent) twice",
+        "right": "Each node combination unique",
+        "fix": "Check existing nodes before adding. Reuse existing semanticId."
+      },
+      {
+        "rule": "nested_func_isolation",
+        "title": "CROSS-WHITEBOX CONNECTIONS",
+        "wrong": "NestedFunc(ParentA) -io-> Flow -io-> NestedFunc(ParentB)",
+        "right": "Nested FUNCs connect only within same parent or to parent-level FLOWs",
+        "fix": "Route cross-whitebox communication through top-level FUNC boundaries"
+      }
+    ],
+    "preSubmissionChecklist": [
+      "Count io edges per node (no bidirectional patterns to same FLOW)",
+      "Trace io chains (no cycles back to producer)",
+      "Verify edge types match validConnections from ontology",
+      "Confirm semantic IDs follow {Name}.{TYPE}.{NNN} pattern",
+      "Check no duplicate (source, target, edgeType) combinations"
+    ],
     "suggestionMap": {
       "function_requirements": "Add satisfy→REQ edge to link function to requirement",
       "function_io": "Add io↔FLOW edges for input and output data flows",

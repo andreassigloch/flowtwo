@@ -401,41 +401,156 @@ export class UnifiedRuleEvaluator {
         }
         break;
 
-      case 'io_bidirectional_flow':
-        // A FUNC/ACTOR should not be both source AND target of the same FLOW
-        const ioEdges = edges.filter(e => e.type === 'io');
-        const flowNodes = new Set(nodes.filter(n => n.type === 'FLOW').map(n => n.semanticId));
+      case 'fchain_actor_boundary':
+        // Every FCHAIN must have at least 1 input actor AND 1 output actor
+        // Input Actor: ACTOR -io-> FLOW (actor produces data into chain)
+        // Output Actor: FLOW -io-> ACTOR (actor receives result from chain)
+        {
+          const composeEdges = edges.filter(e => e.type === 'compose');
+          const ioEdges = edges.filter(e => e.type === 'io');
+          const fchainNodes = nodes.filter(n => n.type === 'FCHAIN');
+          const flowNodeIds = new Set(nodes.filter(n => n.type === 'FLOW').map(n => n.semanticId));
 
-        // Build maps: node → flows it writes to, node → flows it reads from
-        const writesToFlow = new Map<string, Set<string>>(); // node → flows
-        const readsFromFlow = new Map<string, Set<string>>(); // node → flows
+          for (const fchain of fchainNodes) {
+            // Find all nodes composed by this FCHAIN
+            const composedIds = new Set(
+              composeEdges
+                .filter(e => e.sourceId === fchain.semanticId)
+                .map(e => e.targetId)
+            );
 
-        for (const edge of ioEdges) {
-          if (flowNodes.has(edge.targetId)) {
-            // edge.sourceId writes to edge.targetId (FLOW)
-            if (!writesToFlow.has(edge.sourceId)) writesToFlow.set(edge.sourceId, new Set());
-            writesToFlow.get(edge.sourceId)!.add(edge.targetId);
-          }
-          if (flowNodes.has(edge.sourceId)) {
-            // edge.targetId reads from edge.sourceId (FLOW)
-            if (!readsFromFlow.has(edge.targetId)) readsFromFlow.set(edge.targetId, new Set());
-            readsFromFlow.get(edge.targetId)!.add(edge.sourceId);
+            // Find ACTORs composed by this FCHAIN
+            const composedActors = [...composedIds].filter(id => {
+              const node = nodes.find(n => n.semanticId === id);
+              return node?.type === 'ACTOR';
+            });
+
+            // Find FLOWs composed by this FCHAIN
+            const composedFlows = new Set([...composedIds].filter(id => flowNodeIds.has(id)));
+
+            // Classify actors as input or output based on io edges
+            const inputActors: string[] = [];
+            const outputActors: string[] = [];
+
+            for (const actorId of composedActors) {
+              // Input: ACTOR -io-> FLOW (where FLOW is in this FCHAIN)
+              const hasOutput = ioEdges.some(
+                e => e.sourceId === actorId && composedFlows.has(e.targetId)
+              );
+              // Output: FLOW -io-> ACTOR (where FLOW is in this FCHAIN)
+              const hasInput = ioEdges.some(
+                e => e.targetId === actorId && composedFlows.has(e.sourceId)
+              );
+
+              if (hasOutput) inputActors.push(actorId);
+              if (hasInput) outputActors.push(actorId);
+            }
+
+            // Report specific violations
+            if (inputActors.length === 0 && outputActors.length === 0) {
+              violations.push(this.createValidationViolation(
+                rule,
+                fchain.semanticId,
+                `FCHAIN has no boundary actors (needs input actor → FLOW and FLOW → output actor)`
+              ));
+            } else if (inputActors.length === 0) {
+              violations.push(this.createValidationViolation(
+                rule,
+                fchain.semanticId,
+                `FCHAIN missing input actor (need ACTOR -io-> FLOW to start the chain)`
+              ));
+            } else if (outputActors.length === 0) {
+              violations.push(this.createValidationViolation(
+                rule,
+                fchain.semanticId,
+                `FCHAIN missing output actor (need FLOW -io-> ACTOR to end the chain)`
+              ));
+            }
           }
         }
+        break;
 
-        // Find nodes that both write AND read the same FLOW
-        for (const node of nodes) {
-          if (!['FUNC', 'ACTOR'].includes(node.type)) continue;
-          const writes = writesToFlow.get(node.semanticId);
-          const reads = readsFromFlow.get(node.semanticId);
-          if (writes && reads) {
-            for (const flowId of writes) {
-              if (reads.has(flowId)) {
-                violations.push(this.createValidationViolation(
-                  rule,
-                  node.semanticId,
-                  `Bidirectional io to same FLOW (${flowId}) - verify intent`
-                ));
+      case 'io_bidirectional_flow':
+        // A FUNC/ACTOR should not be both source AND target of the same FLOW
+        {
+          const ioEdges = edges.filter(e => e.type === 'io');
+          const flowNodes = new Set(nodes.filter(n => n.type === 'FLOW').map(n => n.semanticId));
+
+          // Build maps: node → flows it writes to, node → flows it reads from
+          const writesToFlow = new Map<string, Set<string>>(); // node → flows
+          const readsFromFlow = new Map<string, Set<string>>(); // node → flows
+
+          for (const edge of ioEdges) {
+            if (flowNodes.has(edge.targetId)) {
+              // edge.sourceId writes to edge.targetId (FLOW)
+              if (!writesToFlow.has(edge.sourceId)) writesToFlow.set(edge.sourceId, new Set());
+              writesToFlow.get(edge.sourceId)!.add(edge.targetId);
+            }
+            if (flowNodes.has(edge.sourceId)) {
+              // edge.targetId reads from edge.sourceId (FLOW)
+              if (!readsFromFlow.has(edge.targetId)) readsFromFlow.set(edge.targetId, new Set());
+              readsFromFlow.get(edge.targetId)!.add(edge.sourceId);
+            }
+          }
+
+          // Find nodes that both write AND read the same FLOW
+          for (const node of nodes) {
+            if (!['FUNC', 'ACTOR'].includes(node.type)) continue;
+            const writes = writesToFlow.get(node.semanticId);
+            const reads = readsFromFlow.get(node.semanticId);
+            if (writes && reads) {
+              for (const flowId of writes) {
+                if (reads.has(flowId)) {
+                  violations.push(this.createValidationViolation(
+                    rule,
+                    node.semanticId,
+                    `Bidirectional io to same FLOW (${flowId}) - verify intent`
+                  ));
+                }
+              }
+            }
+          }
+        }
+        break;
+
+      case 'io_circular_chain':
+        // FLOW should not have io edge back to its own producer (circular chain)
+        // Pattern: Producer -io-> FLOW -io-> Producer (same node)
+        {
+          const ioEdges = edges.filter(e => e.type === 'io');
+          const flowNodes = new Set(nodes.filter(n => n.type === 'FLOW').map(n => n.semanticId));
+
+          // Build maps: node → flows it writes to, node → flows it reads from
+          const writesToFlow = new Map<string, Set<string>>(); // node → flows
+          const readsFromFlow = new Map<string, Set<string>>(); // node → flows
+
+          for (const edge of ioEdges) {
+            if (flowNodes.has(edge.targetId)) {
+              // edge.sourceId writes to edge.targetId (FLOW)
+              if (!writesToFlow.has(edge.sourceId)) writesToFlow.set(edge.sourceId, new Set());
+              writesToFlow.get(edge.sourceId)!.add(edge.targetId);
+            }
+            if (flowNodes.has(edge.sourceId)) {
+              // edge.targetId reads from edge.sourceId (FLOW)
+              if (!readsFromFlow.has(edge.targetId)) readsFromFlow.set(edge.targetId, new Set());
+              readsFromFlow.get(edge.targetId)!.add(edge.sourceId);
+            }
+          }
+
+          // Find nodes that both write to AND read from the same FLOW (circular chain)
+          for (const node of nodes) {
+            if (!['FUNC', 'ACTOR'].includes(node.type)) continue;
+            const writes = writesToFlow.get(node.semanticId);
+            const reads = readsFromFlow.get(node.semanticId);
+            if (writes && reads) {
+              for (const flowId of writes) {
+                if (reads.has(flowId)) {
+                  violations.push(this.createValidationViolation(
+                    rule,
+                    node.semanticId,
+                    `Circular io chain: ${node.semanticId} -io-> ${flowId} -io-> ${node.semanticId}`
+                  ));
+                }
               }
             }
           }

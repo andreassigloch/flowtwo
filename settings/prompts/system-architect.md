@@ -84,14 +84,15 @@ Function distributed across multiple modules?
 
 ## Output Format
 
-Use Format E syntax for all outputs:
+Use Format E compact syntax (CR-053). Node format: `SemanticId|Description [attrs]`
+The name and type are DERIVED from the semanticId (e.g., `FunctionName.FN.001` → name=FunctionName, type=FUNC).
 
 ```
 ## Nodes
-+ FunctionName|FUNC|FunctionName.FN.001|Function description [volatility:high]
-+ DataFlowName|FLOW|DataFlowName.FL.001|Semantic description of data
-+ SchemaName|SCHEMA|SchemaName.SC.001|Data structure definition [Struct:{"field":"type"}]
-+ ModuleName|MOD|ModuleName.MD.001|Physical component description
++ FunctionName.FN.001|Function description [volatility:high]
++ DataFlowName.FL.001|Semantic description of data
++ SchemaName.SC.001|Data structure definition [Struct:{"field":"type"}]
++ ModuleName.MD.001|Physical component description
 
 ## Edges
 + Parent.FN.001 -cp-> Child.FN.002
@@ -148,18 +149,18 @@ Cross-whitebox communication MUST go through parent-level interfaces.
 **Output**:
 ```
 ## Nodes
-+ BrowseMenu|FUNC|BrowseMenu.FN.001|Display restaurant menus and items [volatility:low]
-+ ManageCart|FUNC|ManageCart.FN.002|Add/remove items, calculate totals [volatility:low]
-+ ProcessPayment|FUNC|ProcessPayment.FN.003|Handle payment via external gateway [volatility:high]
-+ NotifyRestaurant|FUNC|NotifyRestaurant.FN.004|Send order to restaurant system [volatility:high]
-+ TrackDelivery|FUNC|TrackDelivery.FN.005|Monitor order status [volatility:medium]
++ BrowseMenu.FN.001|Display restaurant menus and items [volatility:low]
++ ManageCart.FN.002|Add/remove items, calculate totals [volatility:low]
++ ProcessPayment.FN.003|Handle payment via external gateway [volatility:high]
++ NotifyRestaurant.FN.004|Send order to restaurant system [volatility:high]
++ TrackDelivery.FN.005|Monitor order status [volatility:medium]
 
-+ MenuRequest|FLOW|MenuRequest.FL.001|User's menu browsing request
-+ CartUpdate|FLOW|CartUpdate.FL.002|Cart modification data
-+ PaymentRequest|FLOW|PaymentRequest.FL.003|Payment authorization request
-+ OrderConfirmation|FLOW|OrderConfirmation.FL.004|Confirmed order details
++ MenuRequest.FL.001|User's menu browsing request
++ CartUpdate.FL.002|Cart modification data
++ PaymentRequest.FL.003|Payment authorization request
++ OrderConfirmation.FL.004|Confirmed order details
 
-+ OrderPayload|SCHEMA|OrderPayload.SC.001|Order data structure [Struct:{"orderId":"string","items":"array"}]
++ OrderPayload.SC.001|Order data structure [Struct:{"orderId":"string","items":"array"}]
 
 ## Edges
 + FoodOrderApp.SY.001 -cp-> BrowseMenu.FN.001
@@ -221,7 +222,7 @@ Before modifying any node, you MUST:
 # - NodeName.FN.001 -io-> DataFlow.FL.001
 
 # Changes:
-~ NodeName|FUNC|NodeName.FN.001|Updated description [volatility:high]
+~ NodeName.FN.001|Updated description [volatility:high]
 ```
 
 ### Output Validation
@@ -245,7 +246,7 @@ Checklist:
 - [ ] All FLOW have SCHEMA relations (flow_data_schema)
 - [ ] Volatility assigned to all FUNC
 - [ ] High-volatility FUNC isolated (≤2 dependents, volatile_func_isolation)
-- [ ] FCHAIN has ACTOR at start and end (fchain_actor_boundary)
+- [ ] FCHAIN has input actor (`ACTOR -io-> FLOW`) AND output actor (`FLOW -io-> ACTOR`)
 
 ### Phase 3: Physical Architecture (CDR - Critical Design Review)
 **Deliverables:** 5-9 top-level MOD, MOD→FUNC allocation

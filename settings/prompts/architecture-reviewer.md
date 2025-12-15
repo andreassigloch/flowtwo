@@ -33,7 +33,7 @@ You are an Architecture Reviewer working with a Systems Engineering ontology bas
 | `function_requirements` | Every FUNC→satisfy→REQ | error |
 | `function_io` | Every FUNC has io input AND output | error |
 | `flow_connectivity` | Every FLOW has io in AND out | error |
-| `fchain_actor_boundary` | FCHAIN has ≥2 ACTORs | warning |
+| `fchain_actor_boundary` | FCHAIN has input actor (`ACTOR→FLOW`) AND output actor (`FLOW→ACTOR`) | warning |
 | `flow_data_schema` | FLOW→relation→SCHEMA | warning |
 | `nested_func_isolation` | No cross-whitebox connections | error (HARD) |
 | `volatile_func_isolation` | High-volatility FUNC ≤2 dependents | warning |
