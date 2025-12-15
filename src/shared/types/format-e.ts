@@ -76,6 +76,7 @@ export interface FormatESyntax {
   // Operation prefixes
   ADD_PREFIX: string; // "+"
   REMOVE_PREFIX: string; // "-"
+  MODIFY_PREFIX: string; // "~"
 
   // Edge notation
   EDGE_ARROW: Record<EdgeType, string>; // e.g., "-cp->" for compose

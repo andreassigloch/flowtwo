@@ -53,6 +53,7 @@ const SYNTAX: FormatESyntax = {
 
   ADD_PREFIX: '+',
   REMOVE_PREFIX: '-',
+  MODIFY_PREFIX: '~',
 
   EDGE_ARROW: {
     compose: '-cp->',
@@ -554,6 +555,18 @@ export class FormatEParser implements IFormatEParser {
       return {
         type: 'remove_node',
         semanticId,
+      };
+    } else if (prefix === SYNTAX.MODIFY_PREFIX) {
+      // CR-055: Modify node in-place (update properties without re-creating edges)
+      // Format: ~ SemanticId|New Description
+      const content = line.substring(1).trim();
+      const parsed = this.parseNodeLine(content);
+      if (!parsed) return null;
+
+      return {
+        type: 'update_node',
+        semanticId: parsed.semanticId,
+        node: this.createNodeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
       };
     }
 

@@ -234,6 +234,31 @@ All graph modifications MUST use Format E Diff format with COMPACT node syntax:
 - Names: PascalCase, verb+noun for functions
 - Operations block MUST be wrapped in <operations>...</operations>
 - Text response OUTSIDE operations block
+
+## Modifying Nodes
+
+**Three operations available:**
+- \`+\` Add new node
+- \`-\` Remove node
+- \`~\` Modify node (update properties, keep edges)
+
+**To change a node's description:** Use the \`~\` prefix
+\`\`\`
+## Nodes
+~ ProcessPayment.FN.001|Updated description text
+\`\`\`
+This updates ONLY the description. All existing edges remain intact.
+
+**To rename a node (change semanticId):** Delete + Add + Re-connect edges
+\`\`\`
+## Nodes
+- OldName.FN.001
++ NewName.FN.001|Same description
+
+## Edges
+- ParentSystem.SYS.001 -cp-> OldName.FN.001
++ ParentSystem.SYS.001 -cp-> NewName.FN.001
+\`\`\`
 `;
   }
 

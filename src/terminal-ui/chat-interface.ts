@@ -160,9 +160,18 @@ function notifyGraphUpdate(): void {
   // CR-039 Fix 4: Build change status for broadcast
   const nodeChangeStatus = buildNodeChangeStatus();
 
+  // Include deleted nodes from baseline so they can be rendered with "-" indicator
+  const allNodes = [...nodes];
+  const changes = agentDB.getChanges();
+  for (const change of changes) {
+    if (change.elementType === 'node' && change.status === 'deleted' && change.baseline) {
+      allNodes.push(change.baseline as any);
+    }
+  }
+
   // CR-039: validationSummary goes to ChatCanvas (for LLM), not WebSocket (graph-viewer is pure display)
   const stateData = {
-    nodes: nodes.map((n) => [n.semanticId, n]),
+    nodes: allNodes.map((n) => [n.semanticId, n]),
     edges: edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]),
     ports: [],
     currentView: graphCanvas.getCurrentView(),

@@ -133,9 +133,9 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
   hierarchy: {
     viewId: 'hierarchy',
     name: 'Hierarchy View',
-    description: 'System decomposition tree (SYS → UC → FCHAIN → FUNC)',
+    description: 'System decomposition tree (SYS → UC → FCHAIN → FUNC/ACTOR)',
     layoutConfig: {
-      includeNodeTypes: ['SYS', 'UC', 'FCHAIN', 'FUNC', 'MOD'],
+      includeNodeTypes: ['SYS', 'UC', 'FCHAIN', 'FUNC', 'MOD', 'ACTOR'],
       includeEdgeTypes: ['compose'], // ONLY compose for structural hierarchy
       algorithm: 'reingold-tilford',
       parameters: {
@@ -146,7 +146,7 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
       },
     },
     renderConfig: {
-      showNodes: ['SYS', 'UC', 'FCHAIN', 'FUNC', 'MOD'],
+      showNodes: ['SYS', 'UC', 'FCHAIN', 'FUNC', 'MOD', 'ACTOR'],
       showEdges: [], // Implicit via nesting (compose edges hidden, shown as indentation)
     },
   },

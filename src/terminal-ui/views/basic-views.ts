@@ -11,20 +11,26 @@ import { getNodeColor, getChangeIndicator } from './view-utils.js';
 
 /**
  * Render hierarchy view (tree using compose edges)
+ * Allows nodes to appear multiple times if composed into multiple parents
+ * (same behavior as spec/spec+ views)
  */
 export function renderHierarchyView(state: GraphState, viewConfig: any): string[] {
   const lines: string[] = [];
-  const visited = new Set<string>();
   const { includeNodeTypes, includeEdgeTypes } = viewConfig.layoutConfig;
+
+  // Track visited paths (not nodes) to allow multiple occurrences
+  const visitedPaths = new Set<string>();
 
   function renderNode(
     nodeId: string,
+    path: string,
     indent: string = '',
     isLast: boolean = true,
     isRoot: boolean = false
   ): void {
-    if (visited.has(nodeId)) return;
-    visited.add(nodeId);
+    // Path-based dedup: same node can appear under different parents
+    if (visitedPaths.has(path)) return;
+    visitedPaths.add(path);
 
     const node = state.nodes.get(nodeId);
     if (!node || !includeNodeTypes.includes(node.type)) return;
@@ -45,8 +51,11 @@ export function renderHierarchyView(state: GraphState, viewConfig: any): string[
     const childIndent = isRoot ? '' : indent + (isLast ? '  ' : '\u2502 ');
 
     childEdges.forEach((edge: any, idx: number) => {
+      const childNode = state.nodes.get(edge.targetId);
+      if (!childNode) return;
+      const childPath = `${path}/${childNode.name}`;
       const childIsLast = idx === childEdges.length - 1;
-      renderNode(edge.targetId, childIndent, childIsLast, false);
+      renderNode(edge.targetId, childPath, childIndent, childIsLast, false);
     });
   }
 
@@ -59,7 +68,7 @@ export function renderHierarchyView(state: GraphState, viewConfig: any): string[
   });
 
   if (rootNodes.length > 0) {
-    rootNodes.forEach((root: any) => renderNode(root.semanticId, '', true, true));
+    rootNodes.forEach((root: any) => renderNode(root.semanticId, root.name, '', true, true));
   } else {
     lines.push('\x1b[90m(No root nodes found for hierarchy view)\x1b[0m');
   }

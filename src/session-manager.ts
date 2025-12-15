@@ -406,8 +406,17 @@ export class SessionManager {
     // Build change status for broadcast (CR-033)
     const nodeChangeStatus = this.buildNodeChangeStatus();
 
+    // Include deleted nodes from baseline so they can be rendered with "-" indicator
+    const allNodes = [...nodes];
+    const changes = this.agentDB.getChanges();
+    for (const change of changes) {
+      if (change.elementType === 'node' && change.status === 'deleted' && change.baseline) {
+        allNodes.push(change.baseline as any);
+      }
+    }
+
     const stateData = {
-      nodes: nodes.map((n) => [n.semanticId, n]),
+      nodes: allNodes.map((n) => [n.semanticId, n]),
       edges: edges.map((e) => [`${e.sourceId}-${e.type}-${e.targetId}`, e]),
       ports: [],
       currentView: this.graphCanvas.getCurrentView(),

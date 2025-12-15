@@ -28,7 +28,7 @@ const __dirname = dirname(__filename);
  * Parsed operation from Format E diff
  */
 export interface ParsedOperation {
-  action: 'add' | 'remove';
+  action: 'add' | 'remove' | 'modify';
   type: 'node' | 'edge';
   raw: string;
   // For nodes
@@ -114,12 +114,14 @@ export class PreApplyValidator {
     );
     const nodeTypeMap = new Map(existingNodes.map((n) => [n.semanticId, n.type]));
 
-    // Track what will be added by these operations
+    // Track what will be added/removed by these operations
     const pendingNodeIds = new Set<string>();
     const pendingEdgeKeys = new Set<string>();
     const pendingNodeTypes = new Map<string, string>();
+    const pendingNodeRemovals = new Set<string>();
+    const pendingEdgeRemovals = new Set<string>();
 
-    // Collect pending adds for lookahead validation
+    // Collect pending adds AND removes for lookahead validation
     for (const op of operations) {
       if (op.action === 'add') {
         if (op.type === 'node' && op.semanticId) {
@@ -132,13 +134,21 @@ export class PreApplyValidator {
           pendingEdgeKeys.add(`${op.sourceId}|${op.edgeType}|${op.targetId}`);
         }
       }
+      if (op.action === 'remove') {
+        if (op.type === 'node' && op.semanticId) {
+          pendingNodeRemovals.add(op.semanticId);
+        }
+        if (op.type === 'edge' && op.sourceId && op.edgeType && op.targetId) {
+          pendingEdgeRemovals.add(`${op.sourceId}|${op.edgeType}|${op.targetId}`);
+        }
+      }
     }
 
     // Validate each operation
     operations.forEach((op, index) => {
       if (op.action === 'add') {
         if (op.type === 'node') {
-          errors.push(...this.validateNodeAdd(op, index, existingNodeIds));
+          errors.push(...this.validateNodeAdd(op, index, existingNodeIds, pendingNodeRemovals));
         }
         if (op.type === 'edge') {
           errors.push(
@@ -151,9 +161,15 @@ export class PreApplyValidator {
               nodeTypeMap,
               pendingNodeTypes,
               existingEdges,
-              operations
+              operations,
+              pendingEdgeRemovals
             )
           );
+        }
+      }
+      if (op.action === 'modify') {
+        if (op.type === 'node') {
+          errors.push(...this.validateNodeModify(op, index, existingNodeIds));
         }
       }
     });
@@ -174,20 +190,26 @@ export class PreApplyValidator {
   private validateNodeAdd(
     op: ParsedOperation,
     index: number,
-    existingNodeIds: Set<string>
+    existingNodeIds: Set<string>,
+    pendingNodeRemovals: Set<string>
   ): PreApplyError[] {
     const errors: PreApplyError[] = [];
 
     // Check for duplicate node
+    // BUT allow if node is being removed in same batch (update pattern: delete then re-add)
     if (op.semanticId && existingNodeIds.has(op.semanticId)) {
-      errors.push({
-        code: 'DUPLICATE_NODE',
-        severity: 'error',
-        operationIndex: index,
-        operation: op.raw,
-        reason: `Node ${op.semanticId} already exists`,
-        suggestion: 'Reuse existing semanticId instead of adding duplicate',
-      });
+      // If this node is also being removed in this batch, it's an UPDATE (allowed)
+      if (!pendingNodeRemovals.has(op.semanticId)) {
+        errors.push({
+          code: 'DUPLICATE_NODE',
+          severity: 'error',
+          operationIndex: index,
+          operation: op.raw,
+          reason: `Node ${op.semanticId} already exists`,
+          suggestion: 'To update: first delete (- SemanticId), then add (+ SemanticId|NewDescription)',
+        });
+      }
+      // else: node is being deleted and re-added = property update, which is valid
     }
 
     // Check semantic ID format - relaxed to allow more variations
@@ -218,6 +240,32 @@ export class PreApplyValidator {
   }
 
   /**
+   * Validate node modification (~ prefix)
+   * Node must exist to be modified
+   */
+  private validateNodeModify(
+    op: ParsedOperation,
+    index: number,
+    existingNodeIds: Set<string>
+  ): PreApplyError[] {
+    const errors: PreApplyError[] = [];
+
+    // Check that node exists (can't modify non-existent node)
+    if (op.semanticId && !existingNodeIds.has(op.semanticId)) {
+      errors.push({
+        code: 'NODE_NOT_FOUND',
+        severity: 'error',
+        operationIndex: index,
+        operation: op.raw,
+        reason: `Cannot modify node ${op.semanticId} - it does not exist`,
+        suggestion: 'Use + to add a new node, or check the semanticId spelling',
+      });
+    }
+
+    return errors;
+  }
+
+  /**
    * Validate edge addition
    */
   private validateEdgeAdd(
@@ -229,7 +277,8 @@ export class PreApplyValidator {
     nodeTypeMap: Map<string, string>,
     pendingNodeTypes: Map<string, string>,
     existingEdges: Edge[],
-    allOperations: ParsedOperation[]
+    allOperations: ParsedOperation[],
+    pendingEdgeRemovals: Set<string>
   ): PreApplyError[] {
     const errors: PreApplyError[] = [];
 
@@ -240,15 +289,19 @@ export class PreApplyValidator {
     const edgeKey = `${op.sourceId}|${op.edgeType}|${op.targetId}`;
 
     // Check for duplicate edge
+    // BUT allow if edge is being removed in same batch (re-create pattern)
     if (existingEdgeKeys.has(edgeKey)) {
-      errors.push({
-        code: 'DUPLICATE_EDGE',
-        severity: 'error',
-        operationIndex: index,
-        operation: op.raw,
-        reason: `Edge ${op.sourceId} -${op.edgeType}-> ${op.targetId} already exists`,
-        suggestion: 'Check existing edges before adding. Use graph_query tool to verify.',
-      });
+      if (!pendingEdgeRemovals.has(edgeKey)) {
+        errors.push({
+          code: 'DUPLICATE_EDGE',
+          severity: 'error',
+          operationIndex: index,
+          operation: op.raw,
+          reason: `Edge ${op.sourceId} -${op.edgeType}-> ${op.targetId} already exists`,
+          suggestion: 'Check existing edges before adding. Use graph_query tool to verify.',
+        });
+      }
+      // else: edge is being deleted and re-added, which is valid
     }
 
     // Check source node exists (or will exist)
@@ -453,8 +506,8 @@ export function parseOperations(operationsBlock: string): ParsedOperation[] {
       continue;
     }
 
-    if (trimmed.startsWith('+') || trimmed.startsWith('-')) {
-      const action = trimmed.startsWith('+') ? 'add' : 'remove';
+    if (trimmed.startsWith('+') || trimmed.startsWith('-') || trimmed.startsWith('~')) {
+      const action: 'add' | 'remove' | 'modify' = trimmed.startsWith('+') ? 'add' : trimmed.startsWith('-') ? 'remove' : 'modify';
       const content = trimmed.slice(1).trim();
 
       // Auto-detect type if no section header was found
