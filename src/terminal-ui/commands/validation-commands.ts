@@ -172,6 +172,7 @@ export async function handleScoreCommand(ctx: CommandContext): Promise<void> {
  * Handle /analyze command - analyze violations and suggest fixes
  * CR-039: Uses ctx.agentDB directly (no caching)
  * CR-046: Added progress feedback to prevent apparent freeze
+ * CR-054: Adds validation results to chatHistory for LLM context
  */
 export async function handleAnalyzeCommand(ctx: CommandContext): Promise<void> {
   console.log('');
@@ -196,6 +197,9 @@ export async function handleAnalyzeCommand(ctx: CommandContext): Promise<void> {
       console.log(`\x1b[90m   Score: ${(result.rewardScore * 100).toFixed(0)}%\x1b[0m`);
       console.log('');
       ctx.log('✅ Analysis: no violations');
+
+      // CR-054: Add clean result to chatHistory
+      ctx.chatCanvas.addSystemMessage(`[Validation] Score: ${(result.rewardScore * 100).toFixed(0)}% - No violations found`);
       return;
     }
 
@@ -238,6 +242,22 @@ export async function handleAnalyzeCommand(ctx: CommandContext): Promise<void> {
     console.log('');
     console.log(`\x1b[90mTip: Use /optimize to auto-apply fixes, or use natural language:\x1b[0m`);
     console.log(`\x1b[90m  "Add satisfy edge from ProcessData to REQ-001"\x1b[0m`);
+
+    // CR-054: Add validation results to chatHistory for LLM context
+    const feedbackLines: string[] = [
+      `[Validation] Score: ${(result.rewardScore * 100).toFixed(0)}% | ${result.errorCount} errors, ${result.warningCount} warnings`,
+      '',
+      'Suggested fixes:',
+    ];
+    let feedbackIdx = 1;
+    for (const [suggestion, nodes] of Array.from(suggestionGroups).slice(0, 5)) {
+      feedbackLines.push(`${feedbackIdx}. ${suggestion} (affects: ${nodes.slice(0, 2).join(', ')}${nodes.length > 2 ? ` +${nodes.length - 2}` : ''})`);
+      feedbackIdx++;
+    }
+    if (suggestionGroups.size > 5) {
+      feedbackLines.push(`... and ${suggestionGroups.size - 5} more`);
+    }
+    ctx.chatCanvas.addSystemMessage(feedbackLines.join('\n'));
 
     ctx.log(`✅ Analysis complete: ${suggestionGroups.size} suggestions`);
   } catch (error) {

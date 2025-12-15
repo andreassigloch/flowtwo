@@ -636,7 +636,8 @@ export class ArchitectureValidator {
           currentType: 'FUNC',
           proposedType: 'SCHEMA',
           reason: error.issue,
-          operations: `- ${oldId}\n+ ${name}|SCHEMA|${newId}|${error.suggestion}`,
+          // CR-053 compact format: SemanticId|Description
+          operations: `- ${oldId}\n+ ${newId}|${error.suggestion}`,
         };
       }
 
@@ -650,7 +651,8 @@ export class ArchitectureValidator {
           currentType: 'SYS',
           proposedType: 'FUNC',
           reason: error.issue,
-          operations: `- ${sysId}\n+ ${sysName}|FUNC|${funcId}|Logical function (converted from subsystem)`,
+          // CR-053 compact format: SemanticId|Description
+          operations: `- ${sysId}\n+ ${funcId}|Logical function (converted from subsystem)`,
         };
       }
 

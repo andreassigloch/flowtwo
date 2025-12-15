@@ -178,11 +178,11 @@ Your response format:
 
 ### Key Patterns:
 
-**TOP-Level Function (L1):**
+**TOP-Level Function (L1):** (CR-053 compact format: SemanticId|Description)
 \`\`\`
-+ {FuncName}|FUNC|{FuncName}.FN.001|{Description}
-+ {InputFlow}|FLOW|{InputFlow}.FL.001|Input data contract
-+ {OutputFlow}|FLOW|{OutputFlow}.FL.001|Output data contract
++ {FuncName}.FN.001|{Description}
++ {InputFlow}.FL.001|Input data contract
++ {OutputFlow}.FL.001|Output data contract
 + {FChain}.FC.001 -cp-> {FuncName}.FN.001
 + {InputFlow}.FL.001 -io-> {FuncName}.FN.001
 + {FuncName}.FN.001 -io-> {OutputFlow}.FL.001
@@ -393,9 +393,9 @@ Your response format:
 For REQ: "System shall validate user email format"
 
 \`\`\`
-+ TestEmailValid|TEST|TestEmailValid.TC.001|Verify valid email format (user@domain.com) is accepted. Expected: validation passes
-+ TestEmailInvalid|TEST|TestEmailInvalid.TC.002|Verify invalid email (no @ symbol) is rejected. Expected: validation error returned
-+ TestEmailEmpty|TEST|TestEmailEmpty.TC.003|Verify empty email string is rejected. Expected: validation error for empty input
++ TestEmailValid.TC.001|Verify valid email format (user@domain.com) is accepted. Expected: validation passes
++ TestEmailInvalid.TC.002|Verify invalid email (no @ symbol) is rejected. Expected: validation error returned
++ TestEmailEmpty.TC.003|Verify empty email string is rejected. Expected: validation error for empty input
 + ValidateEmail.RQ.001 -ver-> TestEmailValid.TC.001
 + ValidateEmail.RQ.001 -ver-> TestEmailInvalid.TC.002
 + ValidateEmail.RQ.001 -ver-> TestEmailEmpty.TC.003
@@ -592,8 +592,8 @@ ${request.canvasState}
 For FUNC "ValidateOrder" missing I/O:
 
 \`\`\`
-+ OrderData|FLOW|OrderData.FL.001|Order details for validation
-+ ValidationResult|FLOW|ValidationResult.FL.002|Validation outcome with errors if any
++ OrderData.FL.001|Order details for validation
++ ValidationResult.FL.002|Validation outcome with errors if any
 + OrderData.FL.001 -io-> ValidateOrder.FN.001
 + ValidateOrder.FN.001 -io-> ValidationResult.FL.002
 + OrderData.FL.001 -rel-> OrderSchema.SC.001
@@ -783,7 +783,7 @@ ${request.canvasState}
 For unallocated functions ProcessOrder, ValidateOrder, CalculateTotal:
 
 \`\`\`
-+ OrderModule|MOD|OrderModule.MD.001|Handles order processing and validation
++ OrderModule.MD.001|Handles order processing and validation
 + GraphEngine.SY.001 -cp-> OrderModule.MD.001
 + OrderModule.MD.001 -all-> ProcessOrder.FN.001
 + OrderModule.MD.001 -all-> ValidateOrder.FN.002
@@ -793,7 +793,7 @@ For unallocated functions ProcessOrder, ValidateOrder, CalculateTotal:
 For high-volatility LLMIntegration function:
 
 \`\`\`
-+ LLMAdapter|MOD|LLMAdapter.MD.002|Isolates LLM API changes from core logic
++ LLMAdapter.MD.002|Isolates LLM API changes from core logic
 + GraphEngine.SY.001 -cp-> LLMAdapter.MD.002
 + LLMAdapter.MD.002 -all-> LLMIntegration.FN.010
 \`\`\`

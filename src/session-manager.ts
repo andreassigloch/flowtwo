@@ -650,15 +650,21 @@ export class SessionManager {
         isComplete: true,
       });
 
+      // Episode success based on reward threshold (CR-054)
+      const SUCCESS_THRESHOLD = 0.7;
+      const success = reward >= SUCCESS_THRESHOLD;
+
       await this.agentDB.storeEpisode(
         agent,
         task,
-        true,
+        success,
         { response: response.textResponse, operations },
-        `Agent: ${agent}, Reward: ${reward.toFixed(2)}`
+        success
+          ? `Agent: ${agent}, Reward: ${reward.toFixed(2)}`
+          : `Failed: ${agent}, Reward: ${reward.toFixed(2)} < ${SUCCESS_THRESHOLD}`
       );
 
-      this.log(`🧠 Episode stored: ${agent} (reward: ${reward.toFixed(2)})`);
+      this.log(`🧠 Episode stored: ${agent} (reward: ${reward.toFixed(2)}, success: ${success})`);
     } catch (error) {
       this.log(`⚠️ Episode storage failed: ${error}`);
     }

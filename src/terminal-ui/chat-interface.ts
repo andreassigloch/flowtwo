@@ -54,6 +54,7 @@ import {
   printHelpMenu,
 } from './commands/session-commands.js';
 import { createBackgroundValidator, BackgroundValidator } from '../llm-engine/validation/index.js';
+import { getPreApplyValidator, parseOperations } from '../llm-engine/validation/pre-apply-validator.js';
 
 // Configuration - will be set by resolveSession() in main()
 const config = {
@@ -388,16 +389,56 @@ async function processMessage(message: string): Promise<void> {
 
         console.log('\n');
 
-        await chatCanvas.addAssistantMessage(response.textResponse, response.operations ?? undefined);
-
+        // CR-055: Pre-Apply Validation MUST run BEFORE adding to chat history
+        // Otherwise chatCanvas.addAssistantMessage() forwards operations to AgentDB
+        // before we can block them
         if (response.operations) {
+          const preValidator = getPreApplyValidator();
+          const parsedOps = parseOperations(response.operations);
+          log(`🔍 Pre-Apply: Parsed ${parsedOps.length} operations from LLM output`);
+          if (parsedOps.length > 0) {
+            log(`   First op: ${JSON.stringify(parsedOps[0])}`);
+          }
+          const existingNodes = agentDB.getNodes();
+          const existingEdges = agentDB.getEdges();
+          const preValidation = preValidator.validateOperations(parsedOps, existingNodes, existingEdges);
+          log(`🔍 Pre-Apply validation: valid=${preValidation.valid}, errors=${preValidation.errors.length}`);
+
+          if (!preValidation.valid) {
+            // Block the operations - add message WITHOUT operations
+            log(`🚫 Pre-Apply Validation FAILED: ${preValidation.errors.length} errors`);
+            await chatCanvas.addAssistantMessage(response.textResponse, undefined); // No operations!
+
+            console.log('\x1b[31m🚫 Operations blocked by pre-apply validation:\x1b[0m');
+            for (const err of preValidation.errors.slice(0, 3)) {
+              console.log(`   \x1b[31m• ${err.code}:\x1b[0m ${err.reason}`);
+              console.log(`     \x1b[90mFix: ${err.suggestion}\x1b[0m`);
+            }
+            if (preValidation.errors.length > 3) {
+              console.log(`   \x1b[90m... and ${preValidation.errors.length - 3} more errors\x1b[0m`);
+            }
+            console.log('');
+            console.log('\x1b[33m⚠️  Operations NOT applied. Try again with corrected operations.\x1b[0m');
+            console.log('');
+
+            // Add validation feedback to chatHistory for next LLM call
+            await chatCanvas.addSystemMessage(preValidation.feedback);
+            log(`📝 Pre-validation feedback added to chatHistory`);
+
+            // Skip applying the diff
+            return;
+          }
+
+          // Validation passed - add message with operations
+          await chatCanvas.addAssistantMessage(response.textResponse, response.operations);
+
           const diff = parser.parseDiff(response.operations, config.workspaceId, config.systemId);
 
           if (diff.operations.length === 0) {
             log(`⚠️ PARSE FAILURE: Operations block found but 0 operations parsed`);
             log(`📋 Operations block (first 800 chars):\n${response.operations.substring(0, 800)}`);
             console.log('\x1b[33m⚠️  Operations block found but no valid Format-E operations parsed\x1b[0m');
-            console.log('\x1b[90m   Check LOG for details. Expected format: + Name|TYPE|ID|Description\x1b[0m');
+            console.log('\x1b[90m   Check LOG for details. Expected format: + SemanticID|Description\x1b[0m');
           }
 
           await graphCanvas.applyDiff(diff);
@@ -423,6 +464,9 @@ async function processMessage(message: string): Promise<void> {
 
           console.log(`\x1b[90m✓ Graph updated: ${stats.nodeCount} nodes, ${stats.edgeCount} edges (see GRAPH terminal)\x1b[0m`);
           console.log('');
+        } else {
+          // No operations - just add the text response
+          await chatCanvas.addAssistantMessage(response.textResponse, undefined);
         }
 
         log('✅ Response complete');
@@ -435,15 +479,21 @@ async function processMessage(message: string): Promise<void> {
             isComplete: true,
           });
 
+          // Episode success based on reward threshold (CR-054)
+          const SUCCESS_THRESHOLD = 0.7;
+          const success = reward >= SUCCESS_THRESHOLD;
+
           const agentdb = await getAgentDB();
           await agentdb.storeEpisode(
             selectedAgent,
             message,
-            true,
+            success,
             { response: response.textResponse, operations: response.operations },
-            `Agent: ${selectedAgent}, Reward: ${reward.toFixed(2)}`
+            success
+              ? `Agent: ${selectedAgent}, Reward: ${reward.toFixed(2)}`
+              : `Failed: ${selectedAgent}, Reward: ${reward.toFixed(2)} < ${SUCCESS_THRESHOLD}`
           );
-          log(`🧠 Episode stored for agent: ${selectedAgent} (reward: ${reward.toFixed(2)})`);
+          log(`🧠 Episode stored for agent: ${selectedAgent} (reward: ${reward.toFixed(2)}, success: ${success})`);
         } catch (episodeError) {
           log(`⚠️ Episode storage failed: ${episodeError}`);
         }
@@ -594,17 +644,21 @@ async function main(): Promise<void> {
           agentDB.setEdge(edge, { upsert: true });
         }
         log(`📦 Loaded ${nodes.length} nodes into AgentDB`);
-
-        // CR-033: Capture baseline for change tracking (loaded state = committed state)
-        agentDB.captureBaseline();
-
         notifyGraphUpdate();
       }
+
+      // CR-033/CR-054: Always capture baseline (even if empty) for change tracking
+      agentDB.captureBaseline();
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.log(`\x1b[33m⚠️  Could not load from Neo4j: ${errorMsg}\x1b[0m`);
       log(`⚠️ Neo4j load error: ${errorMsg}`);
+      // Still capture empty baseline on error
+      agentDB.captureBaseline();
     }
+  } else {
+    // No Neo4j: capture empty baseline for fresh start
+    agentDB.captureBaseline();
   }
 
   console.log('');

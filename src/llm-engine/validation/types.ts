@@ -215,3 +215,25 @@ export interface NodeEmbedding {
   createdAt: number;
   invalidatedAt?: number;
 }
+
+/**
+ * Pre-Apply Validation Error (CR-055)
+ * Represents an error found before applying operations to AgentDB
+ */
+export interface PreApplyError {
+  code: string;
+  severity: 'error' | 'warning';
+  operationIndex: number;
+  operation: string;
+  reason: string;
+  suggestion: string;
+}
+
+/**
+ * Pre-Apply Validation Result (CR-055)
+ */
+export interface PreApplyResult {
+  valid: boolean;
+  errors: PreApplyError[];
+  feedback: string;
+}

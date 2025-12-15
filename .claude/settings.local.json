@@ -34,7 +34,11 @@
       "Bash(__NEW_LINE__ echo \"Deleted 11 identical duplicates\")",
       "Bash(/dev/null ls -la models/*.md)",
       "Bash(__NEW_LINE__ rm \"src/canvas/stateless-graph-canvas 2.ts\")",
-      "Bash(__NEW_LINE__ echo \"Deleted 8 older duplicates, kept exports/graphengineCr38.formatE 2.md\")"
+      "Bash(__NEW_LINE__ echo \"Deleted 8 older duplicates, kept exports/graphengineCr38.formatE 2.md\")",
+      "Bash(tail:*)",
+      "Bash(chmod:*)",
+      "Bash(STAGED_FILES=\"settings/ontology-rules.json\")",
+      "Bash(bash -c '\nONTOLOGY_CHANGED=$(echo \"\"$STAGED_FILES\"\" | grep -c \"\"settings/ontology-rules.json\"\" || true)\necho \"\"ONTOLOGY_CHANGED: $ONTOLOGY_CHANGED\"\"\nif [ \"\"$ONTOLOGY_CHANGED\"\" -gt 0 ]; then\n  echo \"\"✅ Hook würde rule consistency check ausführen\"\"\n  npx tsx scripts/check-rule-consistency.ts\nfi\n')"
     ],
     "deny": []
   }

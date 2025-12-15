@@ -8,12 +8,52 @@
  * 4. Chat history (cached)
  * 5. User message (NOT cached)
  *
+ * CR-054: Now generates "CRITICAL ERRORS TO AVOID" section from ontology-rules.json
+ *
  * @author andreas@siglochconsulting
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 import { PromptSection, SystemPromptResult } from '../shared/types/llm.js';
 import { isOpenAIProvider } from './engine-factory.js';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// ESM __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+interface CriticalError {
+  rule: string;
+  title: string;
+  wrong: string;
+  right: string;
+  fix: string;
+}
+
+interface OntologyRulesLLMContext {
+  criticalErrors?: CriticalError[];
+  preSubmissionChecklist?: string[];
+}
+
+interface OntologyRules {
+  llmContext?: OntologyRulesLLMContext;
+}
+
+/**
+ * Load ontology rules from JSON file
+ */
+function loadOntologyRules(): OntologyRules | null {
+  try {
+    const rulesPath = join(__dirname, '../../settings/ontology-rules.json');
+    const content = readFileSync(rulesPath, 'utf-8');
+    return JSON.parse(content) as OntologyRules;
+  } catch {
+    // Fail silently - rules are optional enhancement
+    return null;
+  }
+}
 
 /**
  * System Prompt Builder
@@ -163,16 +203,16 @@ You are an expert Systems Engineering assistant using GraphEngine, a tool for cr
 - **Nesting (hierarchy):** compose, satisfy, allocate → parent-child structure
 - **Cross-reference:** io, verify, relation → no hierarchy, just links
 
-## Format E Syntax
+## Format E Syntax (CR-053 Compact)
 
-All graph modifications MUST use Format E Diff format:
+All graph modifications MUST use Format E Diff format with COMPACT node syntax:
 
 \`\`\`
 <operations>
 <base_snapshot>{SystemID}</base_snapshot>
 
 ## Nodes
-+ {Name}|{Type}|{SemanticID}|{Description} [{x:100,y:200,zoom:L2}]
++ {SemanticID}|{Description}
 - {SemanticID}
 
 ## Edges
@@ -181,8 +221,16 @@ All graph modifications MUST use Format E Diff format:
 </operations>
 \`\`\`
 
+**CRITICAL: Node format is SemanticID|Description (2 fields, NOT 4)**
+- Name and Type are DERIVED from the SemanticID automatically
+- SemanticID format: {Name}.{TypeAbbr}.{Counter}
+- Example: \`+ ProcessPayment.FN.001|Process customer payment\`
+  - SemanticID: ProcessPayment.FN.001
+  - Description: Process customer payment
+  - Name (derived): ProcessPayment
+  - Type (derived): FUNC
+
 **Key Rules:**
-- Semantic IDs: {Name}.{TypeAbbr}.{Counter} (e.g., ProcessPayment.FN.001)
 - Names: PascalCase, verb+noun for functions
 - Operations block MUST be wrapped in <operations>...</operations>
 - Text response OUTSIDE operations block
@@ -227,7 +275,59 @@ Follow this top-down decomposition:
 4. **Module Allocation:**
    - FUNC -alc-> MOD (function allocated to module)
    - Group related functions in same module
-${this.getOpenAIProviderWarning()}`;
+${this.getCriticalErrorsSection()}${this.getPreSubmissionChecklist()}${this.getOpenAIProviderWarning()}`;
+  }
+
+  /**
+   * Generate CRITICAL ERRORS TO AVOID section from ontology-rules.json (CR-054)
+   */
+  private getCriticalErrorsSection(): string {
+    const rules = loadOntologyRules();
+    const criticalErrors = rules?.llmContext?.criticalErrors;
+
+    if (!criticalErrors || criticalErrors.length === 0) {
+      return '';
+    }
+
+    const errorLines = criticalErrors.map((err, idx) => {
+      return `${idx + 1}. **${err.title}**
+   - Wrong: ${err.wrong}
+   - Right: ${err.right}
+   - Fix: ${err.fix}`;
+    });
+
+    return `
+
+## CRITICAL ERRORS TO AVOID
+
+These errors will cause your output to be REJECTED. Check BEFORE submitting:
+
+${errorLines.join('\n\n')}
+`;
+  }
+
+  /**
+   * Generate Pre-Submission Checklist from ontology-rules.json (CR-054)
+   */
+  private getPreSubmissionChecklist(): string {
+    const rules = loadOntologyRules();
+    const checklist = rules?.llmContext?.preSubmissionChecklist;
+
+    if (!checklist || checklist.length === 0) {
+      return '';
+    }
+
+    const checklistLines = checklist.map((item, idx) => `${idx + 1}. ${item}`);
+
+    return `
+
+## Pre-Submission Validation
+
+Before returning your response, VERIFY:
+${checklistLines.join('\n')}
+
+Include validation confirmation in your response.
+`;
   }
 
   /**
@@ -251,11 +351,11 @@ ${this.getOpenAIProviderWarning()}`;
 **WRONG (multiple blocks):**
 \`\`\`
 <operations>
-+ Node1|TYPE|ID1|Desc
++ Node1.FN.001|Description
 </operations>
 Now let's add more:
 <operations>
-+ Node2|TYPE|ID2|Desc
++ Node2.FN.002|Another description
 </operations>
 \`\`\`
 
@@ -263,8 +363,8 @@ Now let's add more:
 \`\`\`
 <operations>
 ## Nodes
-+ Node1|TYPE|ID1|Desc
-+ Node2|TYPE|ID2|Desc
++ Node1.FN.001|Description
++ Node2.FN.002|Another description
 </operations>
 \`\`\`
 
