@@ -5,7 +5,7 @@
 # Nodes: 10
 # Edges: 6
 #
-# Format: Format E (Token-Efficient Serialization)
+# Format: Format E (Token-Efficient Serialization) - CR-053 Compact Syntax
 # File Extension: .txt (universal editor compatibility)
 #
 # Purpose: Test orphan node detection - expected score ~50%
@@ -16,16 +16,16 @@
 #
 
 ## Nodes
-OrphanTest|SYS|OrphanTest.SY.001|System with orphan nodes
-MainFlow|UC|MainFlow.UC.001|Connected use case
-OrphanReq|REQ|OrphanReq.RQ.001|Orphan requirement - no satisfy edge
-MainReq|REQ|MainReq.RQ.002|Connected requirement
-ProcessA|FUNC|ProcessA.FN.001|Connected function
-ProcessB|FUNC|ProcessB.FN.002|Connected function
-OrphanFunc|FUNC|OrphanFunc.FN.003|Orphan function - no allocation
-MainModule|MOD|MainModule.MD.001|Main module
-EmptyModule|MOD|EmptyModule.MD.002|Module with no functions allocated
-TestMain|TEST|TestMain.TS.001|Test for main flow
+OrphanTest.SY.001|System with orphan nodes
+MainFlow.UC.001|Connected use case
+OrphanReq.RQ.001|Orphan requirement - no satisfy edge
+MainReq.RQ.002|Connected requirement
+ProcessA.FN.001|Connected function
+ProcessB.FN.002|Connected function
+OrphanFunc.FN.003|Orphan function - no allocation
+MainModule.MD.001|Main module
+EmptyModule.MD.002|Module with no functions allocated
+TestMain.TC.001|Test for main flow
 
 ## Edges
 OrphanTest.SY.001 -cp-> MainFlow.UC.001
@@ -33,4 +33,4 @@ MainFlow.UC.001 -cp-> ProcessA.FN.001, ProcessB.FN.002
 ProcessA.FN.001 -sat-> MainReq.RQ.002
 ProcessA.FN.001 -alc-> MainModule.MD.001
 ProcessB.FN.002 -alc-> MainModule.MD.001
-MainReq.RQ.002 -ver-> TestMain.TS.001
+MainReq.RQ.002 -ver-> TestMain.TC.001

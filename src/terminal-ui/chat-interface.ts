@@ -43,6 +43,7 @@ import {
   handleNewCommand,
   handleCommitCommand,
   handleSaveCommand,
+  handleRestoreCommand,
   handleLoadCommand,
   handleExportCommand,
   handleImportCommand,
@@ -77,6 +78,28 @@ const parser = new FormatEParser();
 
 // CR-038 Phase 4: Background validator instance
 let backgroundValidator: BackgroundValidator | null = null;
+
+/**
+ * CR-045: Input lock flag to prevent duplicate processing during sub-dialogs
+ * When true, the main readline ignores input (another dialog is active)
+ */
+let inputLocked = false;
+
+/**
+ * CR-045: Lock input processing (called before opening sub-dialogs like /load selection)
+ */
+export function lockInput(): void {
+  inputLocked = true;
+  log('🔒 Input locked (sub-dialog active)');
+}
+
+/**
+ * CR-045: Unlock input processing (called after sub-dialogs close)
+ */
+export function unlockInput(): void {
+  inputLocked = false;
+  log('🔓 Input unlocked');
+}
 
 /**
  * Log to STDOUT file
@@ -222,6 +245,10 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
 
     case '/save':  // Alias for /commit (backward compatibility)
       await handleSaveCommand(ctx);
+      break;
+
+    case '/restore':
+      handleRestoreCommand(ctx);
       break;
 
     case '/export':
@@ -598,6 +625,12 @@ async function main(): Promise<void> {
   rl.prompt();
 
   rl.on('line', async (input) => {
+    // CR-045: Skip if input is locked (sub-dialog like /load selection is active)
+    if (inputLocked) {
+      log(`🔒 Input ignored while locked: "${input.substring(0, 20)}..."`);
+      return;
+    }
+
     const trimmed = input.trim();
 
     if (!trimmed) {

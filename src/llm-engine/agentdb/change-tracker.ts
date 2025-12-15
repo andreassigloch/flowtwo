@@ -90,6 +90,24 @@ export class ChangeTracker {
   }
 
   /**
+   * Get baseline state for restore operation (CR-044)
+   * Returns deep copy of baseline nodes and edges
+   */
+  getBaselineState(): { nodes: Node[]; edges: Edge[] } | null {
+    if (!this.baseline) {
+      return null;
+    }
+
+    return {
+      nodes: Array.from(this.baseline.nodes.values()).map((n) => ({
+        ...n,
+        attributes: n.attributes ? JSON.parse(JSON.stringify(n.attributes)) : undefined,
+      })),
+      edges: Array.from(this.baseline.edges.values()).map((e) => ({ ...e })),
+    };
+  }
+
+  /**
    * Get change status for a node
    */
   getNodeStatus(semanticId: SemanticId, currentNode: Node | null): ChangeStatus {

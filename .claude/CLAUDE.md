@@ -257,9 +257,22 @@ Per global CLAUDE.md rules:
 - **10% E2E tests** - tests/e2e/**/*.e2e.ts
 - **Zero skipped tests** - no .skip() allowed in CI
 
-### Terminal UI E2E Testing (stdin/stdout)
+### Terminal UI E2E Testing (stdin/stdout) ⭐ CRITICAL
 
 GraphEngine uses a **4-terminal text UI** (WebSocket server, Chat interface, Graph viewer, Stdout logs). E2E tests interact via **stdin/stdout redirection**, not WebSocket or direct API calls.
+
+**⚠️ IMPORTANT: AgentDB Access**
+AgentDB is ONLY populated when the app is running. To access AgentDB data:
+- **NEVER** write scripts that import AgentDB directly (will show 0 nodes/edges)
+- **ALWAYS** spawn the app and interact via stdin/stdout
+- Use `/export` command to get current AgentDB state
+- Use `/status` to verify node/edge counts
+
+**Claude Code Capability:**
+The app can be fully controlled via stdin/stdout - Claude Code has access to everything:
+- Send commands: `process.stdin.write('/load filename.txt\n')`
+- Read output: `process.stdout.on('data', ...)`
+- All slash commands work: `/new`, `/load`, `/export`, `/save`, `/analyze`, etc.
 
 **Architecture:**
 ```
@@ -322,12 +335,14 @@ Use **cypher-shell** for direct Neo4j debugging independent of the application:
 # Install (macOS)
 brew install cypher-shell
 
-# Connect using .env credentials
-source .env && cypher-shell -u $NEO4J_USER -p $NEO4J_PASSWORD
-
-# Or direct (default dev credentials)
+# Connect with hardcoded credentials (NOT source .env - auth fails!)
 cypher-shell -u neo4j -p aise_password_2024
+
+# Example query
+cypher-shell -u neo4j -p aise_password_2024 "MATCH (n:Node) RETURN n.type, count(*) LIMIT 10"
 ```
+
+**⚠️ NOTE:** `source .env && cypher-shell -u $NEO4J_USER ...` fails with auth error. Use hardcoded credentials directly.
 
 ### Common Debug Queries
 ```cypher

@@ -14,14 +14,15 @@ import { NodeType, EdgeType } from './ontology.js';
  */
 export type ViewType =
   | 'hierarchy'
-  | 'functional-flow'
   | 'functional-network'
   | 'requirements'
   | 'allocation'
   | 'use-case'
   | 'spec'
   | 'spec+'
-  | 'architecture';
+  | 'architecture'
+  | 'fchain'
+  | 'fchain+';
 
 /**
  * Layout Algorithm Type
@@ -147,26 +148,6 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
     renderConfig: {
       showNodes: ['SYS', 'UC', 'FCHAIN', 'FUNC', 'MOD'],
       showEdges: [], // Implicit via nesting (compose edges hidden, shown as indentation)
-    },
-  },
-
-  'functional-flow': {
-    viewId: 'functional-flow',
-    name: 'Functional Flow View',
-    description: 'Data flow between functions (FUNC ←→ FLOW)',
-    layoutConfig: {
-      includeNodeTypes: ['FUNC', 'FLOW'], // FLOW needed for port extraction
-      includeEdgeTypes: ['io'],
-      algorithm: 'sugiyama',
-      parameters: {
-        orientation: 'left-right',
-        layerSpacing: 100,
-      },
-    },
-    renderConfig: {
-      showNodes: ['FUNC'], // FLOW hidden, converted to ports
-      hideNodes: ['FLOW'],
-      showEdges: ['io'],
     },
   },
 
@@ -419,6 +400,72 @@ export const DEFAULT_VIEW_CONFIGS: Record<ViewType, ViewConfig> = {
     renderConfig: {
       showNodes: ['SYS', 'MOD', 'UC', 'FCHAIN', 'FUNC'],
       showEdges: ['io'], // Show data flow connections between blocks
+    },
+  },
+
+  /**
+   * Function Chain View (fchain)
+   *
+   * Activity diagram showing FCHAIN sequences with functions, actors, and data flows.
+   * Visualizes use case implementation as ordered function execution with
+   * external actor interactions via io-flow-io connections.
+   *
+   * Layout: top-to-bottom with swimlanes for actors.
+   * FLOW nodes rendered as labeled edges, not separate nodes.
+   * Functions sorted by topological order based on io edges.
+   */
+  fchain: {
+    viewId: 'fchain',
+    name: 'Function Chain View',
+    description: 'Activity diagram with functions, actors, and data flows',
+    layoutConfig: {
+      includeNodeTypes: ['FCHAIN', 'FUNC', 'FLOW', 'ACTOR'],
+      includeEdgeTypes: ['compose', 'io'],
+      algorithm: 'sugiyama',
+      parameters: {
+        orientation: 'top-down',
+        nodeSpacing: 100,
+        levelSpacing: 80,
+        nestingEdgeTypes: ['compose'],
+        showSequenceNumbers: true,
+        swimlaneGroupBy: 'ACTOR',
+      },
+    },
+    renderConfig: {
+      showNodes: ['FCHAIN', 'FUNC', 'ACTOR'],
+      hideNodes: ['FLOW'], // FLOW becomes edge labels
+      showEdges: ['io'],
+    },
+  },
+
+  /**
+   * Function Chain+ View (detailed)
+   *
+   * Same as fchain but with [A]/[F] tags, flow labels (italic),
+   * and descriptions. Graph flows top-down with vertical flow labels.
+   */
+  'fchain+': {
+    viewId: 'fchain+',
+    name: 'Function Chain+ View',
+    description: 'Detailed activity diagram with flow labels and descriptions',
+    layoutConfig: {
+      includeNodeTypes: ['FCHAIN', 'FUNC', 'FLOW', 'ACTOR'],
+      includeEdgeTypes: ['compose', 'io'],
+      algorithm: 'sugiyama',
+      parameters: {
+        orientation: 'top-down',
+        nodeSpacing: 100,
+        levelSpacing: 80,
+        nestingEdgeTypes: ['compose'],
+        showSequenceNumbers: true,
+        showFlowLabels: true,
+        showDescriptions: true,
+      },
+    },
+    renderConfig: {
+      showNodes: ['FCHAIN', 'FUNC', 'ACTOR'],
+      hideNodes: ['FLOW'], // FLOW becomes edge labels
+      showEdges: ['io'],
     },
   },
 };

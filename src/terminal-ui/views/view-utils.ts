@@ -21,7 +21,7 @@ export interface GraphState {
 
 /**
  * CR-033: Get change indicator prefix for a node
- * Returns colored prefix: green + for added, yellow ~ for modified, red - for deleted
+ * Returns colored prefix with spaces: " + " green, " ~ " yellow, " - " red
  */
 export function getChangeIndicator(semanticId: string, changeStatus?: Map<string, ChangeStatus>): string {
   if (!changeStatus) return '';
@@ -31,11 +31,11 @@ export function getChangeIndicator(semanticId: string, changeStatus?: Map<string
 
   switch (status) {
     case 'added':
-      return '\x1b[32m+\x1b[0m';  // green +
+      return ' \x1b[32m+\x1b[0m ';  // green +
     case 'modified':
-      return '\x1b[33m~\x1b[0m';  // yellow ~
+      return ' \x1b[33m~\x1b[0m ';  // yellow ~
     case 'deleted':
-      return '\x1b[31m-\x1b[0m';  // red -
+      return ' \x1b[31m-\x1b[0m ';  // red -
     default:
       return '';
   }

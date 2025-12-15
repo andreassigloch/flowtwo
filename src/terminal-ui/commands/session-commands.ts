@@ -228,23 +228,14 @@ export async function handleLoadCommand(mainRl: readline.Interface, ctx: Command
       });
       console.log('');
 
-      // CR-045: Pause main readline to prevent it from consuming keystrokes
-      // This fixes the "preller" problem where keystrokes go to both readline instances
-      mainRl.pause();
-
-      // Create temporary readline for selection
-      const selectRl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
-
-      selectRl.question('Enter number to load (or press Enter to cancel): ', async (answer) => {
-        selectRl.close();
-        // CR-045: Resume main readline and unlock input
-        mainRl.resume();
+      // CR-045 Fix: Use mainRl.question() instead of creating a second readline
+      // Two readlines sharing stdin cause double echo (Node.js Issue #30510)
+      // By reusing mainRl, we avoid the duplicate echo problem entirely
+      mainRl.question('Enter number to load (or press Enter to cancel): ', async (rawAnswer) => {
         unlockInput();
 
-        const num = parseInt(answer.trim(), 10);
+        const answer = rawAnswer.trim();
+        const num = parseInt(answer, 10);
         if (isNaN(num) || num < 1 || num > result.records.length) {
           console.log('\x1b[90mCancelled\x1b[0m');
           console.log('');

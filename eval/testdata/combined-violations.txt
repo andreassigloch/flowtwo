@@ -5,7 +5,7 @@
 # Nodes: 18
 # Edges: 15
 #
-# Format: Format E (Token-Efficient Serialization)
+# Format: Format E (Token-Efficient Serialization) - CR-053 Compact Syntax
 # File Extension: .txt (universal editor compatibility)
 #
 # Purpose: Test multiple architecture violations - expected score ~40%
@@ -18,24 +18,24 @@
 #
 
 ## Nodes
-MultiIssue|SYS|MultiIssue.SY.001|System with multiple architecture violations
-MainFeature|UC|MainFeature.UC.001|Main feature use case
-SecondFeature|UC|SecondFeature.UC.002|Second feature use case
-OrphanReq|REQ|OrphanReq.RQ.001|Orphan - no satisfy edge points here
-UntestedReq|REQ|UntestedReq.RQ.002|Has satisfy but no verify test
-CompleteReq|REQ|CompleteReq.RQ.003|Fully traced requirement
-F1|FUNC|F1.FN.001|Function 1 - satisfies UntestedReq
-F2|FUNC|F2.FN.002|Function 2 - no satisfy edge
-F3|FUNC|F3.FN.003|Function 3 - no satisfy edge
-F4|FUNC|F4.FN.004|Function 4 - no satisfy edge
-F5|FUNC|F5.FN.005|Function 5 - orphan no allocation
-F6|FUNC|F6.FN.006|Function 6 - satisfies CompleteReq
-F7|FUNC|F7.FN.007|Function 7 - no satisfy edge
-F8|FUNC|F8.FN.008|Function 8 - no satisfy edge
-F9|FUNC|F9.FN.009|Function 9 - no satisfy edge
-F10|FUNC|F10.FN.010|Function 10 - no satisfy edge
-BigMixedMod|MOD|BigMixedMod.MD.001|Large module with 9 functions
-TestComplete|TEST|TestComplete.TS.001|Only test - covers CompleteReq
+MultiIssue.SY.001|System with multiple architecture violations
+MainFeature.UC.001|Main feature use case
+SecondFeature.UC.002|Second feature use case
+OrphanReq.RQ.001|Orphan - no satisfy edge points here
+UntestedReq.RQ.002|Has satisfy but no verify test
+CompleteReq.RQ.003|Fully traced requirement
+F1.FN.001|Function 1 - satisfies UntestedReq
+F2.FN.002|Function 2 - no satisfy edge
+F3.FN.003|Function 3 - no satisfy edge
+F4.FN.004|Function 4 - no satisfy edge
+F5.FN.005|Function 5 - orphan no allocation
+F6.FN.006|Function 6 - satisfies CompleteReq
+F7.FN.007|Function 7 - no satisfy edge
+F8.FN.008|Function 8 - no satisfy edge
+F9.FN.009|Function 9 - no satisfy edge
+F10.FN.010|Function 10 - no satisfy edge
+BigMixedMod.MD.001|Large module with 9 functions
+TestComplete.TC.001|Only test - covers CompleteReq
 
 ## Edges
 MultiIssue.SY.001 -cp-> MainFeature.UC.001, SecondFeature.UC.002
@@ -52,5 +52,5 @@ F7.FN.007 -alc-> BigMixedMod.MD.001
 F8.FN.008 -alc-> BigMixedMod.MD.001
 F9.FN.009 -alc-> BigMixedMod.MD.001
 F10.FN.010 -alc-> BigMixedMod.MD.001
-CompleteReq.RQ.003 -ver-> TestComplete.TS.001
+CompleteReq.RQ.003 -ver-> TestComplete.TC.001
 F1.FN.001 -io-> F2.FN.002

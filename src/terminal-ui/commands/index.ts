@@ -29,6 +29,7 @@ export {
   handleNewCommand,
   handleCommitCommand,
   handleSaveCommand,
+  handleRestoreCommand,
   handleLoadCommand,
   handleExportCommand,
   handleImportCommand,

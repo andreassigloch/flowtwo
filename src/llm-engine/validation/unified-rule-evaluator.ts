@@ -322,18 +322,46 @@ export class UnifiedRuleEvaluator {
         break;
 
       case 'function_io':
-        // Every FUNC should have at least one io edge (input or output)
-        const funcsWithIo = new Set([
-          ...edges.filter(e => e.type === 'io').map(e => e.sourceId),
-          ...edges.filter(e => e.type === 'io').map(e => e.targetId),
-        ]);
+        // Every FUNC must have io input AND output via FLOW (not just one)
+        const flowIds = new Set(nodes.filter(n => n.type === 'FLOW').map(n => n.semanticId));
+        const ioEdgesForFunc = edges.filter(e => e.type === 'io');
+
+        // FUNC with incoming io FROM FLOW (FLOW → FUNC = input)
+        const funcsWithInput = new Set(
+          ioEdgesForFunc
+            .filter(e => flowIds.has(e.sourceId))
+            .map(e => e.targetId)
+        );
+        // FUNC with outgoing io TO FLOW (FUNC → FLOW = output)
+        const funcsWithOutput = new Set(
+          ioEdgesForFunc
+            .filter(e => flowIds.has(e.targetId))
+            .map(e => e.sourceId)
+        );
+
         for (const node of nodes) {
-          if (node.type === 'FUNC' && !funcsWithIo.has(node.semanticId)) {
-            violations.push(this.createValidationViolation(
-              rule,
-              node.semanticId,
-              'Function has no io edges (isolated data flow)'
-            ));
+          if (node.type === 'FUNC') {
+            const hasInput = funcsWithInput.has(node.semanticId);
+            const hasOutput = funcsWithOutput.has(node.semanticId);
+            if (!hasInput && !hasOutput) {
+              violations.push(this.createValidationViolation(
+                rule,
+                node.semanticId,
+                'Function has no io edges (isolated data flow)'
+              ));
+            } else if (!hasInput) {
+              violations.push(this.createValidationViolation(
+                rule,
+                node.semanticId,
+                'Function missing io input (no FLOW → FUNC edge)'
+              ));
+            } else if (!hasOutput) {
+              violations.push(this.createValidationViolation(
+                rule,
+                node.semanticId,
+                'Function missing io output (no FUNC → FLOW edge)'
+              ));
+            }
           }
         }
         break;
@@ -368,6 +396,47 @@ export class UnifiedRuleEvaluator {
                 node.semanticId,
                 'FLOW has no outgoing io edge'
               ));
+            }
+          }
+        }
+        break;
+
+      case 'io_bidirectional_flow':
+        // A FUNC/ACTOR should not be both source AND target of the same FLOW
+        const ioEdges = edges.filter(e => e.type === 'io');
+        const flowNodes = new Set(nodes.filter(n => n.type === 'FLOW').map(n => n.semanticId));
+
+        // Build maps: node → flows it writes to, node → flows it reads from
+        const writesToFlow = new Map<string, Set<string>>(); // node → flows
+        const readsFromFlow = new Map<string, Set<string>>(); // node → flows
+
+        for (const edge of ioEdges) {
+          if (flowNodes.has(edge.targetId)) {
+            // edge.sourceId writes to edge.targetId (FLOW)
+            if (!writesToFlow.has(edge.sourceId)) writesToFlow.set(edge.sourceId, new Set());
+            writesToFlow.get(edge.sourceId)!.add(edge.targetId);
+          }
+          if (flowNodes.has(edge.sourceId)) {
+            // edge.targetId reads from edge.sourceId (FLOW)
+            if (!readsFromFlow.has(edge.targetId)) readsFromFlow.set(edge.targetId, new Set());
+            readsFromFlow.get(edge.targetId)!.add(edge.sourceId);
+          }
+        }
+
+        // Find nodes that both write AND read the same FLOW
+        for (const node of nodes) {
+          if (!['FUNC', 'ACTOR'].includes(node.type)) continue;
+          const writes = writesToFlow.get(node.semanticId);
+          const reads = readsFromFlow.get(node.semanticId);
+          if (writes && reads) {
+            for (const flowId of writes) {
+              if (reads.has(flowId)) {
+                violations.push(this.createValidationViolation(
+                  rule,
+                  node.semanticId,
+                  `Bidirectional io to same FLOW (${flowId}) - verify intent`
+                ));
+              }
             }
           }
         }

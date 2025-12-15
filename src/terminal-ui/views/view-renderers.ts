@@ -89,14 +89,11 @@ export async function generateAsciiGraph(
     case 'architecture':
       lines.push(...await renderArchitectureView(state, viewConfig));
       break;
-    case 'functional-flow':
-      lines.push('\x1b[33m\u26a0\ufe0f  Functional-flow view not yet implemented in ASCII\x1b[0m');
-      lines.push('\x1b[90m(This view requires graphical rendering - use Web-UI)\x1b[0m');
-      break;
     case 'functional-network':
       lines.push(...await renderFunctionalNetworkView(state, viewConfig));
       break;
     case 'fchain':
+    case 'fchain+':
       lines.push(...renderFchainView(state, viewConfig));
       break;
     default:

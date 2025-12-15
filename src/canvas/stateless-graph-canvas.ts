@@ -14,7 +14,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Node, Edge, SemanticId, GraphState } from '../shared/types/ontology.js';
+import { Node, Edge, EdgeType, SemanticId, GraphState } from '../shared/types/ontology.js';
 import { Operation, GraphCanvasState, FormatEDiff, DiffResult, PersistResult } from '../shared/types/canvas.js';
 import { FormatEParser } from '../shared/parsers/format-e-parser.js';
 import { IFormatEParser } from '../shared/types/format-e.js';
@@ -292,8 +292,8 @@ export class StatelessGraphCanvas extends EventEmitter {
         break;
 
       case 'remove_edge':
+        // Try edge object first (explicit and unambiguous)
         if (op.edge) {
-          // Find and delete by composite key
           const existing = this.agentDB.getEdgeByKey(
             op.edge.sourceId,
             op.edge.type,
@@ -301,6 +301,18 @@ export class StatelessGraphCanvas extends EventEmitter {
           );
           if (existing) {
             this.agentDB.deleteEdge(existing.uuid);
+          }
+        } else if (op.semanticId) {
+          // Parse semanticId format: sourceId-edgeType-targetId
+          // Example: "GenerateDocument.FN.005-io-PRDDocument.FL.005"
+          // SemanticIds use dots (.), edge composite key uses dashes (-)
+          const parts = op.semanticId.split('-');
+          if (parts.length === 3) {
+            const [sourceId, edgeType, targetId] = parts;
+            const existing = this.agentDB.getEdgeByKey(sourceId, edgeType as EdgeType, targetId);
+            if (existing) {
+              this.agentDB.deleteEdge(existing.uuid);
+            }
           }
         }
         break;

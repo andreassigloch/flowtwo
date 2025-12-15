@@ -33,9 +33,9 @@ describe('FormatEParser', () => {
       expect(result.nodes.has('ProcessSensorData.FN.001')).toBe(true);
     });
 
-    it('should parse node attributes correctly', () => {
+    it('should parse node attributes correctly (CR-053 compact format)', () => {
       const formatE = `## Nodes
-TestNode|FUNC|TestNode.FN.001|Test [x:100,y:200,zoom:L3]`;
+TestNode.FN.001|Test [x:100,y:200,zoom:L3]`;
 
       const result = parser.parseGraph(formatE);
       const node = result.nodes.get('TestNode.FN.001');
@@ -48,10 +48,10 @@ TestNode|FUNC|TestNode.FN.001|Test [x:100,y:200,zoom:L3]`;
       expect(node!.zoomLevel).toBe('L3');
     });
 
-    it('should parse edges with correct types', () => {
+    it('should parse edges with correct types (CR-053 compact format)', () => {
       const formatE = `## Nodes
-A|SYS|A.SY.001|System A
-B|UC|B.UC.001|Use Case B
+A.SY.001|System A
+B.UC.001|Use Case B
 
 ## Edges
 A.SY.001 -cp-> B.UC.001`;
@@ -79,7 +79,7 @@ A.SY.001 -cp-> B.UC.001`;
       expect(result.edges.size).toBe(0);
     });
 
-    it('should extract systemId and workspaceId from header comments', () => {
+    it('should extract systemId and workspaceId from header comments (CR-053 compact format)', () => {
       const formatE = `# GraphEngine System Export
 # Generated: 2024-01-01T12:00:00.000Z
 # System ID: MyTestSystem.SY.001
@@ -88,8 +88,8 @@ A.SY.001 -cp-> B.UC.001`;
 # Edges: 1
 
 ## Nodes
-MyTestSystem|SYS|MyTestSystem.SY.001|Test system
-TestUC|UC|TestUC.UC.001|Test use case
+MyTestSystem.SY.001|Test system
+TestUC.UC.001|Test use case
 
 ## Edges
 MyTestSystem.SY.001 -cp-> TestUC.UC.001`;
@@ -101,30 +101,30 @@ MyTestSystem.SY.001 -cp-> TestUC.UC.001`;
       expect(result.nodes.size).toBe(2);
     });
 
-    it('should auto-detect systemId from first SYS node when not in header', () => {
+    it('should auto-detect systemId from first SYS node when not in header (CR-053)', () => {
       const formatE = `## Nodes
-AutoDetectedSys|SYS|AutoDetectedSys.SY.001|Auto-detected system
-SomeUC|UC|SomeUC.UC.001|Some use case`;
+AutoDetectedSys.SY.001|Auto-detected system
+SomeUC.UC.001|Some use case`;
 
       const result = parser.parseGraph(formatE);
 
       expect(result.systemId).toBe('AutoDetectedSys.SY.001');
     });
 
-    it('should parse all edge types correctly', () => {
+    it('should parse all edge types correctly (CR-053 compact format)', () => {
       const formatE = `## Nodes
-A|SYS|A.SY.001|A
-B|UC|B.UC.001|B
-C|FUNC|C.FN.001|C
-D|REQ|D.RQ.001|D
-E|TEST|E.TS.001|E
-F|MOD|F.MD.001|F
+A.SY.001|A
+B.UC.001|B
+C.FN.001|C
+D.RQ.001|D
+E.TC.001|E
+F.MD.001|F
 
 ## Edges
 A.SY.001 -cp-> B.UC.001
 B.UC.001 -io-> C.FN.001
 C.FN.001 -sat-> D.RQ.001
-E.TS.001 -ver-> D.RQ.001
+E.TC.001 -ver-> D.RQ.001
 C.FN.001 -alc-> F.MD.001
 A.SY.001 -rel-> B.UC.001`;
 
@@ -134,17 +134,17 @@ A.SY.001 -rel-> B.UC.001`;
       expect(result.edges.has('A.SY.001-compose-B.UC.001')).toBe(true);
       expect(result.edges.has('B.UC.001-io-C.FN.001')).toBe(true);
       expect(result.edges.has('C.FN.001-satisfy-D.RQ.001')).toBe(true);
-      expect(result.edges.has('E.TS.001-verify-D.RQ.001')).toBe(true);
+      expect(result.edges.has('E.TC.001-verify-D.RQ.001')).toBe(true);
       expect(result.edges.has('C.FN.001-allocate-F.MD.001')).toBe(true);
       expect(result.edges.has('A.SY.001-relation-B.UC.001')).toBe(true);
     });
 
-    it('should parse 1:N multi-target edge syntax', () => {
+    it('should parse 1:N multi-target edge syntax (CR-053 compact format)', () => {
       const formatE = `## Nodes
-A|SYS|A.SY.001|A
-B|UC|B.UC.001|B
-C|UC|C.UC.001|C
-D|UC|D.UC.001|D
+A.SY.001|A
+B.UC.001|B
+C.UC.001|C
+D.UC.001|D
 
 ## Edges
 A.SY.001 -cp-> B.UC.001, C.UC.001, D.UC.001`;
@@ -157,12 +157,12 @@ A.SY.001 -cp-> B.UC.001, C.UC.001, D.UC.001`;
       expect(result.edges.has('A.SY.001-compose-D.UC.001')).toBe(true);
     });
 
-    it('should parse mixed 1:1 and 1:N edge syntax', () => {
+    it('should parse mixed 1:1 and 1:N edge syntax (CR-053 compact format)', () => {
       const formatE = `## Nodes
-A|SYS|A.SY.001|A
-B|UC|B.UC.001|B
-C|UC|C.UC.001|C
-D|FUNC|D.FN.001|D
+A.SY.001|A
+B.UC.001|B
+C.UC.001|C
+D.FN.001|D
 
 ## Edges
 A.SY.001 -cp-> B.UC.001, C.UC.001
@@ -176,10 +176,10 @@ B.UC.001 -io-> D.FN.001`;
       expect(result.edges.has('B.UC.001-io-D.FN.001')).toBe(true);
     });
 
-    it('should handle trailing comma in multi-target syntax', () => {
+    it('should handle trailing comma in multi-target syntax (CR-053)', () => {
       const formatE = `## Nodes
-A|SYS|A.SY.001|A
-B|UC|B.UC.001|B
+A.SY.001|A
+B.UC.001|B
 
 ## Edges
 A.SY.001 -cp-> B.UC.001,`;
@@ -201,12 +201,12 @@ A.SY.001 -cp-> B.UC.001,`;
       expect(result.operations.length).toBeGreaterThan(0);
     });
 
-    it('should parse add node operation', () => {
+    it('should parse add node operation (CR-053 compact format)', () => {
       const formatE = `<operations>
 <base_snapshot>Test.SY.001@v1</base_snapshot>
 
 ## Nodes
-+ NewNode|FUNC|NewNode.FN.002|New function [x:100,y:200]
++ NewNode.FN.002|New function [x:100,y:200]
 
 </operations>`;
 
@@ -270,12 +270,12 @@ A.SY.001 -cp-> B.UC.001,`;
       expect(result.operations[0].type).toBe('remove_edge');
     });
 
-    it('should parse mixed operations', () => {
+    it('should parse mixed operations (CR-053 compact format)', () => {
       const formatE = `<operations>
 <base_snapshot>Test.SY.001@v1</base_snapshot>
 
 ## Nodes
-+ NewNode|FUNC|NewNode.FN.002|New
++ NewNode.FN.002|New
 - OldNode.FN.003
 
 ## Edges
@@ -345,8 +345,9 @@ A.SY.001 -cp-> B.UC.001,`;
 
       expect(result).toContain('## Nodes');
       expect(result).toContain('## Edges');
-      expect(result).toContain('TestSystem|SYS|TestSystem.SY.001');
-      expect(result).toContain('NavigateEnvironment|UC|NavigateEnvironment.UC.001');
+      // CR-053: Compact format - SemanticId|Description
+      expect(result).toContain('TestSystem.SY.001|');
+      expect(result).toContain('NavigateEnvironment.UC.001|');
       expect(result).toContain('-cp->');
     });
 
@@ -510,7 +511,7 @@ A.SY.001 -cp-> B.UC.001,`;
               semanticId: 'New.FN.001',
               type: 'FUNC',
               name: 'NewFunc',
-              description: 'New function',
+              descr: 'New function',
               workspaceId: 'test',
               systemId: 'test',
               createdAt: new Date(),
@@ -531,7 +532,8 @@ A.SY.001 -cp-> B.UC.001,`;
       expect(result).toContain('</operations>');
       expect(result).toContain('<base_snapshot>Test.SY.001@v5</base_snapshot>');
       expect(result).toContain('<view_context>Hierarchy</view_context>');
-      expect(result).toContain('+ NewFunc|FUNC|New.FN.001');
+      // CR-053: Compact format - SemanticId|Description
+      expect(result).toContain('+ New.FN.001|New function');
       expect(result).toContain('- Old.FN.002');
     });
   });

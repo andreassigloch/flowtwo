@@ -199,4 +199,48 @@ describe('unit: ChangeTracker', () => {
       expect(tracker.hasChanges(state)).toBe(false);
     });
   });
+
+  describe('getBaselineState (CR-044)', () => {
+    it('should return null when no baseline', () => {
+      expect(tracker.getBaselineState()).toBeNull();
+    });
+
+    it('should return deep copy of baseline nodes and edges', () => {
+      const node = createNode('func1', 'Function 1');
+      const edge = createEdge('edge1', 'sys', 'func1');
+      const baseline = createState([node], [edge]);
+      tracker.captureBaseline(baseline);
+
+      const result = tracker.getBaselineState();
+
+      expect(result).not.toBeNull();
+      expect(result!.nodes.length).toBe(1);
+      expect(result!.edges.length).toBe(1);
+      expect(result!.nodes[0].semanticId).toBe('func1');
+      expect(result!.edges[0].uuid).toBe('edge1');
+    });
+
+    it('should return independent copy (mutations do not affect baseline)', () => {
+      const node = createNode('func1', 'Function 1');
+      const baseline = createState([node], []);
+      tracker.captureBaseline(baseline);
+
+      const result1 = tracker.getBaselineState();
+      result1!.nodes[0].name = 'MUTATED';
+
+      const result2 = tracker.getBaselineState();
+      expect(result2!.nodes[0].name).toBe('Function 1'); // Original preserved
+    });
+
+    it('should include node attributes in deep copy', () => {
+      const node = createNode('func1', 'Function 1');
+      (node as unknown as Record<string, unknown>).attributes = { priority: 'high' };
+      const baseline = createState([node], []);
+      tracker.captureBaseline(baseline);
+
+      const result = tracker.getBaselineState();
+
+      expect((result!.nodes[0] as unknown as Record<string, unknown>).attributes).toEqual({ priority: 'high' });
+    });
+  });
 });

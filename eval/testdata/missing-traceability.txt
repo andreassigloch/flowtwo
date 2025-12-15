@@ -5,7 +5,7 @@
 # Nodes: 12
 # Edges: 10
 #
-# Format: Format E (Token-Efficient Serialization)
+# Format: Format E (Token-Efficient Serialization) - CR-053 Compact Syntax
 # File Extension: .txt (universal editor compatibility)
 #
 # Purpose: Test missing traceability detection - expected score ~65%
@@ -16,18 +16,18 @@
 #
 
 ## Nodes
-TraceGaps|SYS|TraceGaps.SY.001|System with traceability gaps
-FeatureA|UC|FeatureA.UC.001|Feature A use case
-FeatureB|UC|FeatureB.UC.002|Feature B use case
-ReqA1|REQ|ReqA1.RQ.001|Requirement with satisfy but no verify
-ReqA2|REQ|ReqA2.RQ.002|Requirement with no satisfy edge
-ReqB1|REQ|ReqB1.RQ.003|Complete requirement - fully traced
-DoA1|FUNC|DoA1.FN.001|Function satisfying ReqA1
-DoA2|FUNC|DoA2.FN.002|Function with no satisfy edge
-DoB|FUNC|DoB.FN.003|Function for B - complete
-ModuleA|MOD|ModuleA.MD.001|Module A
-ModuleB|MOD|ModuleB.MD.002|Module B
-TestB|TEST|TestB.TS.001|Only test - covers ReqB1
+TraceGaps.SY.001|System with traceability gaps
+FeatureA.UC.001|Feature A use case
+FeatureB.UC.002|Feature B use case
+ReqA1.RQ.001|Requirement with satisfy but no verify
+ReqA2.RQ.002|Requirement with no satisfy edge
+ReqB1.RQ.003|Complete requirement - fully traced
+DoA1.FN.001|Function satisfying ReqA1
+DoA2.FN.002|Function with no satisfy edge
+DoB.FN.003|Function for B - complete
+ModuleA.MD.001|Module A
+ModuleB.MD.002|Module B
+TestB.TC.001|Only test - covers ReqB1
 
 ## Edges
 TraceGaps.SY.001 -cp-> FeatureA.UC.001, FeatureB.UC.002
@@ -38,5 +38,5 @@ DoB.FN.003 -sat-> ReqB1.RQ.003
 DoA1.FN.001 -alc-> ModuleA.MD.001
 DoA2.FN.002 -alc-> ModuleA.MD.001
 DoB.FN.003 -alc-> ModuleB.MD.002
-ReqB1.RQ.003 -ver-> TestB.TS.001
+ReqB1.RQ.003 -ver-> TestB.TC.001
 DoA1.FN.001 -io-> DoA2.FN.002

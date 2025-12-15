@@ -16,7 +16,6 @@ import {
   Node,
   Edge,
   GraphState,
-  NodeType,
   EdgeType,
   SemanticId,
   ZoomLevel,
@@ -34,6 +33,7 @@ import {
   ParsedMessageLine,
   FormatESyntax,
 } from '../types/format-e.js';
+import { extractFromSemanticId } from '../utils/semantic-id.js';
 
 /**
  * Format E Syntax Constants
@@ -419,7 +419,8 @@ export class FormatEParser implements IFormatEParser {
   // ========== PRIVATE HELPER METHODS ==========
 
   /**
-   * Parse node line: NodeName|Type|SemanticID|Description [attrs]
+   * Parse node line - CR-053 Compact Format: SemanticId|Description [attrs]
+   * Name and Type are extracted from SemanticId
    */
   private parseNodeLine(line: string): ParsedNodeLine | null {
     const attrMatch = line.match(/\[([^\]]+)\]$/);
@@ -437,16 +438,26 @@ export class FormatEParser implements IFormatEParser {
     }
 
     const parts = coreLine.split(SYNTAX.FIELD_SEPARATOR).map((p) => p.trim());
-    if (parts.length < 3) return null;
+    if (parts.length < 1) return null;
 
-    // Format: Name|Type|SemanticId|Description
-    return {
-      name: parts[0],
-      type: parts[1] as NodeType,
-      semanticId: parts[2],
-      description: parts[3],
-      attributes,
-    };
+    // CR-053 Compact Format: SemanticId|Description
+    const semanticId = parts[0];
+    const description = parts[1];
+
+    // Extract name and type from semanticId
+    try {
+      const { name, type } = extractFromSemanticId(semanticId);
+      return {
+        name,
+        type,
+        semanticId,
+        description,
+        attributes,
+      };
+    } catch {
+      // Invalid semanticId format
+      return null;
+    }
   }
 
   /**
@@ -651,7 +662,8 @@ export class FormatEParser implements IFormatEParser {
   }
 
   /**
-   * Serialize node to Format E
+   * Serialize node to Format E - CR-053 Compact Format
+   * Output: SemanticId|Description [attrs]
    */
   private serializeNode(node: Node): string {
     const attrs = [];
@@ -664,7 +676,8 @@ export class FormatEParser implements IFormatEParser {
     }
 
     const attrStr = attrs.length > 0 ? ` [${attrs.join(',')}]` : '';
-    return `${node.name}|${node.type}|${node.semanticId}|${node.descr || ''}${attrStr}`;
+    // CR-053: Compact format - only semanticId and description
+    return `${node.semanticId}|${node.descr || ''}${attrStr}`;
   }
 
   /**

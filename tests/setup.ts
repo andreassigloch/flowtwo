@@ -84,6 +84,7 @@ export function createSampleGraph(): SampleGraph {
 
 /**
  * Create Format E string for testing
+ * CR-053: Compact node syntax (SemanticId|Description)
  */
 export function createSampleFormatE(): string {
   return `## View-Context
@@ -91,9 +92,9 @@ Type: Hierarchy
 Filter: All nodes | compose edges
 
 ## Nodes
-TestSystem|SYS|TestSystem.SY.001|Test system [x:0,y:0]
-NavigateEnvironment|UC|NavigateEnvironment.UC.001|Navigate environment [x:100,y:100]
-ProcessSensorData|FUNC|ProcessSensorData.FN.001|Process sensor data [x:200,y:200]
+TestSystem.SY.001|Test system [x:0,y:0]
+NavigateEnvironment.UC.001|Navigate environment [x:100,y:100]
+ProcessSensorData.FN.001|Process sensor data [x:200,y:200]
 
 ## Edges
 TestSystem.SY.001 -cp-> NavigateEnvironment.UC.001
@@ -103,6 +104,7 @@ NavigateEnvironment.UC.001 -cp-> ProcessSensorData.FN.001
 
 /**
  * Create sample Format E Diff for testing
+ * CR-053: Compact node syntax (SemanticId|Description)
  */
 export function createSampleDiff(): string {
   return `<operations>
@@ -110,7 +112,7 @@ export function createSampleDiff(): string {
 <view_context>Hierarchy</view_context>
 
 ## Nodes
-+ NewFunction|FUNC|NewFunction.FN.002|Newly added function [x:300,y:300]
++ NewFunction.FN.002|Newly added function [x:300,y:300]
 - OldFunction.FN.003
 
 ## Edges

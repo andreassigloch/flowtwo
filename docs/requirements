@@ -67,6 +67,28 @@
 - LLM MUST map entities to Ontology V3 node types automatically
 - LLM MUST infer relationships between entities (compose, io, satisfy, verify, allocate)
 
+#### FR-1.4: Graph Statistics ✅ IMPLEMENTED
+- System MUST provide `/stats` command showing graph metrics
+- Statistics MUST include: node count, edge count, node types distribution
+- Statistics MUST reflect current session state (not persisted state)
+
+#### FR-1.5: Session Commands ✅ IMPLEMENTED
+- System MUST provide `/help` command listing available commands
+- System MUST provide `/exit` command for graceful shutdown
+- System MUST provide `/status` command showing session state and change count
+- System MUST provide `/commit` command to persist changes and set new baseline
+- System MUST provide `/restore` command to discard changes since last commit (like `git restore .`)
+
+**Use Case UC-SESSION-1: Discard Unwanted Changes**
+1. User loads system → baseline captured
+2. User makes changes (manual or via `/optimize`)
+3. User reviews changes via `/status` and Graph-Viewer diff
+4. User decides changes are unwanted
+5. User runs `/restore`
+6. System rolls back to baseline state
+7. Graph-Viewer shows no diff indicators (clean state)
+8. User continues working from baseline
+
 ---
 
 ### FR-2: Graph Data Model (Ontology V3)
@@ -160,6 +182,21 @@ System MUST support 6 relationship types:
 - Canvas MUST broadcast changes to all connected users in same workspace+system
 - Canvas MUST apply operational transform for concurrent edits
 - Canvas MUST support max 10 concurrent users per workspace
+
+#### FR-4.4: Session Lifecycle ✅ IMPLEMENTED
+- System MUST support complete session lifecycle: start → load → modify → save → exit
+- Session start MUST initialize WebSocket connection and restore previous state
+- Session MUST auto-detect system ID from loaded data
+- Session exit MUST persist unsaved changes (graceful shutdown)
+- Session MUST recover from crashes without data loss (NFR-3.1)
+
+**E2E Workflow Test (CR-042):**
+1. Start app → verify 4 terminals launch
+2. `/load` system → verify nodes visible
+3. Modify via chat or import
+4. `/save` → verify Neo4j persisted
+5. `/exit` → verify graceful shutdown
+6. Restart app → verify data still present
 
 ---
 
@@ -327,6 +364,53 @@ LLM MUST automatically derive:
 - LLM MUST maintain conversation history via chatId
 - LLM MUST query Neo4j for statistics/historical data when needed
 
+#### FR-8.4: Architecture Optimization ✅ IMPLEMENTED
+- System MUST provide `/optimize` command for automated architecture improvement
+- Optimization MUST use multi-objective scoring (completeness, consistency, testability)
+- Optimization MUST support configurable iteration count
+- Optimization MUST generate variant architectures and select best-scoring
+- Optimization MUST preserve user intent while improving structure
+- Optimization MUST apply changes to working state (not commit automatically)
+- Optimization MUST show diff in Graph-Viewer (+/-/~ indicators)
+- Optimization MUST explain changes in Chat (nodes added/removed, edges changed)
+- User MUST decide after optimization: `/commit` (keep) or `/restore` (discard)
+
+**Use Case UC-OPT-1: Review and Apply Architecture Optimization**
+1. User loads system and makes changes
+2. User runs `/commit` to establish baseline
+3. User runs `/optimize [iterations]`
+4. System calculates best architecture variant
+5. System applies changes to working state (without commit)
+6. System shows SIMULTANEOUSLY:
+   - Chat: Explanation of changes ("+2 nodes, ~5 edges reallocated")
+   - Graph-Viewer: Diff indicators (+/-/~) on affected elements
+7. User reviews changes in both views
+8. User chooses:
+   - `/commit` → Changes persisted, new baseline set
+   - `/restore` → Changes discarded, rollback to baseline
+
+**E2E Test (TEST-E2E-OPT-1):**
+```
+/import test-data.txt
+/commit                    → Baseline set
+/optimize 5                → Changes applied + diff visible
+/status                    → Shows pending changes (+X added, ~Y modified)
+/restore                   → Rollback to baseline
+/status                    → Shows "no pending changes"
+```
+
+#### FR-8.5: Phase Gate Validation ✅ IMPLEMENTED
+- System MUST provide `/phase-gate <phase>` command checking phase readiness
+- Phase gates MUST validate phase-specific rules before progression
+- System MUST provide `/score` command showing multi-objective scorecard
+- Scorecard MUST include: completeness, consistency, traceability, testability metrics
+
+#### FR-8.6: Violation Analysis ✅ IMPLEMENTED
+- System MUST provide `/analyze` command for detailed violation analysis
+- Analysis MUST categorize violations by severity (error, warning)
+- Analysis MUST suggest specific fixes for each violation
+- Analysis MUST identify merge candidates for duplicate/similar nodes
+
 ---
 
 ### FR-9: Persistence & Audit
@@ -384,7 +468,15 @@ const graphState = await importSystem('backup.txt');
 await graphCanvas.loadGraph(graphState);
 ```
 
-**Note:** API implemented, chat commands (`/export`, `/import`) not yet integrated
+**Note:** API implemented, chat commands (`/export`, `/import`) integrated via CR-016
+
+**E2E Round-Trip Test (CR-042):**
+1. `/import` test file → verify nodes created
+2. `/stats` → record original counts
+3. `/export` to new file
+4. `/new` or restart (clear graph)
+5. `/import` exported file
+6. `/stats` → verify counts match original
 
 ---
 

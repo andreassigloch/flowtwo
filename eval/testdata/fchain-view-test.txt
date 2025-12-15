@@ -1,0 +1,28 @@
+# GraphEngine System Export
+# Description: Test data for FCHAIN view rendering with io-flow-io dataflow connections
+# Format: Format E (Token-Efficient Serialization) - CR-053 Compact Syntax
+
+## Nodes
+OrderSystem.SY.001|Order processing system
+ProcessOrder.FC.001|Process customer order workflow
+Customer.AC.001|External customer actor
+Warehouse.AC.002|Warehouse system actor
+ValidateOrder.FN.001|Validate incoming order data
+CheckInventory.FN.002|Check inventory availability
+ConfirmOrder.FN.003|Confirm and finalize order
+OrderData.FL.001|Customer order input data
+ValidationResult.FL.002|Order validation result
+InventoryStatus.FL.003|Inventory check result
+Confirmation.FL.004|Order confirmation output
+
+## Edges
+OrderSystem.SY.001 -cp-> ProcessOrder.FC.001
+ProcessOrder.FC.001 -cp-> ValidateOrder.FN.001, CheckInventory.FN.002, ConfirmOrder.FN.003, Customer.AC.001, Warehouse.AC.002, OrderData.FL.001, ValidationResult.FL.002, InventoryStatus.FL.003, Confirmation.FL.004
+Customer.AC.001 -io-> OrderData.FL.001
+OrderData.FL.001 -io-> ValidateOrder.FN.001
+ValidateOrder.FN.001 -io-> ValidationResult.FL.002
+ValidationResult.FL.002 -io-> CheckInventory.FN.002
+CheckInventory.FN.002 -io-> InventoryStatus.FL.003
+InventoryStatus.FL.003 -io-> ConfirmOrder.FN.003
+ConfirmOrder.FN.003 -io-> Confirmation.FL.004
+Confirmation.FL.004 -io-> Warehouse.AC.002

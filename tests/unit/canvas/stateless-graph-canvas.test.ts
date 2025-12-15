@@ -54,9 +54,9 @@ describe('StatelessGraphCanvas', () => {
     createdBy: userId,
   });
 
-  const createTestEdge = (uuid: string, sourceId: string, targetId: string): Edge => ({
+  const createTestEdge = (uuid: string, sourceId: string, targetId: string, edgeType: 'io' | 'compose' | 'satisfy' | 'verify' | 'allocate' | 'relation' = 'io'): Edge => ({
     uuid,
-    type: 'io',
+    type: edgeType,
     sourceId,
     targetId,
     workspaceId,
@@ -280,7 +280,7 @@ describe('StatelessGraphCanvas', () => {
       expect(canvas.getAllEdges()).toHaveLength(1);
     });
 
-    it('should apply remove_edge operation', async () => {
+    it('should apply remove_edge operation with edge object', async () => {
       agentDB.setNode(createTestNode('Source.FN.001', 'Source'));
       agentDB.setNode(createTestNode('Target.FN.002', 'Target'));
       agentDB.setEdge(createTestEdge('edge-001', 'Source.FN.001', 'Target.FN.002'));
@@ -292,6 +292,31 @@ describe('StatelessGraphCanvas', () => {
             type: 'remove_edge',
             semanticId: 'edge-001',
             edge: createTestEdge('edge-001', 'Source.FN.001', 'Target.FN.002'),
+          },
+        ],
+      };
+
+      const result = await canvas.applyDiff(diff);
+
+      expect(result.success).toBe(true);
+      expect(canvas.getAllEdges()).toHaveLength(0);
+    });
+
+    it('should apply remove_edge operation with semanticId only (no edge object)', async () => {
+      // This is the format the parser produces: semanticId = "sourceId-edgeType-targetId"
+      agentDB.setNode(createTestNode('GenerateDoc.FN.005', 'GenerateDoc'));
+      agentDB.setNode(createTestNode('PRDDocument.FL.005', 'PRDDocument'));
+      agentDB.setEdge(createTestEdge('edge-io', 'GenerateDoc.FN.005', 'PRDDocument.FL.005', 'io'));
+
+      expect(canvas.getAllEdges()).toHaveLength(1);
+
+      const diff: FormatEDiff = {
+        baseSnapshot: 'TestSystem.SY.001@v3',
+        operations: [
+          {
+            type: 'remove_edge',
+            semanticId: 'GenerateDoc.FN.005-io-PRDDocument.FL.005',
+            // Note: no edge property - this is what the parser produces for "- Source -io-> Target"
           },
         ],
       };

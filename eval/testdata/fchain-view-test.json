@@ -1,0 +1,241 @@
+{
+  "$schema": "../../docs/specs/format-e.schema.json",
+  "version": "1.0.0",
+  "description": "Test data for FCHAIN view rendering with io-flow-io dataflow connections",
+  "nodes": [
+    {
+      "semanticId": "sys1",
+      "type": "SYS",
+      "name": "OrderSystem",
+      "descr": "Order processing system"
+    },
+    {
+      "semanticId": "fchain1",
+      "type": "FCHAIN",
+      "name": "ProcessOrder",
+      "descr": "Process customer order workflow"
+    },
+    {
+      "semanticId": "actor1",
+      "type": "ACTOR",
+      "name": "Customer",
+      "descr": "External customer actor"
+    },
+    {
+      "semanticId": "actor2",
+      "type": "ACTOR",
+      "name": "Warehouse",
+      "descr": "Warehouse system actor"
+    },
+    {
+      "semanticId": "func1",
+      "type": "FUNC",
+      "name": "ValidateOrder",
+      "descr": "Validate incoming order data"
+    },
+    {
+      "semanticId": "func2",
+      "type": "FUNC",
+      "name": "CheckInventory",
+      "descr": "Check inventory availability"
+    },
+    {
+      "semanticId": "func3",
+      "type": "FUNC",
+      "name": "ConfirmOrder",
+      "descr": "Confirm and finalize order"
+    },
+    {
+      "semanticId": "flow1",
+      "type": "FLOW",
+      "name": "OrderData",
+      "descr": "Customer order input data",
+      "attributes": {
+        "dataType": "OrderRequest",
+        "pattern": "request"
+      }
+    },
+    {
+      "semanticId": "flow2",
+      "type": "FLOW",
+      "name": "ValidationResult",
+      "descr": "Order validation result",
+      "attributes": {
+        "dataType": "ValidationStatus",
+        "pattern": "status"
+      }
+    },
+    {
+      "semanticId": "flow3",
+      "type": "FLOW",
+      "name": "InventoryStatus",
+      "descr": "Inventory check result",
+      "attributes": {
+        "dataType": "InventoryCheck",
+        "pattern": "status"
+      }
+    },
+    {
+      "semanticId": "flow4",
+      "type": "FLOW",
+      "name": "Confirmation",
+      "descr": "Order confirmation output",
+      "attributes": {
+        "dataType": "OrderConfirmation",
+        "pattern": "response"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "uuid": "compose_sys_fchain",
+      "type": "compose",
+      "sourceId": "sys1",
+      "targetId": "fchain1"
+    },
+    {
+      "uuid": "compose_fchain_func1",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "func1"
+    },
+    {
+      "uuid": "compose_fchain_func2",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "func2"
+    },
+    {
+      "uuid": "compose_fchain_func3",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "func3"
+    },
+    {
+      "uuid": "compose_fchain_actor1",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "actor1"
+    },
+    {
+      "uuid": "compose_fchain_actor2",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "actor2"
+    },
+    {
+      "uuid": "compose_fchain_flow1",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "flow1"
+    },
+    {
+      "uuid": "compose_fchain_flow2",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "flow2"
+    },
+    {
+      "uuid": "compose_fchain_flow3",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "flow3"
+    },
+    {
+      "uuid": "compose_fchain_flow4",
+      "type": "compose",
+      "sourceId": "fchain1",
+      "targetId": "flow4"
+    },
+    {
+      "uuid": "io_actor1_flow1",
+      "type": "io",
+      "sourceId": "actor1",
+      "targetId": "flow1",
+      "descr": "Customer sends order data"
+    },
+    {
+      "uuid": "io_flow1_func1",
+      "type": "io",
+      "sourceId": "flow1",
+      "targetId": "func1",
+      "descr": "OrderData flows to ValidateOrder"
+    },
+    {
+      "uuid": "io_func1_flow2",
+      "type": "io",
+      "sourceId": "func1",
+      "targetId": "flow2",
+      "descr": "ValidateOrder outputs ValidationResult"
+    },
+    {
+      "uuid": "io_flow2_func2",
+      "type": "io",
+      "sourceId": "flow2",
+      "targetId": "func2",
+      "descr": "ValidationResult flows to CheckInventory"
+    },
+    {
+      "uuid": "io_func2_flow3",
+      "type": "io",
+      "sourceId": "func2",
+      "targetId": "flow3",
+      "descr": "CheckInventory outputs InventoryStatus"
+    },
+    {
+      "uuid": "io_flow3_func3",
+      "type": "io",
+      "sourceId": "flow3",
+      "targetId": "func3",
+      "descr": "InventoryStatus flows to ConfirmOrder"
+    },
+    {
+      "uuid": "io_func3_flow4",
+      "type": "io",
+      "sourceId": "func3",
+      "targetId": "flow4",
+      "descr": "ConfirmOrder outputs Confirmation"
+    },
+    {
+      "uuid": "io_flow4_actor2",
+      "type": "io",
+      "sourceId": "flow4",
+      "targetId": "actor2",
+      "descr": "Confirmation flows to Warehouse"
+    }
+  ],
+  "expectedViews": {
+    "fchain": {
+      "description": "Activity diagram with swimlanes showing Customer → System → Warehouse",
+      "structure": [
+        "Customer swimlane (input actor)",
+        "System swimlane (ValidateOrder → CheckInventory → ConfirmOrder)",
+        "Warehouse swimlane (output actor)"
+      ],
+      "dataflows": [
+        "Customer --OrderData--> ValidateOrder",
+        "ValidateOrder --ValidationResult--> CheckInventory",
+        "CheckInventory --InventoryStatus--> ConfirmOrder",
+        "ConfirmOrder --Confirmation--> Warehouse"
+      ]
+    },
+    "spec+": {
+      "description": "Hierarchical spec with inline dataflow diagram under FCHAIN",
+      "structure": [
+        "[SYS] OrderSystem",
+        "  └─[FCHAIN] ProcessOrder",
+        "      ┌─ Dataflow ─────────────────────────────────┐",
+        "      │ [ACTOR] Customer",
+        "      │   ↓ OrderData",
+        "      │ 1. [FUNC] ValidateOrder",
+        "      │   ↓ ValidationResult",
+        "      │ 2. [FUNC] CheckInventory",
+        "      │   ↓ InventoryStatus",
+        "      │ 3. [FUNC] ConfirmOrder",
+        "      │   ↓ Confirmation",
+        "      │ [ACTOR] Warehouse",
+        "      └────────────────────────────────────────────┘"
+      ]
+    }
+  }
+}

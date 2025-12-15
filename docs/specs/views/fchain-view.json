@@ -1,0 +1,189 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "fchain-view",
+  "name": "Function Chain View",
+  "description": "Activity diagram view showing FCHAIN sequences with functions, actors, and data flows. Visualizes use case implementation as ordered function execution with external actor interactions.",
+  "version": "1.0.0",
+  "layoutConfig": {
+    "algorithm": "sugiyama",
+    "orientation": "top-to-bottom",
+    "includeNodeTypes": ["FCHAIN", "FUNC", "FLOW", "ACTOR"],
+    "includeRelTypes": ["compose", "io"],
+    "nodeSpacing": {
+      "horizontal": 120,
+      "vertical": 100,
+      "portSpacing": 15,
+      "swimlaneGap": 40
+    },
+    "routingProperties": {
+      "edgeRouting": "orthogonal",
+      "preferredDirection": "top-to-bottom",
+      "minimizeOverlaps": true,
+      "minimizeCrossings": true,
+      "allowDiagonals": false,
+      "bendRadius": 5
+    },
+    "portProperties": {
+      "extractPorts": true,
+      "inputPortSide": "top",
+      "outputPortSide": "bottom",
+      "portSize": 8,
+      "autoDistribute": true
+    },
+    "swimlaneConfig": {
+      "enabled": true,
+      "groupBy": "ACTOR",
+      "actorPlacement": "columns",
+      "systemLane": "center",
+      "externalLanes": "sides"
+    },
+    "sequenceProperties": {
+      "orderByExecution": true,
+      "showSequenceNumbers": true,
+      "alignToGrid": true,
+      "gridSize": 20
+    }
+  },
+  "renderConfig": {
+    "showNodes": ["FCHAIN", "FUNC", "ACTOR"],
+    "hideNodes": ["FLOW"],
+    "showEdges": ["io"],
+    "hideEdges": ["compose"],
+    "edgeRouting": "orthogonal",
+    "renderingNotes": "FCHAIN as titled container. FUNC as activity boxes in sequence. ACTOR in swimlanes. FLOW as labeled edges between activities.",
+    "defaultZoomLevel": "L2",
+    "nodeStyles": {
+      "FCHAIN": {
+        "symbol": "rounded-rectangle",
+        "stereotype": "«function chain»",
+        "color": "cyan",
+        "renderAsContainer": true,
+        "headerStyle": "gradient",
+        "showTitle": true,
+        "showDescription": true,
+        "borderStyle": "double",
+        "minWidth": 400,
+        "padding": 20
+      },
+      "FUNC": {
+        "symbol": "activity-box",
+        "stereotype": "«function»",
+        "color": "green",
+        "showPorts": false,
+        "showSequenceNumber": true,
+        "cornerRadius": 10,
+        "minWidth": 120,
+        "minHeight": 40,
+        "textAlign": "center"
+      },
+      "ACTOR": {
+        "symbol": "stick-figure",
+        "stereotype": "«actor»",
+        "color": "yellow",
+        "placement": "swimlane-header",
+        "showName": true,
+        "iconSize": 40
+      },
+      "FLOW": {
+        "renderAs": "edge-label",
+        "labelPosition": "center",
+        "labelBackground": "dark",
+        "showDataType": true,
+        "tooltipTemplate": "Flow: {Name}\nType: {attributes.dataType}\nPattern: {attributes.pattern}"
+      }
+    },
+    "edgeStyles": {
+      "io": {
+        "lineStyle": "solid",
+        "arrow": "filled-triangle",
+        "color": "white",
+        "label": "{FLOW.Name}",
+        "width": 2,
+        "labelFontSize": 10
+      },
+      "sequence": {
+        "lineStyle": "dashed",
+        "arrow": "open",
+        "color": "gray",
+        "width": 1,
+        "showInLegend": false
+      }
+    },
+    "swimlaneStyles": {
+      "header": {
+        "height": 60,
+        "backgroundColor": "dark-gray",
+        "textColor": "white",
+        "fontSize": 14
+      },
+      "lane": {
+        "backgroundColor": "transparent",
+        "borderStyle": "dashed",
+        "borderColor": "gray"
+      }
+    }
+  },
+  "viewFeatures": {
+    "actorSwimlanes": {
+      "description": "Group functions by responsible actor in vertical swimlanes",
+      "enabled": true
+    },
+    "sequenceNumbers": {
+      "description": "Show execution order numbers on functions",
+      "enabled": true,
+      "format": "1, 2, 3..."
+    },
+    "dataFlowLabels": {
+      "description": "Show FLOW names on connecting edges",
+      "enabled": true
+    },
+    "forkJoin": {
+      "description": "Render parallel execution with fork/join bars",
+      "enabled": true,
+      "symbol": "horizontal-bar"
+    },
+    "decisionPoints": {
+      "description": "Render conditional branches with diamond symbols",
+      "enabled": true,
+      "symbol": "diamond"
+    }
+  },
+  "useCase": "Visualize how a use case is implemented through a sequence of function executions, showing data flows between functions and interactions with external actors",
+  "primaryRelationships": [
+    "compose (FCHAIN contains FUNC, ACTOR, FLOW)",
+    "io (data flows between FUNC and ACTOR via FLOW)"
+  ],
+  "queryPattern": {
+    "description": "Extract FCHAIN subgraph with all composed elements and their io connections",
+    "rootNodeType": "FCHAIN",
+    "traversal": [
+      "FCHAIN -compose-> FUNC",
+      "FCHAIN -compose-> ACTOR",
+      "FCHAIN -compose-> FLOW",
+      "FUNC -io-> FLOW",
+      "FLOW -io-> FUNC",
+      "ACTOR -io-> FLOW",
+      "FLOW -io-> ACTOR"
+    ]
+  },
+  "performanceTarget": {
+    "maxNodes": 200,
+    "maxEdges": 500,
+    "maxComputeTime": "2s"
+  },
+  "notes": [
+    "Activity diagram style - vertical flow from top to bottom",
+    "ACTOR nodes create swimlane columns, not rendered inside FCHAIN",
+    "FUNC nodes positioned in swimlanes based on responsible actor",
+    "FLOW nodes become labeled edges, not separate symbols",
+    "Sequence numbers derived from topological sort of io edges",
+    "Fork/join bars for parallel function execution patterns",
+    "Diamond symbols for conditional branching points",
+    "System functions (no actor) placed in center swimlane"
+  ],
+  "exampleUsage": {
+    "description": "View the SensorProcessing function chain",
+    "command": "/view fchain SensorProcessing.FC.001",
+    "expectedOutput": "Activity diagram with User, System, Database swimlanes showing ValidateInput -> ProcessData -> StoreResult sequence"
+  }
+}

@@ -5,7 +5,7 @@
 # Nodes: 12
 # Edges: 15
 #
-# Format: Format E (Token-Efficient Serialization)
+# Format: Format E (Token-Efficient Serialization) - CR-053 Compact Syntax
 # File Extension: .txt (universal editor compatibility)
 #
 # Purpose: Baseline clean architecture - expected score ~95%
@@ -13,19 +13,19 @@
 #
 
 ## Nodes
-CleanSystem|SYS|CleanSystem.SY.001|Well-structured test system
-UserAuth|UC|UserAuth.UC.001|User authentication use case
-DataEntry|UC|DataEntry.UC.002|Data entry use case
-AuthRequired|REQ|AuthRequired.RQ.001|System must authenticate users
-ValidateData|REQ|ValidateData.RQ.002|System must validate input
-AuthLogin|FUNC|AuthLogin.FN.001|Handle login process
-AuthLogout|FUNC|AuthLogout.FN.002|Handle logout process
-DataValidate|FUNC|DataValidate.FN.003|Validate user input
-DataStore|FUNC|DataStore.FN.004|Persist validated data
-AuthModule|MOD|AuthModule.MD.001|Authentication module
-DataModule|MOD|DataModule.MD.002|Data processing module
-TestAuth|TEST|TestAuth.TS.001|Auth test cases
-TestData|TEST|TestData.TS.002|Data test cases
+CleanSystem.SY.001|Well-structured test system
+UserAuth.UC.001|User authentication use case
+DataEntry.UC.002|Data entry use case
+AuthRequired.RQ.001|System must authenticate users
+ValidateData.RQ.002|System must validate input
+AuthLogin.FN.001|Handle login process
+AuthLogout.FN.002|Handle logout process
+DataValidate.FN.003|Validate user input
+DataStore.FN.004|Persist validated data
+AuthModule.MD.001|Authentication module
+DataModule.MD.002|Data processing module
+TestAuth.TC.001|Auth test cases
+TestData.TC.002|Data test cases
 
 ## Edges
 CleanSystem.SY.001 -cp-> UserAuth.UC.001, DataEntry.UC.002
@@ -39,7 +39,7 @@ AuthLogin.FN.001 -alc-> AuthModule.MD.001
 AuthLogout.FN.002 -alc-> AuthModule.MD.001
 DataValidate.FN.003 -alc-> DataModule.MD.002
 DataStore.FN.004 -alc-> DataModule.MD.002
-AuthRequired.RQ.001 -ver-> TestAuth.TS.001
-ValidateData.RQ.002 -ver-> TestData.TS.002
+AuthRequired.RQ.001 -ver-> TestAuth.TC.001
+ValidateData.RQ.002 -ver-> TestData.TC.002
 AuthLogin.FN.001 -io-> AuthLogout.FN.002
 DataValidate.FN.003 -io-> DataStore.FN.004

@@ -30,8 +30,11 @@ import { getWorkflowRouter, type SessionContext } from './llm-engine/agents/work
 import { getAgentExecutor } from './llm-engine/agents/agent-executor.js';
 import { getAgentConfigLoader } from './llm-engine/agents/config-loader.js';
 import { initNeo4jClient, updateActiveSystem } from './shared/session-resolver.js';
-import { createUnifiedRuleEvaluator } from './llm-engine/validation/index.js';
+import { createUnifiedRuleEvaluator, UnifiedRuleEvaluator } from './llm-engine/validation/index.js';
 import type { StreamChunk } from './shared/types/llm.js';
+import { ReflexionMemory } from './llm-engine/agentdb/reflexion-memory.js';
+import { SkillLibrary } from './llm-engine/agentdb/skill-library.js';
+import { ContextManager, createContextManager } from './llm-engine/context-manager.js';
 import type { CommandContext } from './terminal-ui/commands/types.js';
 import { WorkflowRouter } from './llm-engine/agents/workflow-router.js';
 import { AgentExecutor } from './llm-engine/agents/agent-executor.js';
@@ -75,6 +78,12 @@ export class SessionManager {
 
   // Background services
   private validationTimer: NodeJS.Timeout | null = null;
+
+  // Self-learning components (CR-038 Phase 7)
+  private evaluator!: UnifiedRuleEvaluator;
+  private reflexionMemory!: ReflexionMemory;
+  private skillLibrary!: SkillLibrary;
+  private contextManager!: ContextManager;
 
   // Legacy session manager (for backward compatibility with commands)
   private legacySessionManager!: LegacySessionManager;
@@ -136,10 +145,18 @@ export class SessionManager {
     );
     this.log('✅ UnifiedAgentDBService initialized');
 
-    // STEP 3: Setup background validation BEFORE canvases
+    // STEP 3: Self-learning components (CR-038 Phase 7)
+    this.log('🧠 Initializing self-learning components...');
+    this.evaluator = createUnifiedRuleEvaluator(this.agentDB);
+    this.reflexionMemory = new ReflexionMemory(this.agentDB, this.evaluator);
+    this.skillLibrary = new SkillLibrary();
+    this.contextManager = createContextManager(this.agentDB);
+    this.log('✅ Self-learning components initialized');
+
+    // STEP 4: Setup background validation BEFORE canvases
     this.setupBackgroundValidation();
 
-    // STEP 4: Canvases (delegate to AgentDB)
+    // STEP 5: Canvases (delegate to AgentDB)
     this.graphCanvas = new StatelessGraphCanvas(
       this.agentDB,
       this.config.workspaceId,
@@ -229,6 +246,38 @@ export class SessionManager {
 
   getNeo4jClient(): Neo4jClient {
     return this.neo4jClient;
+  }
+
+  // ============================================================
+  // Self-Learning Accessors (CR-038 Phase 7)
+  // ============================================================
+
+  /**
+   * Get ReflexionMemory for episode storage
+   */
+  getReflexionMemory(): ReflexionMemory {
+    return this.reflexionMemory;
+  }
+
+  /**
+   * Get SkillLibrary for pattern storage
+   */
+  getSkillLibrary(): SkillLibrary {
+    return this.skillLibrary;
+  }
+
+  /**
+   * Get ContextManager for token optimization
+   */
+  getContextManager(): ContextManager {
+    return this.contextManager;
+  }
+
+  /**
+   * Get Evaluator for validation
+   */
+  getEvaluator(): UnifiedRuleEvaluator {
+    return this.evaluator;
   }
 
   /**
