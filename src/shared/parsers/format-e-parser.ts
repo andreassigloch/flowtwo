@@ -563,10 +563,15 @@ export class FormatEParser implements IFormatEParser {
       const parsed = this.parseNodeLine(content);
       if (!parsed) return null;
 
+      // Canvas expects 'updates' field, not 'node' - only include changed properties
+      const updates: Record<string, unknown> = {};
+      if (parsed.description) updates.description = parsed.description;
+      // Note: name/type are derived from semanticId, so we don't update them here
+
       return {
         type: 'update_node',
         semanticId: parsed.semanticId,
-        node: this.createNodeFromParsed(parsed, this.currentWorkspaceId, this.currentSystemId),
+        updates,
       };
     }
 
