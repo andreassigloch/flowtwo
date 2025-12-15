@@ -323,11 +323,26 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
 }
 
 /**
- * Process user message
+ * CR-055 Phase 4: Maximum retry attempts for pre-apply validation failures
  */
-async function processMessage(message: string): Promise<void> {
+const MAX_VALIDATION_RETRIES = 2;
+
+/**
+ * Process user message with optional retry context
+ *
+ * @param message - User message or retry prompt
+ * @param retryCount - Current retry attempt (0 = initial, 1+ = retry)
+ * @param originalMessage - Original user message (preserved across retries)
+ */
+async function processMessage(
+  message: string,
+  retryCount: number = 0,
+  originalMessage?: string
+): Promise<void> {
   try {
-    log(`📨 User: ${message}`);
+    const isRetry = retryCount > 0;
+    const displayMessage = originalMessage || message;
+    log(`📨 ${isRetry ? `Retry ${retryCount}` : 'User'}: ${message.substring(0, 200)}...`);
 
     if (!llmEngine) {
       console.log('\x1b[33m⚠️  LLM Engine not configured. Set ANTHROPIC_API_KEY in .env\x1b[0m');
@@ -427,14 +442,27 @@ async function processMessage(message: string): Promise<void> {
               console.log(`   \x1b[90m... and ${preValidation.errors.length - 3} more errors\x1b[0m`);
             }
             console.log('');
-            console.log('\x1b[33m⚠️  Operations NOT applied. Try again with corrected operations.\x1b[0m');
-            console.log('');
 
             // Add validation feedback to chatHistory for next LLM call
             await chatCanvas.addSystemMessage(preValidation.feedback);
             log(`📝 Pre-validation feedback added to chatHistory`);
 
-            // Skip applying the diff
+            // CR-055 Phase 4: Automatic retry with feedback
+            if (retryCount < MAX_VALIDATION_RETRIES) {
+              console.log(`\x1b[33m🔄 Attempting automatic correction (retry ${retryCount + 1}/${MAX_VALIDATION_RETRIES})...\x1b[0m`);
+              console.log('');
+
+              // Build retry prompt with validation feedback
+              const retryPrompt = `[VALIDATION FAILED - AUTOMATIC RETRY]\n\nYour previous output had validation errors:\n${preValidation.feedback}\n\nPlease fix these issues and try again. Original request: ${displayMessage}`;
+
+              // Recursive retry with incremented counter
+              await processMessage(retryPrompt, retryCount + 1, displayMessage);
+              return;
+            }
+
+            // Max retries exhausted
+            console.log('\x1b[33m⚠️  Operations NOT applied after retries. Manual correction needed.\x1b[0m');
+            console.log('');
             return;
           }
 
