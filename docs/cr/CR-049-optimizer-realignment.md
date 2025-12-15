@@ -1,9 +1,10 @@
 # CR-049: Optimizer Neuausrichtung auf Architektur-Optimierung
 
 **Type:** Refactoring / Feature
-**Status:** Planned
+**Status:** Completed ✅
 **Priority:** HIGH
 **Created:** 2025-12-13
+**Completed:** 2025-12-14
 **Author:** andreas@siglochconsulting
 
 ## Problem
@@ -408,26 +409,26 @@ applicableTo: [
 ## Implementation Plan
 
 ### Phase 1: Ontologie erweitern (1h)
-- [ ] `allocation_cohesion` Regel in `ontology-rules.json` hinzufügen
-- [ ] Similarity-Regeln prüfen (existieren bereits)
+- [x] `allocation_cohesion` Regel in `ontology-rules.json` hinzufügen (already existed)
+- [x] Similarity-Regeln prüfen (existieren bereits)
 
 ### Phase 2: Operator-Mapping erweitern (1h)
-- [ ] `MERGE.applicableTo` um `func_merge_candidate`, `schema_merge_candidate` erweitern
-- [ ] `REALLOC.applicableTo` um `allocation_cohesion` erweitern
+- [x] `MERGE.applicableTo` um `func_merge_candidate`, `schema_merge_candidate` erweitern
+- [x] `REALLOC.applicableTo` um `allocation_cohesion` erweitern
 
 ### Phase 3: Violation Detection erweitern (2h)
-- [ ] `detectViolations()` in `violation-guided-search.ts` um Similarity-Checks erweitern
-- [ ] Allocation Cohesion Check implementieren (FUNC mit >1 MOD)
+- [x] `detectViolations()` in `violation-guided-search.ts` um Similarity-Checks erweitern
+- [x] Allocation Cohesion Check implementieren (FUNC mit >1 MOD)
 
 ### Phase 4: MERGE-Logik für Similarity anpassen (2h)
-- [ ] MERGE muss mit Similarity-Violations umgehen (2 konkrete Nodes statt "finde undersized")
-- [ ] FLOW-Kanten der gemergten Nodes umhängen
-- [ ] SCHEMA-Felder beim Merge vereinen (alle Felder, optional markiert)
+- [x] MERGE muss mit Similarity-Violations umgehen (2 konkrete Nodes statt "finde undersized")
+- [x] FLOW-Kanten der gemergten Nodes umhängen
+- [x] SCHEMA-Felder beim Merge vereinen (alle Felder, optional markiert)
 
 ### Phase 5: Tests (1h)
-- [ ] Unit Test: FUNC merge bei similarity ≥ 0.85
-- [ ] Unit Test: SCHEMA merge bei similarity ≥ 0.70
-- [ ] Unit Test: Allocation cohesion fix
+- [x] Unit Test: FUNC merge bei similarity ≥ 0.85
+- [x] Unit Test: SCHEMA merge bei similarity ≥ 0.70
+- [x] Unit Test: Allocation cohesion fix
 
 **Geschätzter Aufwand:** 7h (1 Tag)
 
@@ -435,14 +436,14 @@ applicableTo: [
 
 ## Acceptance Criteria
 
-- [ ] `/optimize` erkennt FUNC Similarity Violations
-- [ ] `/optimize` merged ähnliche FUNCs (similarity ≥ 0.85)
-- [ ] `/optimize` erkennt SCHEMA Similarity Violations
-- [ ] `/optimize` extrahiert Base-SCHEMAs bei similarity ≥ 0.70
-- [ ] `/optimize` erkennt Cross-Cutting Allocations
-- [ ] `/optimize` reduziert Allocation auf 1:1 (FUNC:MOD)
-- [ ] Cohesion Score ≥ 0.80 nach Optimierung
-- [ ] Alle bestehenden Tests weiterhin grün
+- [x] `/optimize` erkennt FUNC Similarity Violations
+- [x] `/optimize` merged ähnliche FUNCs (similarity ≥ 0.85)
+- [x] `/optimize` erkennt SCHEMA Similarity Violations
+- [x] `/optimize` extrahiert Base-SCHEMAs bei similarity ≥ 0.70
+- [x] `/optimize` erkennt Cross-Cutting Allocations
+- [x] `/optimize` reduziert Allocation auf 1:1 (FUNC:MOD)
+- [x] Cohesion Score ≥ 0.80 nach Optimierung (via REALLOC operator)
+- [x] Alle bestehenden Tests weiterhin grün (12/12 CR-049 tests, 215 core unit tests)
 
 ---
 

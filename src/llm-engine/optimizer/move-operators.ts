@@ -23,6 +23,7 @@ import {
   MoveOperatorType,
   MoveResult
 } from './types.js';
+import { generateSemanticId, generateEdgeId } from '../../shared/utils/semantic-id.js';
 
 // ============================================================================
 // Utility Functions
@@ -37,8 +38,11 @@ function cloneArchitecture(arch: Architecture): Architecture {
   };
 }
 
-function generateId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+/**
+ * Get set of existing node IDs for uniqueness check
+ */
+function getExistingIds(arch: Architecture): Set<string> {
+  return new Set(arch.nodes.map(n => n.id));
 }
 
 function getNodeById(arch: Architecture, id: string): Node | undefined {
@@ -110,6 +114,7 @@ const splitOperator: MoveOperator = {
 
   apply(arch: Architecture, violation: Violation): Architecture | null {
     const result = cloneArchitecture(arch);
+    const existingIds = getExistingIds(result);
 
     // Find the node to split (could be MOD, FUNC, UC, etc.)
     const nodeId = violation.affectedNodes[0];
@@ -122,14 +127,16 @@ const splitOperator: MoveOperator = {
     // Only split if there are enough children to distribute
     if (children.length < 2) return null;
 
-    // Create new sibling node
+    // Create new sibling node with readable semanticId
+    const newLabel = `${node.label}_B`;
     const newNode: Node = {
-      id: generateId(node.type),
+      id: generateSemanticId(newLabel, node.type, existingIds),
       type: node.type,
-      label: `${node.label}_B`,
+      label: newLabel,
       properties: { ...node.properties, splitFrom: nodeId }
     };
     result.nodes.push(newNode);
+    existingIds.add(newNode.id);
 
     // Move half the children to the new node
     const childrenToMove = children.slice(Math.ceil(children.length / 2));
@@ -148,7 +155,7 @@ const splitOperator: MoveOperator = {
 
       // Add new edge to new node
       result.edges.push({
-        id: generateId('edge'),
+        id: generateEdgeId(childId, edgeType, newNode.id),
         source: childId,
         target: newNode.id,
         type: edgeType
@@ -177,6 +184,7 @@ const mergeOperator: MoveOperator = {
 
   apply(arch: Architecture, violation: Violation): Architecture | null {
     const result = cloneArchitecture(arch);
+    const existingIds = getExistingIds(result);
 
     // CR-049: For similarity violations, both nodes are specified in affectedNodes
     const isSimilarityViolation = [
@@ -209,17 +217,19 @@ const mergeOperator: MoveOperator = {
 
     if (!node1 || !node2) return null;
 
-    // Create merged node
+    // Create merged node with readable semanticId
+    const mergedLabel = `${node1.label}+${node2.label}`;
     const mergedNode: Node = {
-      id: generateId(node1.type),
+      id: generateSemanticId(mergedLabel, node1.type, existingIds),
       type: node1.type,
-      label: `${node1.label}+${node2.label}`,
+      label: mergedLabel,
       properties: {
         mergedFrom: [node1.id, node2.id],
         ...node1.properties
       }
     };
     result.nodes.push(mergedNode);
+    existingIds.add(mergedNode.id);
 
     // Re-route all edges from both nodes to merged node
     const edgesToRemove: string[] = [];
@@ -233,7 +243,7 @@ const mergeOperator: MoveOperator = {
           edgesToRemove.push(edge.id);
           continue;
         }
-        edgesToAdd.push({ ...edge, id: generateId('edge'), target: mergedNode.id });
+        edgesToAdd.push({ ...edge, id: generateEdgeId(edge.source, edge.type, mergedNode.id), target: mergedNode.id });
         edgesToRemove.push(edge.id);
       }
 
@@ -243,7 +253,7 @@ const mergeOperator: MoveOperator = {
           edgesToRemove.push(edge.id);
           continue;
         }
-        edgesToAdd.push({ ...edge, id: generateId('edge'), source: mergedNode.id });
+        edgesToAdd.push({ ...edge, id: generateEdgeId(mergedNode.id, edge.type, edge.target), source: mergedNode.id });
         edgesToRemove.push(edge.id);
       }
     }
@@ -298,7 +308,7 @@ const linkOperator: MoveOperator = {
       }
 
       result.edges.push({
-        id: generateId('edge'),
+        id: generateEdgeId(nodeId, 'io', siblings[0]),
         source: nodeId,
         target: siblings[0],
         type: 'io'
@@ -315,7 +325,7 @@ const linkOperator: MoveOperator = {
       if (funcs.length === 0) return null;
 
       result.edges.push({
-        id: generateId('edge'),
+        id: generateEdgeId(funcs[0].id, 'satisfy', nodeId),
         source: funcs[0].id,
         target: nodeId,
         type: 'satisfy'
@@ -331,17 +341,19 @@ const linkOperator: MoveOperator = {
       // Find or create TEST
       let test = result.nodes.find(n => n.type === 'TEST');
       if (!test) {
+        const existingIds = getExistingIds(result);
+        const testLabel = `Test_${node.label}`;
         test = {
-          id: generateId('TEST'),
+          id: generateSemanticId(testLabel, 'TEST', existingIds),
           type: 'TEST',
-          label: `Test_${node.label}`,
+          label: testLabel,
           properties: { synthetic: true }
         };
         result.nodes.push(test);
       }
 
       result.edges.push({
-        id: generateId('edge'),
+        id: generateEdgeId(nodeId, 'verify', test.id),
         source: nodeId,
         target: test.id,
         type: 'verify'
@@ -366,6 +378,7 @@ const createOperator: MoveOperator = {
 
   apply(arch: Architecture, violation: Violation): Architecture | null {
     const result = cloneArchitecture(arch);
+    const existingIds = getExistingIds(result);
 
     const nodeId = violation.affectedNodes[0];
     const node = getNodeById(result, nodeId);
@@ -382,10 +395,11 @@ const createOperator: MoveOperator = {
         e.source === nodeId && e.type === 'allocate'
       );
       if (!hasParent) {
+        const modLabel = `MOD_for_${node.label}`;
         newNode = {
-          id: generateId('MOD'),
+          id: generateSemanticId(modLabel, 'MOD', existingIds),
           type: 'MOD',
-          label: `MOD_for_${node.label}`,
+          label: modLabel,
           properties: { synthetic: true }
         };
         edgeType = 'allocate';
@@ -398,10 +412,11 @@ const createOperator: MoveOperator = {
         e.source === nodeId && e.type === 'verify'
       );
       if (!hasTest) {
+        const testLabel = `Test_${node.label}`;
         newNode = {
-          id: generateId('TEST'),
+          id: generateSemanticId(testLabel, 'TEST', existingIds),
           type: 'TEST',
-          label: `Test_${node.label}`,
+          label: testLabel,
           properties: { synthetic: true }
         };
         edgeType = 'verify';
@@ -419,7 +434,7 @@ const createOperator: MoveOperator = {
         if (existingSys) {
           // Just link to existing SYS
           result.edges.push({
-            id: generateId('edge'),
+            id: generateEdgeId(nodeId, 'compose', existingSys.id),
             source: nodeId,
             target: existingSys.id,
             type: 'compose'
@@ -428,7 +443,7 @@ const createOperator: MoveOperator = {
         }
         // No SYS exists, create one
         newNode = {
-          id: generateId('SYS'),
+          id: generateSemanticId('System', 'SYS', existingIds),
           type: 'SYS',
           label: 'System',
           properties: { synthetic: true }
@@ -446,7 +461,7 @@ const createOperator: MoveOperator = {
         const existingSys = result.nodes.find(n => n.type === 'SYS');
         if (existingSys) {
           result.edges.push({
-            id: generateId('edge'),
+            id: generateEdgeId(nodeId, 'compose', existingSys.id),
             source: nodeId,
             target: existingSys.id,
             type: 'compose'
@@ -454,7 +469,7 @@ const createOperator: MoveOperator = {
           return result;
         }
         newNode = {
-          id: generateId('SYS'),
+          id: generateSemanticId('System', 'SYS', existingIds),
           type: 'SYS',
           label: 'System',
           properties: { synthetic: true }
@@ -471,14 +486,14 @@ const createOperator: MoveOperator = {
     // Add edge
     if (edgeDirection === 'to_new') {
       result.edges.push({
-        id: generateId('edge'),
+        id: generateEdgeId(nodeId, edgeType, newNode.id),
         source: nodeId,
         target: newNode.id,
         type: edgeType
       });
     } else {
       result.edges.push({
-        id: generateId('edge'),
+        id: generateEdgeId(newNode.id, edgeType, nodeId),
         source: newNode.id,
         target: nodeId,
         type: edgeType
@@ -534,7 +549,7 @@ const deleteOperator: MoveOperator = {
 
         // Add edge to sibling
         result.edges.push({
-          id: generateId('edge'),
+          id: generateEdgeId(childId, edgeType, sibling.id),
           source: childId,
           target: sibling.id,
           type: edgeType
@@ -572,6 +587,7 @@ const reallocOperator: MoveOperator = {
 
   apply(arch: Architecture, violation: Violation): Architecture | null {
     const result = cloneArchitecture(arch);
+    const existingIds = getExistingIds(result);
 
     const nodeId = violation.affectedNodes[0];
     const node = getNodeById(result, nodeId);
@@ -624,10 +640,11 @@ const reallocOperator: MoveOperator = {
       );
 
       if (!newParent) {
+        const highVolLabel = 'MOD_HighVol';
         newParent = {
-          id: generateId('MOD'),
+          id: generateSemanticId(highVolLabel, 'MOD', existingIds),
           type: 'MOD',
-          label: 'MOD_HighVol',
+          label: highVolLabel,
           properties: { highVolatility: true }
         };
         result.nodes.push(newParent);
@@ -652,7 +669,7 @@ const reallocOperator: MoveOperator = {
     if (!edgeType) return null;
 
     result.edges.push({
-      id: generateId('edge'),
+      id: generateEdgeId(nodeId, edgeType, newParent.id),
       source: nodeId,
       target: newParent.id,
       type: edgeType

@@ -165,23 +165,26 @@ export function detectViolations(arch: Architecture): Violation[] {
   }
 
   // CR-049: Check allocation_cohesion (FUNC allocated to >1 MOD)
+  // Build complete mapping of all allocations per FUNC (not just first one)
   const funcAllocations: Record<string, string[]> = {};
-  for (const [funcId, modId] of Object.entries(funcToMod)) {
-    if (!funcAllocations[funcId]) funcAllocations[funcId] = [];
-    funcAllocations[funcId].push(modId);
-  }
-
-  // Check for additional allocations (multiple MODs per FUNC)
   const funcNodes = new Set(arch.nodes.filter(n => n.type === 'FUNC').map(n => n.id));
+  const modNodes = new Set(arch.nodes.filter(n => n.type === 'MOD').map(n => n.id));
+
   for (const edge of arch.edges.filter(e => e.type === 'allocate')) {
-    // Direction 1: MOD → FUNC
-    if (funcNodes.has(edge.target)) {
+    // Direction 1: FUNC → MOD
+    if (funcNodes.has(edge.source) && modNodes.has(edge.target)) {
+      if (!funcAllocations[edge.source]) funcAllocations[edge.source] = [];
+      if (!funcAllocations[edge.source].includes(edge.target)) {
+        funcAllocations[edge.source].push(edge.target);
+      }
+    }
+    // Direction 2: MOD → FUNC
+    else if (modNodes.has(edge.source) && funcNodes.has(edge.target)) {
       if (!funcAllocations[edge.target]) funcAllocations[edge.target] = [];
       if (!funcAllocations[edge.target].includes(edge.source)) {
         funcAllocations[edge.target].push(edge.source);
       }
     }
-    // Direction 2: FUNC → MOD (handled by funcToMod above)
   }
 
   for (const [funcId, mods] of Object.entries(funcAllocations)) {

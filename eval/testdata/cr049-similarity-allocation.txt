@@ -1,0 +1,109 @@
+# GraphEngine System Export
+# Description: Test data for CR-049 optimizer realignment
+# Format: Format E (Token-Efficient Serialization) - CR-053 Compact Syntax
+#
+# CR-049 Violations to detect:
+#   - func_merge_candidate: ValidateOrder, ValidatePayment, ValidateShipment (similar FUNCs)
+#   - schema_near_duplicate: OrderSchema, PaymentSchema (identical struct)
+#   - allocation_cohesion: ProcessPayment allocated to 2 MODs
+
+## Nodes
+# System
+ECommerceSystem.SY.001|E-Commerce processing system
+
+# FCHAINs
+OrderWorkflow.FC.001|Order processing workflow
+PaymentWorkflow.FC.002|Payment processing workflow
+
+# ACTORs
+Customer.AC.001|External customer
+PaymentGateway.AC.002|Payment gateway system
+Warehouse.AC.003|Warehouse system
+
+# Similar FUNCs (same canonical verb "Validate", similar descriptions) - CR-049 Target
+ValidateOrder.FN.001|Validates input data completeness and correctness for order processing [descr:Validates input data completeness and correctness for order processing]
+ValidatePayment.FN.002|Validates input data completeness and correctness for payment processing [descr:Validates input data completeness and correctness for payment processing]
+ValidateShipment.FN.003|Validates input data completeness and correctness for shipment processing [descr:Validates input data completeness and correctness for shipment processing]
+
+# Cross-cutting FUNC (allocated to multiple MODs) - CR-049 Target
+ProcessPayment.FN.004|Process payment transaction
+
+# Normal FUNCs
+CreateOrder.FN.005|Create new order
+StoreOrder.FN.006|Persist order to database
+ShipOrder.FN.007|Ship confirmed order
+
+# FLOWs
+OrderInput.FL.001|Customer order input
+ValidationResult.FL.002|Validation result
+PaymentRequest.FL.003|Payment request data
+PaymentConfirm.FL.004|Payment confirmation
+ShipmentRequest.FL.005|Shipment request
+ShipmentConfirm.FL.006|Shipment confirmation
+
+# Similar SCHEMAs (identical struct) - CR-049 Target
+OrderSchema.SC.001|Order data structure [struct:orderId-createdAt-status-amount-referenceCode]
+PaymentSchema.SC.002|Payment data structure [struct:orderId-createdAt-status-amount-referenceCode]
+
+# MODs
+OrderService.MD.001|Order service module
+PaymentService.MD.002|Payment service module
+
+# REQs
+OrderMustBeValidated.RQ.001|Orders must be validated before processing
+PaymentMustBeValidated.RQ.002|Payments must be validated before processing
+
+# TESTs
+TestOrderValidation.TC.001|Order validation tests
+TestPaymentValidation.TC.002|Payment validation tests
+
+## Edges
+# System composition
+ECommerceSystem.SY.001 -cp-> OrderWorkflow.FC.001, PaymentWorkflow.FC.002
+
+# FCHAIN1: Order Workflow composition
+OrderWorkflow.FC.001 -cp-> ValidateOrder.FN.001, CreateOrder.FN.005, StoreOrder.FN.006, Customer.AC.001, Warehouse.AC.003, OrderInput.FL.001, ValidationResult.FL.002, ShipmentRequest.FL.005, ShipmentConfirm.FL.006
+
+# FCHAIN2: Payment Workflow composition
+PaymentWorkflow.FC.002 -cp-> ValidatePayment.FN.002, ValidateShipment.FN.003, ProcessPayment.FN.004, PaymentGateway.AC.002, PaymentRequest.FL.003, PaymentConfirm.FL.004
+
+# io-flow-io connections for Order Workflow
+Customer.AC.001 -io-> OrderInput.FL.001
+OrderInput.FL.001 -io-> ValidateOrder.FN.001
+ValidateOrder.FN.001 -io-> ValidationResult.FL.002
+ValidationResult.FL.002 -io-> CreateOrder.FN.005
+CreateOrder.FN.005 -io-> ShipmentRequest.FL.005
+ShipmentRequest.FL.005 -io-> StoreOrder.FN.006
+StoreOrder.FN.006 -io-> ShipmentConfirm.FL.006
+ShipmentConfirm.FL.006 -io-> Warehouse.AC.003
+
+# io-flow-io connections for Payment Workflow
+PaymentRequest.FL.003 -io-> ValidatePayment.FN.002
+ValidatePayment.FN.002 -io-> PaymentConfirm.FL.004
+PaymentConfirm.FL.004 -io-> ValidateShipment.FN.003
+ValidateShipment.FN.003 -io-> PaymentRequest.FL.003
+PaymentRequest.FL.003 -io-> ProcessPayment.FN.004
+ProcessPayment.FN.004 -io-> PaymentGateway.AC.002
+
+# FUNC allocations (normal)
+ValidateOrder.FN.001 -alc-> OrderService.MD.001
+CreateOrder.FN.005 -alc-> OrderService.MD.001
+StoreOrder.FN.006 -alc-> OrderService.MD.001
+ValidatePayment.FN.002 -alc-> PaymentService.MD.002
+ValidateShipment.FN.003 -alc-> PaymentService.MD.002
+
+# CROSS-CUTTING ALLOCATION (CR-049 violation: FUNC in 2 MODs)
+ProcessPayment.FN.004 -alc-> OrderService.MD.001
+ProcessPayment.FN.004 -alc-> PaymentService.MD.002
+
+# Traceability
+ValidateOrder.FN.001 -sat-> OrderMustBeValidated.RQ.001
+ValidatePayment.FN.002 -sat-> PaymentMustBeValidated.RQ.002
+OrderMustBeValidated.RQ.001 -ver-> TestOrderValidation.TC.001
+PaymentMustBeValidated.RQ.002 -ver-> TestPaymentValidation.TC.002
+
+# SCHEMA relations (same flow uses both schemas = high usage similarity)
+OrderInput.FL.001 -rel-> OrderSchema.SC.001
+OrderInput.FL.001 -rel-> PaymentSchema.SC.002
+PaymentRequest.FL.003 -rel-> OrderSchema.SC.001
+PaymentRequest.FL.003 -rel-> PaymentSchema.SC.002
