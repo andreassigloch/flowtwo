@@ -489,4 +489,7 @@ export function printHelpMenu(): void {
   console.log('  /cleanup        - Clean nodes not in current system');
   console.log('  /cleanup all    - Clean ALL nodes not in current workspace');
   console.log('');
+  console.log('\x1b[1mLearning (CR-063):\x1b[0m');
+  console.log('  /learning       - Show learning statistics (episodes, patterns, agent performance)');
+  console.log('');
 }

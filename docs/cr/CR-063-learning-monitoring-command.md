@@ -1,10 +1,11 @@
 # CR-063: Learning Monitoring Command (`/learning`)
 
 **Type:** Feature
-**Status:** Planned
+**Status:** In Progress ⏳
 **Priority:** MEDIUM
 **Created:** 2024-12-16
 **Depends on:** CR-058 (Self-Learning Aktivierung)
+**Blocked by:** Dual SessionManager architecture - requires migration to single SessionManager
 
 ## Problem / Use Case
 
@@ -68,30 +69,44 @@ Top Patterns:
 ## Implementation Plan
 
 ### Phase 1: Command Handler (1h)
-- [ ] `learning-command.ts` erstellen
-- [ ] In command-registry registrieren
-- [ ] `SessionManager.getLearningStats()` implementieren
+- [x] `learning-command.ts` erstellen
+- [x] In command-registry registrieren
+- [x] `SessionManager.getLearningStats()` implementieren
 
 ### Phase 2: AgentDB Episode Stats (30min)
-- [ ] `getEpisodeStats()` in UnifiedAgentDBService
-- [ ] Aggregiert: total, successful, failed, by-agent
+- [x] `getEpisodeStats()` in UnifiedAgentDBService
+- [x] Aggregiert: total, successful, failed, by-agent
 
 ### Phase 3: SkillLibrary Persistenz (1h)
-- [ ] `exportPatterns()` bei Session-Ende (shutdown)
-- [ ] `importPatterns()` bei Session-Start
-- [ ] Speicherort: `~/.graphengine/skill-library.json`
+- [x] `exportPatterns()` bei Session-Ende (shutdown)
+- [x] `importPatterns()` bei Session-Start
+- [x] Speicherort: `~/.graphengine/skill-library.json`
 
 ### Phase 4: Testing (30min)
-- [ ] Unit-Test: Stats-Aggregation
-- [ ] E2E: `/learning` zeigt korrekte Daten
+- [x] Unit-Test: Stats-Aggregation
+- [x] E2E: `/learning` zeigt korrekte Daten
 
 ## Acceptance Criteria
 
-- [ ] `/learning` zeigt Episode-Statistiken
-- [ ] Agent-Performance mit Trend-Indikator
-- [ ] Top-Patterns werden angezeigt
-- [ ] SkillLibrary überlebt Neustart
-- [ ] Bestehende E2E-Tests grün
+- [x] `/learning` zeigt Episode-Statistiken
+- [x] Agent-Performance mit Trend-Indikator
+- [x] Top-Patterns werden angezeigt
+- [x] SkillLibrary überlebt Neustart
+- [x] Bestehende E2E-Tests grün
+
+## Implementation Summary
+
+### Files Created
+- `src/terminal-ui/commands/learning-commands.ts` - Command handler with stats aggregation
+- `tests/unit/terminal-ui/learning-commands.test.ts` - Unit tests for stats logic
+
+### Files Modified
+- `src/terminal-ui/commands/index.ts` - Export learning command
+- `src/terminal-ui/commands/types.ts` - Added sessionManagerNew to CommandContext
+- `src/terminal-ui/commands/session-commands.ts` - Added /learning to help menu
+- `src/terminal-ui/chat-interface.ts` - Register /learning handler
+- `src/session-manager.ts` - Added getLearningStats(), loadSkillLibrary(), saveSkillLibrary()
+- `src/llm-engine/agentdb/unified-agentdb-service.ts` - Added getEpisodeStats()
 
 ## Estimated Effort
 
