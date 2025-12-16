@@ -176,16 +176,17 @@ export class Neo4jClient {
 
     try {
       // Build batch query
-      // Note: No semanticId stored - edges keyed by composite ${sourceId}-${type}-${targetId} in canvas
+      // CR-056: MERGE on (sourceId, type, targetId) to prevent duplicate edges
+      // Previously used uuid which caused duplicates when edges got new UUIDs on each save
       const query = `
         UNWIND $edges AS edgeData
         MATCH (source:Node {semanticId: edgeData.sourceId})
         MATCH (target:Node {semanticId: edgeData.targetId})
-        MERGE (source)-[r:EDGE {uuid: edgeData.uuid}]->(target)
-        SET r.type = edgeData.type,
-            r.workspaceId = edgeData.workspaceId,
+        MERGE (source)-[r:EDGE {type: edgeData.type}]->(target)
+        ON CREATE SET r.uuid = edgeData.uuid,
+                      r.createdAt = datetime(edgeData.createdAt)
+        SET r.workspaceId = edgeData.workspaceId,
             r.systemId = edgeData.systemId,
-            r.createdAt = datetime(edgeData.createdAt),
             r.updatedAt = datetime(edgeData.updatedAt),
             r.createdBy = edgeData.createdBy
         RETURN count(r) as count
