@@ -168,6 +168,48 @@ export class Neo4jClient {
   }
 
   /**
+   * Delete nodes by semanticId (CR-064: Sync deletions to Neo4j)
+   */
+  async deleteNodes(semanticIds: string[]): Promise<{ deleted: number }> {
+    if (semanticIds.length === 0) return { deleted: 0 };
+
+    const session = this.getSession();
+    try {
+      const result = await session.run(
+        `UNWIND $semanticIds AS sid
+         MATCH (n:Node {semanticId: sid})
+         DETACH DELETE n
+         RETURN count(*) AS deleted`,
+        { semanticIds }
+      );
+      return { deleted: result.records[0]?.get('deleted').toNumber() || 0 };
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Delete edges by sourceId, type, targetId (CR-064: Sync deletions to Neo4j)
+   */
+  async deleteEdges(edges: Array<{ sourceId: string; type: string; targetId: string }>): Promise<{ deleted: number }> {
+    if (edges.length === 0) return { deleted: 0 };
+
+    const session = this.getSession();
+    try {
+      const result = await session.run(
+        `UNWIND $edges AS e
+         MATCH (source:Node {semanticId: e.sourceId})-[r:EDGE {type: e.type}]->(target:Node {semanticId: e.targetId})
+         DELETE r
+         RETURN count(*) AS deleted`,
+        { edges }
+      );
+      return { deleted: result.records[0]?.get('deleted').toNumber() || 0 };
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
    * Save edges in batch
    */
   async saveEdges(edges: Edge[]): Promise<BatchPersistResult> {

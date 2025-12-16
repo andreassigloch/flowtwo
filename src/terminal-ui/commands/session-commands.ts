@@ -12,6 +12,7 @@ import { DEFAULT_VIEW_CONFIGS } from '../../shared/types/view.js';
 import { exportSystem, importSystem, listExports, getExportMetadata } from '../../shared/parsers/import-export.js';
 import { updateActiveSystem } from '../../shared/session-resolver.js';
 import { lockInput, unlockInput } from '../chat-interface.js';
+import type { Edge } from '../../shared/types/ontology.js';
 
 /**
  * Handle /new command - start new system (clear graph)
@@ -52,6 +53,29 @@ export async function handleCommitCommand(ctx: CommandContext): Promise<void> {
   console.log('💾 Committing to Neo4j...');
   ctx.log('💾 Committing to Neo4j...');
 
+  // CR-064: Get changes (including deletions) before saving
+  const changes = ctx.agentDB.getChanges();
+  const deletedNodes = changes
+    .filter((c) => c.status === 'deleted' && c.elementType === 'node')
+    .map((c) => c.id);
+  const deletedEdges = changes
+    .filter((c) => c.status === 'deleted' && c.elementType === 'edge' && c.baseline)
+    .map((c) => {
+      const edge = c.baseline as Edge;
+      return { sourceId: edge.sourceId, type: edge.type, targetId: edge.targetId };
+    });
+
+  // CR-064: Delete removed elements from Neo4j first
+  let deletedCount = 0;
+  if (deletedNodes.length > 0) {
+    const result = await ctx.neo4jClient.deleteNodes(deletedNodes);
+    deletedCount += result.deleted;
+  }
+  if (deletedEdges.length > 0) {
+    const result = await ctx.neo4jClient.deleteEdges(deletedEdges);
+    deletedCount += result.deleted;
+  }
+
   // CR-032: Get nodes/edges from AgentDB (Single Source of Truth)
   const nodes = ctx.agentDB.getNodes();
   const edges = ctx.agentDB.getEdges();
@@ -91,6 +115,7 @@ export async function handleCommitCommand(ctx: CommandContext): Promise<void> {
   const chatCount = chatResult.savedCount || 0;
   const parts: string[] = [];
   if (graphSavedCount > 0) parts.push(`${nodes.length} nodes, ${edges.length} edges`);
+  if (deletedCount > 0) parts.push(`${deletedCount} deleted`);
   if (chatCount > 0) parts.push(`${chatCount} messages`);
   const summary = parts.length > 0 ? parts.join(', ') : 'no changes';
   console.log(`\x1b[32m✅ Committed ${summary}\x1b[0m`);
