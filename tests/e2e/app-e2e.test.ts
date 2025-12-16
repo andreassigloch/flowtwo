@@ -64,8 +64,8 @@ describe('e2e: App Startup and Commands', () => {
       console.log('[CHAT ERR]', line.trim());
     });
 
-    // Wait for chat to connect
-    await waitForLog(chatLogs, 'Connected to WebSocket', 15000);
+    // Wait for chat to connect (CR-063: SessionManager outputs different message)
+    await waitForLog(chatLogs, 'All components initialized via SessionManager', 15000);
 
     // 3. Start Graph Viewer (connects to TEST_WS_PORT)
     graphViewerProcess = spawn('npx', ['tsx', 'src/terminal-ui/graph-viewer.ts'], {
@@ -109,7 +109,10 @@ describe('e2e: App Startup and Commands', () => {
   });
 
   it('app starts and connects to WebSocket', () => {
-    const hasWebSocket = chatLogs.some((log) => log.includes('Connected to WebSocket'));
+    // CR-063: SessionManager outputs different message
+    const hasWebSocket = chatLogs.some((log) =>
+      log.includes('All components initialized via SessionManager') || log.includes('Connected to WebSocket')
+    );
     expect(hasWebSocket).toBe(true);
   });
 
@@ -177,6 +180,7 @@ describe('e2e: App Startup and Commands', () => {
   // === GRAPH VIEWER TESTS ===
 
   it('graph viewer connects to WebSocket', () => {
+    // Graph viewer still uses legacy message (not migrated to SessionManager)
     const hasWebSocket = graphViewerLogs.some((log) => log.includes('Connected to WebSocket'));
     expect(hasWebSocket).toBe(true);
   });

@@ -27,8 +27,9 @@ describe('App Startup Smoke E2E (CR-042)', { timeout: 60000 }, () => {
     await app.waitForReady(30000);
 
     // Verify WebSocket connections
+    // CR-063: Chat now shows SessionManager init; graph viewer still shows WebSocket
     const chatLogs = app.getChatLogs().join('\n');
-    expect(chatLogs).toContain('Connected to WebSocket');
+    expect(chatLogs).toMatch(/All components initialized via SessionManager|Connected to WebSocket/);
 
     const graphLogs = app.getGraphViewerLogs().join('\n');
     expect(graphLogs).toContain('Connected to WebSocket');

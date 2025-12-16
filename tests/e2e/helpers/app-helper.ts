@@ -120,15 +120,20 @@ export class AppTestHelper {
   }
 
   /**
-   * Wait for the app to be ready (WebSocket connected).
+   * Wait for the app to be ready (components initialized).
+   * CR-063: Updated to detect SessionManager initialization pattern.
    */
   async waitForReady(timeout: number = 20000): Promise<void> {
     const start = Date.now();
     while (Date.now() - start < timeout) {
-      const chatConnected = this.chatLogs.some((log) => log.includes('Connected to WebSocket'));
+      // CR-063: New pattern - SessionManager outputs this when all components ready
+      const chatReady = this.chatLogs.some((log) =>
+        log.includes('All components initialized via SessionManager') ||
+        log.includes('Connected to WebSocket')  // Legacy fallback
+      );
       const graphConnected = this.graphViewerLogs.some((log) => log.includes('Connected to WebSocket'));
 
-      if (chatConnected && graphConnected) {
+      if (chatReady && graphConnected) {
         return;
       }
       await this.sleep(100);

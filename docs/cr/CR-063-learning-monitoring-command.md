@@ -1,11 +1,11 @@
 # CR-063: Learning Monitoring Command (`/learning`)
 
 **Type:** Feature
-**Status:** In Progress ⏳
+**Status:** Completed ✅
 **Priority:** MEDIUM
 **Created:** 2024-12-16
+**Completed:** 2024-12-16
 **Depends on:** CR-058 (Self-Learning Aktivierung)
-**Blocked by:** Dual SessionManager architecture - requires migration to single SessionManager
 
 ## Problem / Use Case
 
@@ -104,9 +104,19 @@ Top Patterns:
 - `src/terminal-ui/commands/index.ts` - Export learning command
 - `src/terminal-ui/commands/types.ts` - Added sessionManagerNew to CommandContext
 - `src/terminal-ui/commands/session-commands.ts` - Added /learning to help menu
-- `src/terminal-ui/chat-interface.ts` - Register /learning handler
-- `src/session-manager.ts` - Added getLearningStats(), loadSkillLibrary(), saveSkillLibrary()
+- `src/terminal-ui/chat-interface.ts` - Migrated to use SessionManager.create() as SINGLE entry point
+- `src/session-manager.ts` - Added getLearningStats(), loadSkillLibrary(), saveSkillLibrary(), getParser()
 - `src/llm-engine/agentdb/unified-agentdb-service.ts` - Added getEpisodeStats()
+
+### SessionManager Migration (Blocker Resolution)
+The original blocker was that `session-manager.ts` (850+ lines, all components) was **DEAD CODE** - never instantiated!
+`chat-interface.ts` used the legacy `session.ts` directly.
+
+**Fix:** Migrated `chat-interface.ts` to use `SessionManager.create()`:
+1. Changed import from `session.js` to `session-manager.js`
+2. Replaced manual component initialization with `SessionManager.create(resolved)`
+3. All components now come from SessionManager getters
+4. Updated E2E tests for new "All components initialized via SessionManager" pattern
 
 ## Estimated Effort
 

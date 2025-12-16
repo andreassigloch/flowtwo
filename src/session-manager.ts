@@ -251,6 +251,10 @@ export class SessionManager {
     return this.neo4jClient;
   }
 
+  getParser(): FormatEParser {
+    return this.parser;
+  }
+
   // ============================================================
   // Self-Learning Accessors (CR-038 Phase 7)
   // ============================================================

@@ -6,23 +6,25 @@
  * - LLM responses
  * - Commands (/help, /save, /stats, /view)
  *
+ * CR-063 Migration: Uses SessionManager from session-manager.ts as SINGLE entry point.
+ * All components (AgentDB, Canvases, LLM, SkillLibrary, etc.) come from SessionManager.
+ *
  * @author andreas@siglochconsulting
- * @version 2.0.0
+ * @version 3.0.0
  */
 
 import 'dotenv/config';
 import * as readline from 'readline';
 import * as fs from 'fs';
-import { StatelessGraphCanvas } from '../canvas/stateless-graph-canvas.js';
-import { ChatCanvas } from '../canvas/chat-canvas.js';
-import { createLLMEngine, type ILLMEngine, getCurrentProvider } from '../llm-engine/engine-factory.js';
-import { Neo4jClient } from '../neo4j-client/neo4j-client.js';
-import { FormatEParser } from '../shared/parsers/format-e-parser.js';
-import { CanvasWebSocketClient } from '../canvas/websocket-client.js';
-import type { BroadcastUpdate } from '../canvas/websocket-server.js';
-import { SessionManager } from '../session.js';
-import { WS_URL, LOG_PATH, LLM_TEMPERATURE } from '../shared/config.js';
-import { getUnifiedAgentDBService, UnifiedAgentDBService } from '../llm-engine/agentdb/unified-agentdb-service.js';
+import type { StatelessGraphCanvas } from '../canvas/stateless-graph-canvas.js';
+import type { ChatCanvas } from '../canvas/chat-canvas.js';
+import type { ILLMEngine } from '../llm-engine/engine-factory.js';
+import type { Neo4jClient } from '../neo4j-client/neo4j-client.js';
+import type { CanvasWebSocketClient } from '../canvas/websocket-client.js';
+import type { FormatEParser } from '../shared/parsers/format-e-parser.js';
+import { SessionManager } from '../session-manager.js';
+import { LOG_PATH } from '../shared/config.js';
+import type { UnifiedAgentDBService } from '../llm-engine/agentdb/unified-agentdb-service.js';
 import { getWorkflowRouter, SessionContext } from '../llm-engine/agents/workflow-router.js';
 import { getAgentExecutor } from '../llm-engine/agents/agent-executor.js';
 import { getAgentConfigLoader } from '../llm-engine/agents/config-loader.js';
@@ -54,32 +56,21 @@ import {
   printHelpMenu,
 } from './commands/session-commands.js';
 import { handleLearningCommand } from './commands/learning-commands.js';
-import { createBackgroundValidator, BackgroundValidator } from '../llm-engine/validation/index.js';
 import { getPreApplyValidator, parseOperations } from '../llm-engine/validation/pre-apply-validator.js';
 
-// Configuration - will be set by resolveSession() in main()
-const config = {
-  workspaceId: '',
-  systemId: '',
-  chatId: '',
-  userId: '',
-};
-
-// Helper to get UnifiedAgentDBService with current session context (CR-032)
-const getAgentDB = () => getUnifiedAgentDBService(config.workspaceId, config.systemId);
-
-// Components - initialized in main() after session resolution
-let llmEngine: ILLMEngine | undefined;
-let neo4jClient: Neo4jClient;
+// CR-063: SessionManager owns ALL components - these are just local references
 let sessionManager: SessionManager;
-let wsClient: CanvasWebSocketClient;
-let graphCanvas: StatelessGraphCanvas;
-let chatCanvas: ChatCanvas;
-let agentDB: UnifiedAgentDBService;
-const parser = new FormatEParser();
 
-// CR-038 Phase 4: Background validator instance
-let backgroundValidator: BackgroundValidator | null = null;
+// Local references to components (owned by SessionManager)
+// Using definite assignment assertion (!) since these are set in main() before any usage
+let config = { workspaceId: '', systemId: '', chatId: '', userId: '' };
+let llmEngine: ILLMEngine | undefined;
+let neo4jClient!: Neo4jClient;
+let wsClient!: CanvasWebSocketClient;
+let graphCanvas!: StatelessGraphCanvas;
+let chatCanvas!: ChatCanvas;
+let agentDB!: UnifiedAgentDBService;
+let parser!: FormatEParser;
 
 /**
  * CR-045: Input lock flag to prevent duplicate processing during sub-dialogs
@@ -208,22 +199,13 @@ function printHeader(): void {
 
 /**
  * Create command context for handlers
+ *
+ * CR-063: Now uses sessionManager.getCommandContext() which includes
+ * sessionManagerNew for access to SkillLibrary, ReflexionMemory, etc.
  */
 function createCommandContext(rl: readline.Interface): CommandContext {
-  return {
-    config,
-    llmEngine,
-    neo4jClient,
-    sessionManager,
-    wsClient,
-    graphCanvas,
-    chatCanvas,
-    agentDB,
-    parser,
-    rl,
-    log,
-    notifyGraphUpdate,
-  };
+  // Use SessionManager's getCommandContext which includes sessionManagerNew
+  return sessionManager.getCommandContext(rl);
 }
 
 /**
@@ -525,8 +507,7 @@ async function processMessage(
           const SUCCESS_THRESHOLD = 0.7;
           const success = reward >= SUCCESS_THRESHOLD;
 
-          const agentdb = await getAgentDB();
-          await agentdb.storeEpisode(
+          await agentDB.storeEpisode(
             selectedAgent,
             message,
             success,
@@ -548,8 +529,7 @@ async function processMessage(
     log(`❌ Error: ${errorMsg}`);
 
     try {
-      const agentdb = await getAgentDB();
-      await agentdb.storeEpisode(
+      await agentDB.storeEpisode(
         'system-architect',
         message,
         false,
@@ -564,151 +544,56 @@ async function processMessage(
 
 /**
  * Main entry point
+ *
+ * CR-063 Migration: Uses SessionManager.create() as SINGLE initialization point.
+ * All components are owned by SessionManager - no duplicate initialization.
  */
 async function main(): Promise<void> {
   printHeader();
 
   log('🚀 Chat interface started');
 
-  // STEP 1: Session Resolution (MANDATORY Neo4j)
-  neo4jClient = initNeo4jClient();
-  sessionManager = new SessionManager(neo4jClient);
-
-  const resolved = await resolveSession(neo4jClient);
-  config.workspaceId = resolved.workspaceId;
-  config.systemId = resolved.systemId;
-  config.userId = resolved.userId;
-  config.chatId = resolved.chatId;
+  // STEP 1: Resolve session (get workspace, system, user from Neo4j/env)
+  const tempNeo4j = initNeo4jClient();
+  const resolved = await resolveSession(tempNeo4j);
+  await tempNeo4j.close(); // Close temporary connection - SessionManager creates its own
 
   console.log(`\x1b[90m✓ Session: ${resolved.systemId} (${resolved.source})\x1b[0m`);
   log(`📋 Session: ${resolved.systemId} (source: ${resolved.source})`);
 
-  // STEP 2: Initialize AgentDB (CR-032: Single Source of Truth)
-  log('🔧 Initializing UnifiedAgentDBService (CR-032)...');
-  agentDB = await getUnifiedAgentDBService(config.workspaceId, config.systemId);
-  log('✅ UnifiedAgentDBService initialized');
-
-  // STEP 3: Initialize Canvases (delegate to AgentDB)
-  graphCanvas = new StatelessGraphCanvas(
-    agentDB,
-    config.workspaceId,
-    config.systemId,
-    config.chatId,
-    config.userId,
-    'hierarchy'
-  );
-
-  chatCanvas = new ChatCanvas(
-    config.workspaceId,
-    config.systemId,
-    config.chatId,
-    config.userId,
-    graphCanvas,
-    neo4jClient
-  );
-
-  // CR-038 Phase 4: Setup background validation with BackgroundValidator class
-  // Must be after ChatCanvas initialization (needs chatCanvas instance)
-  backgroundValidator = createBackgroundValidator(agentDB, chatCanvas, {
-    debounceMs: 300, // CR-038 Phase 4: 300ms debounce as specified
-    phase: 'phase2_logical',
-    log,
-  });
-
-  // STEP 4: LLM Engine (CR-034: Factory-based provider selection)
-  const provider = getCurrentProvider();
+  // STEP 2: Create SessionManager - THIS initializes ALL components
+  // (Neo4j, AgentDB, Canvases, LLM, WebSocket, SkillLibrary, ReflexionMemory, etc.)
   try {
-    llmEngine = createLLMEngine({
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-      maxTokens: 4096,
-      temperature: LLM_TEMPERATURE,
-      enableCache: true,
-    });
-    log(`✅ LLM Engine initialized (provider: ${provider})`);
+    sessionManager = await SessionManager.create(resolved);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log(`⚠️ LLM Engine not available: ${errorMsg}`);
-    console.log(`\x1b[33m⚠️ LLM Engine not available: ${errorMsg}\x1b[0m`);
-  }
-
-  // STEP 5: WebSocket Connection
-  wsClient = new CanvasWebSocketClient(
-    process.env.WS_URL || WS_URL,
-    {
-      workspaceId: config.workspaceId,
-      systemId: config.systemId,
-      userId: config.userId,
-    },
-    (update: BroadcastUpdate) => {
-      const userId = update.source?.userId || 'unknown';
-      log(`📡 Received ${update.type} from ${userId}`);
-    }
-  );
-
-  try {
-    await wsClient.connect();
-    console.log('\x1b[32m✅ Connected to WebSocket server\x1b[0m');
-    log('✅ WebSocket connected');
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    const wsUrl = process.env.WS_URL || WS_URL;
     console.error('');
     console.error('\x1b[31m╔═══════════════════════════════════════╗\x1b[0m');
-    console.error('\x1b[31m║  ERROR: WebSocket Connection Failed  ║\x1b[0m');
+    console.error('\x1b[31m║  ERROR: Session Initialization Failed ║\x1b[0m');
     console.error('\x1b[31m╚═══════════════════════════════════════╝\x1b[0m');
     console.error('');
-    console.error(`\x1b[31mCould not connect to WebSocket server at ${wsUrl}\x1b[0m`);
-    console.error(`\x1b[31mError: ${errorMsg}\x1b[0m`);
+    console.error(`\x1b[31m${errorMsg}\x1b[0m`);
     console.error('');
-    console.error('\x1b[33mPlease ensure the WebSocket server is running:\x1b[0m');
-    console.error('\x1b[33m  npm run websocket-server\x1b[0m');
-    console.error('');
-    log(`❌ WebSocket connection failed: ${errorMsg}`);
+    log(`❌ Session initialization failed: ${errorMsg}`);
     process.exit(1);
   }
 
-  // STEP 6: Load graph from Neo4j into AgentDB
-  if (neo4jClient) {
-    try {
-      const { nodes, edges } = await neo4jClient.loadGraph({
-        workspaceId: config.workspaceId,
-        systemId: config.systemId,
-      });
+  // STEP 3: Get component references from SessionManager for local use
+  // These are just references - SessionManager owns them
+  neo4jClient = sessionManager.getNeo4jClient();
+  agentDB = sessionManager.getAgentDB();
+  graphCanvas = sessionManager.getGraphCanvas();
+  chatCanvas = sessionManager.getChatCanvas();
+  llmEngine = sessionManager.getLLMEngine();
+  wsClient = sessionManager.getWebSocketClient();
+  parser = sessionManager.getParser();
+  const smConfig = sessionManager.getConfig();
+  config.workspaceId = smConfig.workspaceId;
+  config.systemId = smConfig.systemId;
+  config.chatId = smConfig.chatId;
+  config.userId = smConfig.userId;
 
-      if (nodes.length > 0) {
-        console.log(`\x1b[32m✅ Loaded ${nodes.length} nodes, ${edges.length} edges from Neo4j\x1b[0m`);
-        log(`📥 Loaded ${nodes.length} nodes, ${edges.length} edges from Neo4j`);
-
-        for (const node of nodes) {
-          agentDB.setNode(node, { upsert: true });
-        }
-        for (const edge of edges) {
-          agentDB.setEdge(edge, { upsert: true });
-        }
-        log(`📦 Loaded ${nodes.length} nodes into AgentDB`);
-        notifyGraphUpdate();
-      }
-
-      // CR-033/CR-054: Always capture baseline (even if empty) for change tracking
-      agentDB.captureBaseline();
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.log(`\x1b[33m⚠️  Could not load from Neo4j: ${errorMsg}\x1b[0m`);
-      log(`⚠️ Neo4j load error: ${errorMsg}`);
-      // Still capture empty baseline on error
-      agentDB.captureBaseline();
-    }
-  } else {
-    // No Neo4j: capture empty baseline for fresh start
-    agentDB.captureBaseline();
-  }
-
-  console.log('');
-
-  if (sessionManager) {
-    sessionManager.registerComponents(wsClient, graphCanvas, chatCanvas);
-  }
-
+  console.log('\x1b[32m✅ All components initialized via SessionManager\x1b[0m');
   console.log('');
 
   // Create readline interface
@@ -737,42 +622,9 @@ async function main(): Promise<void> {
     if (trimmed === 'exit' || trimmed === 'quit' || trimmed === '/exit') {
       log('🛑 Shutting down all terminals...');
 
-      // CR-038 Phase 4: Stop background validator
-      if (backgroundValidator) {
-        backgroundValidator.stop();
-      }
-
-      if (wsClient) {
-        try {
-          wsClient.send({
-            type: 'shutdown',
-            timestamp: new Date().toISOString(),
-          });
-          log('📡 Shutdown signal sent to all terminals');
-
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          log(`⚠️  Could not send shutdown signal: ${error}`);
-        }
-      }
-
+      // CR-063: SessionManager handles ALL shutdown (background validator, WS, Neo4j, SkillLibrary, etc.)
       if (sessionManager) {
-        const state = graphCanvas.getState();
-        await sessionManager.shutdown({
-          userId: config.userId,
-          workspaceId: config.workspaceId,
-          activeSystemId: config.systemId,
-          currentView: state.currentView,
-          chatId: config.chatId,
-          lastActive: new Date(),
-        });
-      } else if (neo4jClient) {
-        console.log('');
-        console.log('💾 Saving before exit...');
-        await graphCanvas.persistToNeo4j();
-        await chatCanvas.persistToNeo4j();
-        await neo4jClient.close();
-        console.log('\x1b[32m✅ Goodbye!\x1b[0m');
+        await sessionManager.shutdown();
       }
 
       rl.close();

@@ -36,9 +36,9 @@ describe('Session Lifecycle E2E (CR-042)', { timeout: 120000 }, () => {
     await app.startApp();
     await app.waitForReady();
 
-    // Verify connected
+    // Verify connected (CR-063: SessionManager outputs different message)
     const chatLogs = app.getChatLogs().join('\n');
-    expect(chatLogs).toContain('Connected to WebSocket');
+    expect(chatLogs).toMatch(/All components initialized via SessionManager|Connected to WebSocket/);
 
     // 2. Import test system
     await app.sendCommand(`/import ${CLEAN_SYSTEM}`);
@@ -95,9 +95,9 @@ describe('Session Lifecycle E2E (CR-042)', { timeout: 120000 }, () => {
     await smokeApp.startApp();
     await smokeApp.waitForReady(30000);
 
-    // 2. Verify WebSocket connections
+    // 2. Verify WebSocket connections (CR-063: SessionManager outputs different message)
     const chatLogs = smokeApp.getChatLogs().join('\n');
-    expect(chatLogs).toContain('Connected to WebSocket');
+    expect(chatLogs).toMatch(/All components initialized via SessionManager|Connected to WebSocket/);
 
     const graphLogs = smokeApp.getGraphViewerLogs().join('\n');
     expect(graphLogs).toContain('Connected to WebSocket');

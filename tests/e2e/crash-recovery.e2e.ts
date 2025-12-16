@@ -65,8 +65,8 @@ describe('e2e: Crash Recovery', () => {
       console.log('[CHAT ERR]', line.trim());
     });
 
-    // Wait for connection
-    await waitForLog(logs, 'Connected to WebSocket', 15000);
+    // Wait for connection (CR-063: SessionManager outputs different message)
+    await waitForLog(logs, 'All components initialized via SessionManager', 15000);
     return { proc, logs };
   };
 
@@ -94,8 +94,8 @@ describe('e2e: Crash Recovery', () => {
       chatProcess = chat.proc;
       chatLogs = chat.logs;
 
-      // Verify connected
-      expect(chatLogs.some((l) => l.includes('Connected to WebSocket'))).toBe(true);
+      // Verify connected (CR-063: SessionManager outputs different message)
+      expect(chatLogs.some((l) => l.includes('All components initialized via SessionManager') || l.includes('Connected to WebSocket'))).toBe(true);
 
       // Kill WS server abruptly (SIGKILL = no cleanup)
       killProcess(wsServerProcess, 'SIGKILL');

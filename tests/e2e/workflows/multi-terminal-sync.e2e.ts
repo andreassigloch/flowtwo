@@ -44,9 +44,9 @@ describe('Multi-Terminal Sync E2E (CR-042)', { timeout: 120000 }, () => {
   });
 
   it('TEST-E2E-005: all terminals connect to WebSocket', async () => {
-    // Verify chat connected (using initial logs captured at startup)
+    // Verify chat connected (CR-063: SessionManager outputs different message)
     const chatLogs = initialChatLogs.join('\n');
-    expect(chatLogs).toContain('Connected to WebSocket');
+    expect(chatLogs).toMatch(/All components initialized via SessionManager|Connected to WebSocket/);
 
     // Verify graph viewer connected
     const graphLogs = initialGraphLogs.join('\n');
