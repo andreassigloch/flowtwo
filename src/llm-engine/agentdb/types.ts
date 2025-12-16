@@ -87,6 +87,16 @@ export interface AgentDBBackend {
   retrieveEpisodes(agentId: string, task?: string, k?: number): Promise<Episode[]>;
 
   /**
+   * Get all episodes (CR-063: for persistence)
+   */
+  getAllEpisodes(): Promise<Episode[]>;
+
+  /**
+   * Import episodes (CR-063: for persistence)
+   */
+  importEpisodes(episodes: Episode[]): Promise<void>;
+
+  /**
    * Get cache metrics
    */
   getMetrics(): Promise<CacheMetrics>;

@@ -103,6 +103,29 @@ export class MemoryBackend implements AgentDBBackend {
     return results;
   }
 
+  /**
+   * Get all episodes (CR-063: for persistence)
+   */
+  async getAllEpisodes(): Promise<Episode[]> {
+    return [...this.episodes].sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  /**
+   * Import episodes (CR-063: for persistence)
+   */
+  async importEpisodes(episodes: Episode[]): Promise<void> {
+    // Deduplicate by timestamp + agentId
+    const existingKeys = new Set(this.episodes.map(e => `${e.timestamp}-${e.agentId}`));
+    for (const episode of episodes) {
+      const key = `${episode.timestamp}-${episode.agentId}`;
+      if (!existingKeys.has(key)) {
+        this.episodes.push(episode);
+        existingKeys.add(key);
+      }
+    }
+    AgentDBLogger.debug(`importEpisodes: Imported ${episodes.length} episodes (memory backend)`);
+  }
+
   async getMetrics(): Promise<CacheMetrics> {
     this.metrics.cacheHitRate =
       this.metrics.cacheHits + this.metrics.cacheMisses > 0

@@ -152,8 +152,9 @@ export class SessionManager {
     this.skillLibrary = new SkillLibrary();
     this.contextManager = createContextManager(this.agentDB);
 
-    // CR-063: Load persisted skill patterns
+    // CR-063: Load persisted skill patterns and episodes
     await this.loadSkillLibrary();
+    await this.loadEpisodes();
     this.log('✅ Self-learning components initialized');
 
     // STEP 4: Setup background validation BEFORE canvases
@@ -863,6 +864,7 @@ export class SessionManager {
   // ============================================================
 
   private readonly SKILL_LIBRARY_PATH = `${process.env.HOME || '~'}/.graphengine/skill-library.json`;
+  private readonly EPISODES_PATH = `${process.env.HOME || '~'}/.graphengine/episodes.json`;
 
   /**
    * Load persisted skill patterns from disk (CR-063)
@@ -904,6 +906,49 @@ export class SessionManager {
   }
 
   // ============================================================
+  // Episode Persistence (CR-063)
+  // ============================================================
+
+  /**
+   * Load persisted episodes from disk (CR-063)
+   */
+  private async loadEpisodes(): Promise<void> {
+    try {
+      if (fs.existsSync(this.EPISODES_PATH)) {
+        const data = fs.readFileSync(this.EPISODES_PATH, 'utf-8');
+        const episodes = JSON.parse(data);
+        await this.agentDB.importEpisodes(episodes);
+        this.log(`🧠 Loaded ${episodes.length} episodes from disk`);
+      }
+    } catch (error) {
+      this.log(`⚠️ Could not load episodes: ${error}`);
+    }
+  }
+
+  /**
+   * Save episodes to disk (CR-063)
+   */
+  private async saveEpisodes(): Promise<void> {
+    try {
+      const episodes = await this.agentDB.getAllEpisodes();
+      if (episodes.length === 0) {
+        return; // Don't save empty episodes
+      }
+
+      // Ensure directory exists
+      const dir = this.EPISODES_PATH.substring(0, this.EPISODES_PATH.lastIndexOf('/'));
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      fs.writeFileSync(this.EPISODES_PATH, JSON.stringify(episodes, null, 2));
+      this.log(`🧠 Saved ${episodes.length} episodes to disk`);
+    } catch (error) {
+      this.log(`⚠️ Could not save episodes: ${error}`);
+    }
+  }
+
+  // ============================================================
   // Shutdown
   // ============================================================
 
@@ -923,8 +968,9 @@ export class SessionManager {
     await this.saveGraphToNeo4j();
     await this.chatCanvas.persistToNeo4j();
 
-    // CR-063: Persist skill library
+    // CR-063: Persist skill library and episodes
     await this.saveSkillLibrary();
+    await this.saveEpisodes();
 
     // Save session data
     const state = this.graphCanvas.getState();

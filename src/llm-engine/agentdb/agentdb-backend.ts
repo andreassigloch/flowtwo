@@ -196,6 +196,71 @@ export class AgentDBPersistentBackend implements AgentDBBackend {
     return episodes;
   }
 
+  /**
+   * Get all episodes (CR-063: for persistence)
+   */
+  async getAllEpisodes(): Promise<Episode[]> {
+    if (!this.db) {
+      return [];
+    }
+
+    try {
+      const rows = this.db.exec('SELECT session_id, task, reward, success, critique, output, ts FROM episodes ORDER BY ts DESC');
+      if (!rows || rows.length === 0) {
+        return [];
+      }
+
+      const episodes: Episode[] = rows[0].values.map((row: any[]) => ({
+        agentId: row[0] || '',
+        task: row[1] || '',
+        reward: row[2] || 0,
+        success: Boolean(row[3]),
+        critique: row[4] || '',
+        output: row[5] ? JSON.parse(row[5]) : {},
+        timestamp: (row[6] || 0) * 1000, // Convert from seconds to ms
+      }));
+
+      AgentDBLogger.debug(`getAllEpisodes: Retrieved ${episodes.length} episodes`);
+      return episodes;
+    } catch (error) {
+      AgentDBLogger.error('Failed to get all episodes', error as Error);
+      return [];
+    }
+  }
+
+  /**
+   * Import episodes (CR-063: for persistence)
+   */
+  async importEpisodes(episodes: Episode[]): Promise<void> {
+    if (!this.db || episodes.length === 0) {
+      return;
+    }
+
+    try {
+      const stmt = this.db.prepare(`
+        INSERT OR IGNORE INTO episodes (session_id, task, reward, success, critique, output, ts)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      for (const episode of episodes) {
+        stmt.run([
+          episode.agentId,
+          episode.task,
+          episode.reward,
+          episode.success ? 1 : 0,
+          episode.critique,
+          JSON.stringify(episode.output),
+          Math.floor(episode.timestamp / 1000), // Convert ms to seconds
+        ]);
+      }
+
+      stmt.free();
+      AgentDBLogger.debug(`importEpisodes: Imported ${episodes.length} episodes`);
+    } catch (error) {
+      AgentDBLogger.error('Failed to import episodes', error as Error);
+    }
+  }
+
   async getMetrics(): Promise<CacheMetrics> {
     this.metrics.cacheHitRate =
       this.metrics.cacheHits + this.metrics.cacheMisses > 0

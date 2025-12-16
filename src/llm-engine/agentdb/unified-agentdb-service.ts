@@ -606,6 +606,22 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
     };
   }
 
+  /**
+   * Get all episodes (CR-063: for persistence)
+   */
+  async getAllEpisodes(): Promise<Episode[]> {
+    this.ensureInitialized();
+    return this.backend!.getAllEpisodes();
+  }
+
+  /**
+   * Import episodes (CR-063: for persistence)
+   */
+  async importEpisodes(episodes: Episode[]): Promise<void> {
+    this.ensureInitialized();
+    return this.backend!.importEpisodes(episodes);
+  }
+
   // ============================================================
   // Metrics
   // ============================================================

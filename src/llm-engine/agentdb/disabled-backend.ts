@@ -36,6 +36,14 @@ export class DisabledBackend implements AgentDBBackend {
     return [];
   }
 
+  async getAllEpisodes(): Promise<Episode[]> {
+    return [];
+  }
+
+  async importEpisodes(_episodes: Episode[]): Promise<void> {
+    // No-op
+  }
+
   async getMetrics(): Promise<CacheMetrics> {
     return {
       cacheHits: 0,
