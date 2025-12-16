@@ -15,6 +15,14 @@ import { spawn, ChildProcess } from 'child_process';
 
 const STARTUP_TIMEOUT = 30000;
 
+// Unique port for this test suite to avoid conflicts with parallel tests
+const TEST_WS_PORT = 3105;
+const TEST_ENV = {
+  ...process.env,
+  WS_PORT: String(TEST_WS_PORT),
+  WS_URL: `ws://localhost:${TEST_WS_PORT}`,
+};
+
 describe('e2e: Crash Recovery', () => {
   let wsServerProcess: ChildProcess | null = null;
   let chatProcess: ChildProcess | null = null;
@@ -23,7 +31,7 @@ describe('e2e: Crash Recovery', () => {
   const startWsServer = async (): Promise<ChildProcess> => {
     const proc = spawn('npx', ['tsx', 'src/websocket-server.ts'], {
       cwd: process.cwd(),
-      env: process.env,
+      env: TEST_ENV,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -42,7 +50,7 @@ describe('e2e: Crash Recovery', () => {
     const logs: string[] = [];
     const proc = spawn('npx', ['tsx', 'src/terminal-ui/chat-interface.ts'], {
       cwd: process.cwd(),
-      env: process.env,
+      env: TEST_ENV,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

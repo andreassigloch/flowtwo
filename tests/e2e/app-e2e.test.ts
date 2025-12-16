@@ -12,6 +12,14 @@ import { spawn, ChildProcess } from 'child_process';
 
 const STARTUP_TIMEOUT = 30000;
 
+// Unique port for this test suite to avoid conflicts with parallel tests
+const TEST_WS_PORT = 3101;
+const TEST_ENV = {
+  ...process.env,
+  WS_PORT: String(TEST_WS_PORT),
+  WS_URL: `ws://localhost:${TEST_WS_PORT}`,
+};
+
 describe('e2e: App Startup and Commands', () => {
   let wsServerProcess: ChildProcess | null = null;
   let chatProcess: ChildProcess | null = null;
@@ -20,10 +28,10 @@ describe('e2e: App Startup and Commands', () => {
   const graphViewerLogs: string[] = [];
 
   beforeAll(async () => {
-    // 1. Start WebSocket server first
+    // 1. Start WebSocket server first (on TEST_WS_PORT to avoid conflicts)
     wsServerProcess = spawn('npx', ['tsx', 'src/websocket-server.ts'], {
       cwd: process.cwd(),
-      env: process.env,
+      env: TEST_ENV,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -37,10 +45,10 @@ describe('e2e: App Startup and Commands', () => {
     // Wait for WebSocket server to start
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // 2. Start the chat interface
+    // 2. Start the chat interface (connects to TEST_WS_PORT)
     chatProcess = spawn('npx', ['tsx', 'src/terminal-ui/chat-interface.ts'], {
       cwd: process.cwd(),
-      env: process.env,
+      env: TEST_ENV,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -59,10 +67,10 @@ describe('e2e: App Startup and Commands', () => {
     // Wait for chat to connect
     await waitForLog(chatLogs, 'Connected to WebSocket', 15000);
 
-    // 3. Start Graph Viewer
+    // 3. Start Graph Viewer (connects to TEST_WS_PORT)
     graphViewerProcess = spawn('npx', ['tsx', 'src/terminal-ui/graph-viewer.ts'], {
       cwd: process.cwd(),
-      env: process.env,
+      env: TEST_ENV,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

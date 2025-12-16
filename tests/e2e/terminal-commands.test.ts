@@ -25,6 +25,14 @@ const COMBINED_VIOLATIONS = path.join(TESTDATA_DIR, 'combined-violations.txt');
 // Timeout for terminal responses
 const COMMAND_TIMEOUT = 15000;
 
+// Unique port for this test suite to avoid conflicts with parallel tests
+const TEST_WS_PORT = 3104;
+const TEST_ENV = {
+  ...process.env,
+  WS_PORT: String(TEST_WS_PORT),
+  WS_URL: `ws://localhost:${TEST_WS_PORT}`,
+};
+
 /**
  * Helper to spawn chat-interface and interact with it
  */
@@ -39,11 +47,11 @@ class TerminalTestHelper {
         reject(new Error('Terminal startup timeout'));
       }, 30000);
 
-      // Spawn the chat interface
+      // Spawn the chat interface (uses TEST_WS_PORT to avoid conflicts)
       this.process = spawn('node', ['dist/terminal-ui/chat-interface.js'], {
         cwd: PROJECT_ROOT,
         env: {
-          ...process.env,
+          ...TEST_ENV,
           // Use test system to avoid interfering with real data
           SYSTEM_ID: 'E2ETest.SY.001',
           WORKSPACE_ID: 'e2e-test-workspace',
