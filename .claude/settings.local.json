@@ -38,7 +38,16 @@
       "Bash(tail:*)",
       "Bash(chmod:*)",
       "Bash(STAGED_FILES=\"settings/ontology-rules.json\")",
-      "Bash(bash -c '\nONTOLOGY_CHANGED=$(echo \"\"$STAGED_FILES\"\" | grep -c \"\"settings/ontology-rules.json\"\" || true)\necho \"\"ONTOLOGY_CHANGED: $ONTOLOGY_CHANGED\"\"\nif [ \"\"$ONTOLOGY_CHANGED\"\" -gt 0 ]; then\n  echo \"\"✅ Hook würde rule consistency check ausführen\"\"\n  npx tsx scripts/check-rule-consistency.ts\nfi\n')"
+      "Bash(bash -c '\nONTOLOGY_CHANGED=$(echo \"\"$STAGED_FILES\"\" | grep -c \"\"settings/ontology-rules.json\"\" || true)\necho \"\"ONTOLOGY_CHANGED: $ONTOLOGY_CHANGED\"\"\nif [ \"\"$ONTOLOGY_CHANGED\"\" -gt 0 ]; then\n  echo \"\"✅ Hook würde rule consistency check ausführen\"\"\n  npx tsx scripts/check-rule-consistency.ts\nfi\n')",
+      "Skill(neo4j-query)",
+      "Bash(gtimeout:*)",
+      "Bash(__NEW_LINE__ echo \"\")",
+      "Bash(README.md )",
+      "Bash(docs/ARCHITECTURE.md )",
+      "Bash(docs/requirements )",
+      "Bash(docs/cr/CR-055-pre-apply-validation.md )",
+      "Bash(src/llm-engine/validation/pre-apply-validator.ts )",
+      "Bash(tests/unit/validation/pre-apply-validator.test.ts)"
     ],
     "deny": []
   }

@@ -541,7 +541,10 @@ export class SessionManager {
     const selectedAgent = this.workflowRouter.routeUserInput(message, sessionContext);
     this.log(`🤖 Agent selected: ${selectedAgent}`);
 
-    // 2. Get agent prompt
+    // 2. Load learning context (CR-058)
+    const learningContext = await this.loadLearningContext(selectedAgent, message, sessionContext);
+
+    // 3. Get agent prompt
     const canvasState = this.parser.serializeGraph(currentState);
     const configLoader = getAgentConfigLoader();
 
@@ -553,17 +556,22 @@ export class SessionManager {
       this.log(`⚠️ Fallback to system-architect prompt (${selectedAgent} not configured)`);
     }
 
-    // 3. Add user message to chat canvas
+    // 4. Inject learning context into prompt (CR-058)
+    if (learningContext) {
+      agentPrompt = agentPrompt + '\n\n' + learningContext;
+    }
+
+    // 5. Add user message to chat canvas
     await this.chatCanvas.addUserMessage(message);
 
-    // 4. Build conversation context
+    // 6. Build conversation context
     const conversationContext = this.chatCanvas.getConversationContext(10);
     const chatHistory = conversationContext.map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
 
-    // 5. Execute LLM request
+    // 7. Execute LLM request
     const request = {
       message,
       chatId: this.config.chatId,
@@ -616,8 +624,8 @@ export class SessionManager {
           this.log(`📊 Graph updated (${stats.nodeCount} nodes, ${stats.edgeCount} edges)`);
         }
 
-        // Store episode for learning
-        await this.storeEpisode(selectedAgent, message, response);
+        // Store episode for learning (CR-058: pass sessionContext for pattern recording)
+        await this.storeEpisode(selectedAgent, message, response, sessionContext);
 
         this.log('✅ Response complete');
       }
@@ -643,12 +651,66 @@ export class SessionManager {
   }
 
   /**
-   * Store episode for agent learning
+   * Load learning context for LLM prompt injection (CR-058)
+   *
+   * Combines lessons from past failures and successful patterns
+   * to help the agent avoid repeating mistakes and leverage successes.
+   */
+  private async loadLearningContext(
+    agent: string,
+    task: string,
+    sessionContext: SessionContext
+  ): Promise<string | null> {
+    try {
+      // Load episode context (lessons from failures, successful patterns)
+      const episodeContext = await this.reflexionMemory.loadEpisodeContext(agent, task);
+      const contextStr = this.reflexionMemory.formatContextForPrompt(episodeContext);
+
+      // Find applicable skill patterns
+      const patterns = this.skillLibrary.findApplicablePatterns(task, {
+        phase: sessionContext.currentPhase,
+      });
+
+      // Build learning context string
+      const parts: string[] = [];
+
+      if (contextStr) {
+        parts.push('## Lessons from Past Attempts');
+        parts.push(contextStr);
+      }
+
+      if (patterns.length > 0) {
+        parts.push('');
+        parts.push('## Similar Successful Patterns');
+        for (const match of patterns.slice(0, 3)) {
+          parts.push(`- "${match.pattern.task}" (${(match.similarity * 100).toFixed(0)}% match, reward: ${match.pattern.reward.toFixed(2)})`);
+        }
+      }
+
+      if (parts.length === 0) {
+        return null;
+      }
+
+      // Log learning context loaded
+      const lessonCount = episodeContext.lessonsLearned ? 1 : 0;
+      const patternCount = patterns.length;
+      this.log(`📚 Learning context: ${lessonCount} lessons, ${patternCount} patterns loaded`);
+
+      return parts.join('\n');
+    } catch (error) {
+      this.log(`⚠️ Learning context load failed: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Store episode for agent learning and record successful patterns (CR-058)
    */
   private async storeEpisode(
     agent: string,
     task: string,
-    response: { textResponse: string; operations?: string | null }
+    response: { textResponse: string; operations?: string | null },
+    sessionContext?: SessionContext
   ): Promise<void> {
     try {
       const operations = response.operations ?? undefined;
@@ -674,9 +736,55 @@ export class SessionManager {
       );
 
       this.log(`🧠 Episode stored: ${agent} (reward: ${reward.toFixed(2)}, success: ${success})`);
+
+      // CR-058: Record successful pattern to SkillLibrary
+      if (success && operations) {
+        const patternId = this.skillLibrary.recordSuccess(
+          task,
+          operations,
+          {
+            phase: sessionContext?.currentPhase ?? 'phase1_requirements',
+            nodeTypes: this.extractNodeTypes(operations),
+            edgeTypes: this.extractEdgeTypes(operations),
+          },
+          reward
+        );
+
+        if (patternId) {
+          this.log(`📘 Pattern recorded: ${patternId} (reward: ${reward.toFixed(2)})`);
+        }
+      }
     } catch (error) {
       this.log(`⚠️ Episode storage failed: ${error}`);
     }
+  }
+
+  /**
+   * Extract node types from Format E operations (CR-058)
+   */
+  private extractNodeTypes(operations: string): string[] {
+    const types = new Set<string>();
+    // Match node definitions like: + NodeType/semanticId
+    const nodePattern = /[+~]\s*(\w+)\/[\w-]+/g;
+    let match;
+    while ((match = nodePattern.exec(operations)) !== null) {
+      types.add(match[1]);
+    }
+    return Array.from(types);
+  }
+
+  /**
+   * Extract edge types from Format E operations (CR-058)
+   */
+  private extractEdgeTypes(operations: string): string[] {
+    const types = new Set<string>();
+    // Match edge definitions like: + source --TYPE-> target
+    const edgePattern = /--(\w+)->/g;
+    let match;
+    while ((match = edgePattern.exec(operations)) !== null) {
+      types.add(match[1]);
+    }
+    return Array.from(types);
   }
 
   /**
