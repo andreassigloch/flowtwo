@@ -823,4 +823,82 @@ Each agent interaction is stored as an episode for Reflexion-style learning:
 
 ---
 
+## 8. LLM Provider Compatibility (CR-055)
+
+### 8.1 Supported Providers
+
+GraphEngine supports multiple LLM providers with automatic format handling:
+
+| Provider | Status | Notes |
+|----------|--------|-------|
+| **Anthropic Claude** | ✅ Primary | Native support, prompt caching |
+| **OpenAI GPT-4** | ✅ Supported | Via OpenAI-compatible endpoint |
+| **Mistral** | ✅ Supported | Multi-block streaming handled |
+| **Local models** | ✅ Supported | Via OpenAI-compatible API (Ollama, LM Studio) |
+
+### 8.2 Provider-Specific Handling
+
+#### Multi-Block Operations Merging (ResponseParser)
+
+Some providers (e.g., Mistral) stream multiple `<operations>` blocks instead of combining all operations in one block. The `ResponseParser` automatically merges these:
+
+```typescript
+// ResponseParser.parseResponse() - CR-055
+const allOperations = this.extractAllOperationsBlocks(response);  // Find ALL blocks
+const combinedOperations = `<operations>\n${allContent.join('\n')}\n</operations>`;
+```
+
+**Example:**
+```
+Mistral streams:              GraphEngine processes:
+<operations>                  <operations>
++ Node1.FN.001|Desc          + Node1.FN.001|Desc
+</operations>          →     + Node2.FN.002|Desc
+<operations>                  </operations>
++ Node2.FN.002|Desc          (merged into single block)
+</operations>
+```
+
+#### Direction Correction Pattern (PreApplyValidator)
+
+Pre-Apply Validation handles batch operations as a single transaction, allowing edge direction fixes:
+
+```typescript
+// PreApplyValidator.checkBidirectionalIo() - CR-055
+const reverseKey = `${op.targetId}|io|${op.sourceId}`;
+const reverseBeingDeleted = pendingEdgeRemovals?.has(reverseKey) ?? false;
+// If reverse edge is being deleted in same batch → direction correction (valid)
+```
+
+**Example:**
+```
+## Edges
+- A -io-> B    # Delete wrong direction
++ B -io-> A    # Add correct direction
+```
+
+This is validated as a single transaction, not as two separate operations that would trigger a BIDIRECTIONAL_IO error.
+
+### 8.3 Validation Pipeline Timing
+
+```
+LLM streams response tokens
+         │
+         ▼
+chunk.type === 'complete'  ← Full response available
+         │
+         ▼
+ResponseParser.parseResponse()  ← Merge multiple blocks
+         │
+         ▼
+PreApplyValidator.validateOperations()  ← Batch validation
+         │
+         ├── Valid? → applyOperations()
+         └── Invalid? → Retry with feedback (max 2x)
+```
+
+**Key Principle:** Validation runs AFTER complete streaming, on the MERGED operations block. This ensures batch operations (delete + add) are validated as a unit.
+
+---
+
 **End of Architecture Specification**

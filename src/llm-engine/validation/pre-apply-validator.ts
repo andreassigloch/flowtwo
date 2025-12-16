@@ -356,7 +356,7 @@ export class PreApplyValidator {
     // Check for bidirectional io pattern
     if (op.edgeType === 'io') {
       errors.push(
-        ...this.checkBidirectionalIo(op, index, existingEdges, allOperations)
+        ...this.checkBidirectionalIo(op, index, existingEdges, allOperations, pendingEdgeRemovals)
       );
     }
 
@@ -368,12 +368,16 @@ export class PreApplyValidator {
    *
    * A→FLOW and FLOW→A is bidirectional (wrong)
    * A→FLOW→B is unidirectional (correct)
+   *
+   * CR-055: Must consider pendingEdgeRemovals - if reverse edge is being deleted
+   * in same batch, adding the new direction is valid (direction correction pattern)
    */
   private checkBidirectionalIo(
     op: ParsedOperation,
     index: number,
     existingEdges: Edge[],
-    allOperations: ParsedOperation[]
+    allOperations: ParsedOperation[],
+    pendingEdgeRemovals?: Set<string>
   ): PreApplyError[] {
     const errors: PreApplyError[] = [];
 
@@ -385,15 +389,23 @@ export class PreApplyValidator {
     );
 
     if (reverseExists) {
-      errors.push({
-        code: 'BIDIRECTIONAL_IO',
-        severity: 'error',
-        operationIndex: index,
-        operation: op.raw,
-        reason: `Bidirectional io: ${op.sourceId} and ${op.targetId} already have reverse io edge`,
-        suggestion:
-          'DELETE one direction. If feedback needed, create separate return FLOW (e.g., RequestData vs ResponseData)',
-      });
+      // CR-055: Check if the reverse edge is being DELETED in same batch
+      // Pattern: - A -io-> B, + B -io-> A = direction correction (valid)
+      const reverseKey = `${op.targetId}|io|${op.sourceId}`;
+      const reverseBeingDeleted = pendingEdgeRemovals?.has(reverseKey) ?? false;
+
+      if (!reverseBeingDeleted) {
+        errors.push({
+          code: 'BIDIRECTIONAL_IO',
+          severity: 'error',
+          operationIndex: index,
+          operation: op.raw,
+          reason: `Bidirectional io: ${op.sourceId} and ${op.targetId} already have reverse io edge`,
+          suggestion:
+            'To fix direction: DELETE old edge first (- A -io-> B), THEN add new (+ B -io-> A) in SAME operations block',
+        });
+      }
+      // else: reverse is being deleted = direction correction, which is valid
     }
 
     // Check if reverse edge is being added in same operation batch

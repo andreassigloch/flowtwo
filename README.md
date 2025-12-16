@@ -235,6 +235,43 @@ graphengine/
 
 ---
 
+## 🤖 LLM Provider Compatibility
+
+GraphEngine supports multiple LLM providers with automatic format handling:
+
+| Provider | Status | Notes |
+|----------|--------|-------|
+| **Anthropic Claude** | ✅ Primary | Native support, prompt caching |
+| **OpenAI GPT-4** | ✅ Supported | Via OpenAI-compatible endpoint |
+| **Mistral** | ✅ Supported | Multi-block streaming handled |
+| **Local models** | ✅ Supported | Via OpenAI-compatible API |
+
+### Provider-Specific Handling (CR-055)
+
+**Multi-Block Operations Merging:**
+Some providers (e.g., Mistral) stream multiple `<operations>` blocks instead of combining all operations in one block. GraphEngine automatically merges these:
+
+```
+Mistral streams:              GraphEngine processes:
+<operations>                  <operations>
++ Node1.FN.001|Desc          + Node1.FN.001|Desc
+</operations>          →     + Node2.FN.002|Desc
+<operations>                  </operations>
++ Node2.FN.002|Desc          (merged into single block)
+</operations>
+```
+
+**Direction Correction Pattern:**
+Pre-Apply Validation correctly handles edge direction fixes across providers:
+```
+## Edges
+- A -io-> B    # Delete wrong direction
++ B -io-> A    # Add correct direction
+```
+This batch operation is validated as a single transaction, not as individual operations.
+
+---
+
 ## 📚 Documentation
 
 - **[requirements.md](docs/requirements.md)** - Complete functional requirements (506 lines)

@@ -587,6 +587,28 @@ System MUST support 5 zoom levels per node type:
 - Error messages MUST suggest corrective actions
 - Error messages MUST be logged with full context (for debugging)
 
+### NFR-5: LLM Provider Compatibility (CR-055)
+
+#### NFR-5.1: Multi-Provider Support
+- System MUST support Anthropic Claude as primary provider
+- System MUST support OpenAI-compatible endpoints (GPT-4, local models)
+- System MUST support providers with different streaming behaviors (Mistral)
+
+#### NFR-5.2: Multi-Block Operations Merging
+- System MUST merge multiple `<operations>` blocks from single LLM response
+- System MUST handle providers that stream operations in separate blocks (Mistral behavior)
+- System MUST combine all operations before validation (batch-aware)
+
+#### NFR-5.3: Batch-Aware Validation
+- Pre-Apply Validation MUST validate operations as a single transaction
+- System MUST allow "direction correction" pattern: delete + add reverse edge in same batch
+- System MUST NOT flag BIDIRECTIONAL_IO when reverse edge is being deleted in same batch
+
+#### NFR-5.4: Validation Pipeline Timing
+- Validation MUST run AFTER complete streaming (not during)
+- Validation MUST operate on merged operations block
+- System MUST retry with feedback on validation failure (max 2 attempts)
+
 ---
 
 ## 4. Constraints
