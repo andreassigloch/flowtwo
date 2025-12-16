@@ -562,6 +562,50 @@ export class UnifiedAgentDBService extends EventEmitter implements UnifiedAgentD
     return this.backend!.retrieveEpisodes(agentId, task, k);
   }
 
+  /**
+   * Get episode statistics aggregated by agent (CR-063)
+   */
+  async getEpisodeStats(knownAgents: string[] = []): Promise<{
+    total: number;
+    successful: number;
+    failed: number;
+    byAgent: Map<string, { total: number; successful: number; avgReward: number }>;
+  }> {
+    this.ensureInitialized();
+
+    const byAgent = new Map<string, { total: number; successful: number; avgReward: number }>();
+    let total = 0;
+    let successful = 0;
+
+    for (const agentId of knownAgents) {
+      try {
+        const episodes = await this.backend!.retrieveEpisodes(agentId, undefined, 100);
+        if (episodes.length > 0) {
+          const agentSuccessful = episodes.filter(e => e.success).length;
+          const avgReward = episodes.reduce((sum, e) => sum + e.reward, 0) / episodes.length;
+
+          byAgent.set(agentId, {
+            total: episodes.length,
+            successful: agentSuccessful,
+            avgReward,
+          });
+
+          total += episodes.length;
+          successful += agentSuccessful;
+        }
+      } catch {
+        // Skip agents with errors
+      }
+    }
+
+    return {
+      total,
+      successful,
+      failed: total - successful,
+      byAgent,
+    };
+  }
+
   // ============================================================
   // Metrics
   // ============================================================

@@ -13,6 +13,7 @@ import type { FormatEParser } from '../../shared/parsers/format-e-parser.js';
 import type { CanvasWebSocketClient } from '../../canvas/websocket-client.js';
 import type { UnifiedAgentDBService } from '../../llm-engine/agentdb/unified-agentdb-service.js';
 import type { SessionManager } from '../../session.js';
+import type { SessionManager as SessionManagerNew } from '../../session-manager.js';
 
 /**
  * Session configuration
@@ -40,4 +41,6 @@ export interface CommandContext {
   rl: readline.Interface;
   log: (message: string) => void;
   notifyGraphUpdate: () => void;
+  /** CR-063: New SessionManager for learning components access */
+  sessionManagerNew?: SessionManagerNew;
 }

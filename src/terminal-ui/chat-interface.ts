@@ -53,6 +53,7 @@ import {
   handleViewCommand,
   printHelpMenu,
 } from './commands/session-commands.js';
+import { handleLearningCommand } from './commands/learning-commands.js';
 import { createBackgroundValidator, BackgroundValidator } from '../llm-engine/validation/index.js';
 import { getPreApplyValidator, parseOperations } from '../llm-engine/validation/pre-apply-validator.js';
 
@@ -315,6 +316,10 @@ async function handleCommand(cmd: string, rl: readline.Interface): Promise<void>
 
     case '/cleanup':
       await handleCleanupCommand(args, ctx);
+      break;
+
+    case '/learning':
+      await handleLearningCommand(ctx);
       break;
 
     default:

@@ -39,3 +39,6 @@ export {
   handleStatusCommand,
   printHelpMenu,
 } from './session-commands.js';
+
+// Learning commands (CR-063)
+export { handleLearningCommand } from './learning-commands.js';

@@ -151,6 +151,9 @@ export class SessionManager {
     this.reflexionMemory = new ReflexionMemory(this.agentDB, this.evaluator);
     this.skillLibrary = new SkillLibrary();
     this.contextManager = createContextManager(this.agentDB);
+
+    // CR-063: Load persisted skill patterns
+    await this.loadSkillLibrary();
     this.log('✅ Self-learning components initialized');
 
     // STEP 4: Setup background validation BEFORE canvases
@@ -281,6 +284,59 @@ export class SessionManager {
   }
 
   /**
+   * Get learning statistics (CR-063)
+   *
+   * Aggregates data from SkillLibrary and ReflexionMemory
+   */
+  async getLearningStats(): Promise<{
+    episodes: { total: number; successful: number; failed: number };
+    patterns: { total: number; avgSuccessRate: number; topPatterns: Array<{ task: string; successRate: number; usageCount: number }> };
+    agentPerformance: Array<{ agentId: string; avgReward: number; trend: 'improving' | 'stable' | 'declining' }>;
+  }> {
+    // Get episode stats
+    const knownAgents = ['system-architect', 'graph-builder', 'validator', 'optimizer', 'analyzer'];
+    const episodeStats = await this.agentDB.getEpisodeStats(knownAgents);
+
+    // Get pattern stats from SkillLibrary
+    const patternStats = this.skillLibrary.getStats();
+
+    // Get agent effectiveness
+    const agentPerformance: Array<{ agentId: string; avgReward: number; trend: 'improving' | 'stable' | 'declining' }> = [];
+    for (const agentId of episodeStats.byAgent.keys()) {
+      try {
+        const effectiveness = await this.reflexionMemory.getAgentEffectiveness(agentId);
+        if (effectiveness.totalEpisodes > 0) {
+          agentPerformance.push({
+            agentId,
+            avgReward: effectiveness.averageReward,
+            trend: effectiveness.recentTrend,
+          });
+        }
+      } catch {
+        // Skip
+      }
+    }
+
+    return {
+      episodes: {
+        total: episodeStats.total,
+        successful: episodeStats.successful,
+        failed: episodeStats.failed,
+      },
+      patterns: {
+        total: patternStats.totalPatterns,
+        avgSuccessRate: patternStats.avgSuccessRate,
+        topPatterns: patternStats.topPatterns.map(p => ({
+          task: p.task,
+          successRate: p.successRate,
+          usageCount: p.usageCount,
+        })),
+      },
+      agentPerformance,
+    };
+  }
+
+  /**
    * Get command context for handlers
    *
    * Replaces createCommandContext() in chat-interface
@@ -299,6 +355,8 @@ export class SessionManager {
       rl,
       log: (msg) => this.log(msg),
       notifyGraphUpdate: () => this.notifyGraphUpdate(),
+      // CR-063: Add accessors for learning components
+      sessionManagerNew: this,
     };
   }
 
@@ -797,6 +855,51 @@ export class SessionManager {
   }
 
   // ============================================================
+  // SkillLibrary Persistence (CR-063)
+  // ============================================================
+
+  private readonly SKILL_LIBRARY_PATH = `${process.env.HOME || '~'}/.graphengine/skill-library.json`;
+
+  /**
+   * Load persisted skill patterns from disk (CR-063)
+   */
+  private async loadSkillLibrary(): Promise<void> {
+    try {
+      if (fs.existsSync(this.SKILL_LIBRARY_PATH)) {
+        const data = fs.readFileSync(this.SKILL_LIBRARY_PATH, 'utf-8');
+        const patterns = JSON.parse(data);
+        this.skillLibrary.importPatterns(patterns);
+        this.log(`📘 Loaded ${patterns.length} skill patterns from disk`);
+      }
+    } catch (error) {
+      this.log(`⚠️ Could not load skill library: ${error}`);
+    }
+  }
+
+  /**
+   * Save skill patterns to disk (CR-063)
+   */
+  private async saveSkillLibrary(): Promise<void> {
+    try {
+      const patterns = this.skillLibrary.exportPatterns();
+      if (patterns.length === 0) {
+        return; // Don't save empty library
+      }
+
+      // Ensure directory exists
+      const dir = this.SKILL_LIBRARY_PATH.substring(0, this.SKILL_LIBRARY_PATH.lastIndexOf('/'));
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      fs.writeFileSync(this.SKILL_LIBRARY_PATH, JSON.stringify(patterns, null, 2));
+      this.log(`📘 Saved ${patterns.length} skill patterns to disk`);
+    } catch (error) {
+      this.log(`⚠️ Could not save skill library: ${error}`);
+    }
+  }
+
+  // ============================================================
   // Shutdown
   // ============================================================
 
@@ -815,6 +918,9 @@ export class SessionManager {
     // Save final state
     await this.saveGraphToNeo4j();
     await this.chatCanvas.persistToNeo4j();
+
+    // CR-063: Persist skill library
+    await this.saveSkillLibrary();
 
     // Save session data
     const state = this.graphCanvas.getState();
