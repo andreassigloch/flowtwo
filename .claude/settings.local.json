@@ -47,7 +47,10 @@
       "Bash(docs/requirements )",
       "Bash(docs/cr/CR-055-pre-apply-validation.md )",
       "Bash(src/llm-engine/validation/pre-apply-validator.ts )",
-      "Bash(tests/unit/validation/pre-apply-validator.test.ts)"
+      "Bash(tests/unit/validation/pre-apply-validator.test.ts)",
+      "Bash(git push:*)",
+      "Bash(md5:*)",
+      "Bash(xargs rm:*)"
     ],
     "deny": []
   }
